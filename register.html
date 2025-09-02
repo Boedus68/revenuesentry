@@ -48,7 +48,7 @@
 <body class="bg-gray-900 text-gray-200">
 
     <!-- Contenitore Principale -->
-    <div class="min-h-screen flex flex-col items-center justify-center py-8 px-4">
+    <div class="min-h-screen flex flex-col items-center justify-center p-4">
 
         <!-- Box di Registrazione -->
         <div class="w-full max-w-md">
@@ -62,19 +62,18 @@
             <!-- Card del Form -->
             <div class="bg-gray-800/50 border border-gray-700 rounded-2xl p-8 shadow-2xl shadow-blue-500/10">
                 <h2 class="text-2xl font-bold text-white text-center mb-1">Crea il tuo account</h2>
-                <p class="text-gray-400 text-center mb-6">Inizia ad ottimizzare i tuoi ricavi oggi stesso.</p>
+                <p class="text-gray-400 text-center mb-6">Inizia a ottimizzare i tuoi ricavi oggi stesso.</p>
 
-                <!-- Aggiunto un id al form per poterlo selezionare con JS -->
-                <form id="register-form" class="space-y-4">
+                <form id="register-form" class="space-y-6">
                     <!-- Campo Nome Hotel -->
                     <div>
-                        <label for="hotel-name" class="block text-sm font-medium text-gray-300">Nome Hotel</label>
+                        <label for="hotel-name" class="block text-sm font-medium text-gray-300">Nome del tuo Hotel</label>
                         <div class="mt-1">
-                            <input id="hotel-name" name="hotel-name" type="text" required
+                            <input id="hotel-name" name="hotelName" type="text" required
                                    class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
                         </div>
                     </div>
-
+                    
                     <!-- Campo Email -->
                     <div>
                         <label for="email" class="block text-sm font-medium text-gray-300">Email</label>
@@ -92,21 +91,12 @@
                                    class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
                         </div>
                     </div>
-                    
-                    <!-- Campo Conferma Password -->
-                    <div>
-                        <label for="confirm-password" class="block text-sm font-medium text-gray-300">Conferma Password</label>
-                        <div class="mt-1">
-                            <input id="confirm-password" name="confirm-password" type="password" autocomplete="new-password" required
-                                   class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
-                        </div>
-                    </div>
 
                     <!-- Messaggio di errore (inizialmente nascosto) -->
                     <div id="error-message" class="hidden text-red-400 text-sm text-center"></div>
 
                     <!-- Pulsante di Registrazione -->
-                    <div class="pt-2">
+                    <div>
                         <button type="submit"
                                 class="w-full shiny-button text-white font-bold py-3 px-4 rounded-lg text-base transition">
                             Crea Account
@@ -114,7 +104,7 @@
                     </div>
                 </form>
                 
-                <!-- Link per l'Accesso -->
+                <!-- Link per il Login -->
                 <div class="text-center mt-6">
                     <p class="text-sm text-gray-400">
                         Hai già un account? 
@@ -123,9 +113,8 @@
                 </div>
             </div>
         </div>
-
     </div>
-
+    
     <!-- Script di Firebase -->
     <script type="module">
         // Importa le funzioni necessarie dal Firebase SDK
@@ -133,9 +122,9 @@
         import { getAuth, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
         import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-        // ************************************************************************************
-        // IMPORTANTE: Sostituisci questo oggetto con la configurazione del tuo progetto Firebase
-        // ************************************************************************************
+        // ***************************************************************
+        // IMPORTANTE: Sostituisci questo con le tue credenziali Firebase
+        // ***************************************************************
         const firebaseConfig = {
             apiKey: "LE_TUE_CREDENZIALI",
             authDomain: "LE_TUE_CREDENZIALI",
@@ -159,58 +148,56 @@
             e.preventDefault(); // Previene il ricaricamento della pagina
 
             // Recupera i valori dai campi del form
-            const hotelName = registerForm['hotel-name'].value;
+            const hotelName = registerForm.hotelName.value;
             const email = registerForm.email.value;
             const password = registerForm.password.value;
-            const confirmPassword = registerForm['confirm-password'].value;
 
             // Nascondi eventuali messaggi di errore precedenti
             errorMessageDiv.classList.add('hidden');
             errorMessageDiv.textContent = '';
 
-            // Controllo validità
-            if (password !== confirmPassword) {
-                errorMessageDiv.textContent = 'Le password non coincidono.';
-                errorMessageDiv.classList.remove('hidden');
-                return;
-            }
-            if (password.length < 6) {
-                errorMessageDiv.textContent = 'La password deve essere di almeno 6 caratteri.';
-                errorMessageDiv.classList.remove('hidden');
-                return;
-            }
-
             try {
-                // Crea l'utente con email e password in Firebase Authentication
+                // 1. Crea l'utente nel sistema di autenticazione di Firebase
                 const userCredential = await createUserWithEmailAndPassword(auth, email, password);
                 const user = userCredential.user;
 
-                // Salva le informazioni aggiuntive (nome hotel) nel database Firestore
-                // Creiamo un documento nella collezione 'users' con l'ID dell'utente appena creato
+                // 2. Salva le informazioni aggiuntive (nome hotel) in Firestore
+                // Creiamo un documento nella collezione "users" con un ID uguale all'UID dell'utente
                 await setDoc(doc(db, "users", user.uid), {
                     hotelName: hotelName,
-                    email: email,
-                    createdAt: new Date() // Salva la data di creazione
+                    email: email, // salviamo anche l'email per comodità
+                    createdAt: new Date() // salviamo la data di creazione
                 });
-
-                // Reindirizza l'utente alla dashboard dopo la registrazione
-                // IMPORTANTE: creeremo questo file nel prossimo step
-                window.location.href = '/dashboard.html'; 
+                
+                // 3. Se tutto va bene, reindirizza l'utente alla dashboard
+                window.location.href = '/dashboard.html';
 
             } catch (error) {
-                // Gestisce e mostra gli errori di Firebase
-                let friendlyMessage = 'Si è verificato un errore. Riprova.';
-                if (error.code === 'auth/email-already-in-use') {
-                    friendlyMessage = 'Questo indirizzo email è già stato registrato.';
-                } else if (error.code === 'auth/invalid-email') {
-                    friendlyMessage = 'L\'indirizzo email non è valido.';
+                // *** NUOVA GESTIONE ERRORI ***
+                // Gestisce e mostra gli errori di Firebase in modo più specifico
+                let friendlyMessage = 'Si è verificato un errore imprevisto. Riprova.';
+                
+                switch (error.code) {
+                    case 'auth/email-already-in-use':
+                        friendlyMessage = 'Questo indirizzo email è già stato registrato.';
+                        break;
+                    case 'auth/invalid-email':
+                        friendlyMessage = 'L\'indirizzo email inserito non è valido.';
+                        break;
+                    case 'auth/weak-password':
+                        friendlyMessage = 'La password è troppo debole. Deve contenere almeno 6 caratteri.';
+                        break;
                 }
+                
                 errorMessageDiv.textContent = friendlyMessage;
                 errorMessageDiv.classList.remove('hidden');
-                console.error("Errore durante la registrazione:", error);
+                
+                // Logga l'errore completo nella console per il debug
+                console.error("Dettaglio errore Firebase:", error);
             }
         });
     </script>
 
 </body>
 </html>
+
