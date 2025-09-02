@@ -91,6 +91,15 @@
                                    class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
                         </div>
                     </div>
+                    
+                    <!-- *** NUOVO CAMPO: Conferma Password *** -->
+                    <div>
+                        <label for="confirm-password" class="block text-sm font-medium text-gray-300">Conferma Password</label>
+                        <div class="mt-1">
+                            <input id="confirm-password" name="confirmPassword" type="password" autocomplete="new-password" required
+                                   class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
+                        </div>
+                    </div>
 
                     <!-- Messaggio di errore (inizialmente nascosto) -->
                     <div id="error-message" class="hidden text-red-400 text-sm text-center"></div>
@@ -133,6 +142,13 @@
             messagingSenderId: "LE_TUE_CREDENZIALI",
             appId: "LE_TUE_CREDENZIALI"
         };
+        
+        // *** NUOVO CONTROLLO CREDENZIALI ***
+        // Controlla se le credenziali sono state modificate.
+        if (firebaseConfig.apiKey === "LE_TUE_CREDENZIALI") {
+            alert("ERRORE: Le credenziali di Firebase non sono state configurate. Incolla le tue credenziali nel file register.html.");
+        }
+
 
         // Inizializza Firebase
         const app = initializeApp(firebaseConfig);
@@ -143,39 +159,44 @@
         const registerForm = document.getElementById('register-form');
         const errorMessageDiv = document.getElementById('error-message');
 
+        const displayError = (message) => {
+            errorMessageDiv.textContent = message;
+            errorMessageDiv.classList.remove('hidden');
+        };
+
         // Aggiungi un listener per l'evento di submit del form
         registerForm.addEventListener('submit', async (e) => {
-            e.preventDefault(); // Previene il ricaricamento della pagina
+            e.preventDefault(); 
 
-            // Recupera i valori dai campi del form
             const hotelName = registerForm.hotelName.value;
             const email = registerForm.email.value;
             const password = registerForm.password.value;
+            const confirmPassword = registerForm.confirmPassword.value;
 
-            // Nascondi eventuali messaggi di errore precedenti
             errorMessageDiv.classList.add('hidden');
             errorMessageDiv.textContent = '';
+            
+            // *** NUOVO CONTROLLO: Le password coincidono? ***
+            if (password !== confirmPassword) {
+                displayError('Le password non coincidono. Riprova.');
+                return; // Interrompe l'esecuzione
+            }
 
             try {
-                // 1. Crea l'utente nel sistema di autenticazione di Firebase
                 const userCredential = await createUserWithEmailAndPassword(auth, email, password);
                 const user = userCredential.user;
 
-                // 2. Salva le informazioni aggiuntive (nome hotel) in Firestore
-                // Creiamo un documento nella collezione "users" con un ID uguale all'UID dell'utente
                 await setDoc(doc(db, "users", user.uid), {
                     hotelName: hotelName,
-                    email: email, // salviamo anche l'email per comodità
-                    createdAt: new Date() // salviamo la data di creazione
+                    email: email,
+                    createdAt: new Date()
                 });
                 
-                // 3. Se tutto va bene, reindirizza l'utente alla dashboard
                 window.location.href = '/dashboard.html';
 
             } catch (error) {
-                // *** NUOVA GESTIONE ERRORI ***
-                // Gestisce e mostra gli errori di Firebase in modo più specifico
-                let friendlyMessage = 'Si è verificato un errore imprevisto. Riprova.';
+                // *** GESTIONE ERRORI MIGLIORATA ***
+                let friendlyMessage = `Si è verificato un errore: ${error.code}`;
                 
                 switch (error.code) {
                     case 'auth/email-already-in-use':
@@ -189,10 +210,7 @@
                         break;
                 }
                 
-                errorMessageDiv.textContent = friendlyMessage;
-                errorMessageDiv.classList.remove('hidden');
-                
-                // Logga l'errore completo nella console per il debug
+                displayError(friendlyMessage);
                 console.error("Dettaglio errore Firebase:", error);
             }
         });
