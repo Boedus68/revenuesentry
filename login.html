@@ -115,9 +115,9 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
         import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
-        // ************************************************************************************
-        // IMPORTANTE: Usa lo stesso oggetto di configurazione della pagina di registrazione
-        // ************************************************************************************
+        // ***************************************************************
+        // IMPORTANTE: Sostituisci questo con le tue credenziali Firebase
+        // ***************************************************************
         const firebaseConfig = {
             apiKey: "LE_TUE_CREDENZIALI",
             authDomain: "LE_TUE_CREDENZIALI",
@@ -127,6 +127,11 @@
             appId: "LE_TUE_CREDENZIALI"
         };
 
+        // Controlla se le credenziali sono state modificate.
+        if (firebaseConfig.apiKey === "LE_TUE_CREDENZIALI") {
+            alert("ERRORE: Le credenziali di Firebase non sono state configurate. Incolla le tue credenziali nel file login.html.");
+        }
+
         // Inizializza Firebase
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
@@ -135,34 +140,38 @@
         const loginForm = document.getElementById('login-form');
         const errorMessageDiv = document.getElementById('error-message');
 
+        const displayError = (message) => {
+            errorMessageDiv.textContent = message;
+            errorMessageDiv.classList.remove('hidden');
+        };
+
         // Aggiungi un listener per l'evento di submit del form
         loginForm.addEventListener('submit', async (e) => {
-            e.preventDefault(); // Previene il ricaricamento della pagina
+            e.preventDefault();
 
-            // Recupera i valori dai campi del form
             const email = loginForm.email.value;
             const password = loginForm.password.value;
 
-            // Nascondi eventuali messaggi di errore precedenti
             errorMessageDiv.classList.add('hidden');
             errorMessageDiv.textContent = '';
 
             try {
-                // Esegui il login con le credenziali fornite
                 const userCredential = await signInWithEmailAndPassword(auth, email, password);
-                
-                // Reindirizza l'utente alla dashboard dopo il login
                 window.location.href = '/dashboard.html';
 
             } catch (error) {
-                // Gestisce e mostra gli errori di Firebase
-                let friendlyMessage = 'Credenziali non valide. Riprova.';
-                // I codici di errore di Firebase per il login sono meno specifici per sicurezza
-                // quindi un messaggio generico è spesso la scelta migliore.
+                // GESTIONE ERRORI MIGLIORATA
+                let friendlyMessage = `Si è verificato un errore: ${error.code}`;
                 
-                errorMessageDiv.textContent = friendlyMessage;
-                errorMessageDiv.classList.remove('hidden');
-                console.error("Errore durante il login:", error);
+                // Per il login, i codici di errore sono volutamente generici per sicurezza
+                // (es. auth/invalid-credential) per non far sapere a un malintenzionato
+                // se ha sbagliato l'email o la password.
+                if (error.code === 'auth/invalid-credential') {
+                    friendlyMessage = 'Email o password non corretti. Riprova.';
+                }
+                
+                displayError(friendlyMessage);
+                console.error("Dettaglio errore Firebase:", error);
             }
         });
     </script>
