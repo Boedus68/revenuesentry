@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registrati - RevenueSentry</title>
+    
+    <!-- Script di Tailwind CSS per lo stile -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Font "Inter" da Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <!-- Stili Personalizzati -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        .shiny-button {
+           background: #1e40af; 
+           position: relative;
+           overflow: hidden;
+           transition: background-color 0.3s ease;
+        }
+        .shiny-button:hover {
+            background: #2563eb;
+        }
+        .shiny-button::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: rgba(255, 255, 255, 0.15);
+            transform: rotate(45deg);
+            transition: transform 0.7s cubic-bezier(0.23, 1, 0.32, 1);
+        }
+        .shiny-button:hover::after {
+            transform: rotate(45deg) translate(20%, -20%);
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-200">
+
+    <!-- Contenitore Principale -->
+    <div class="min-h-screen flex flex-col items-center justify-center py-8 px-4">
+
+        <!-- Box di Registrazione -->
+        <div class="w-full max-w-md">
+            <!-- Logo/Titolo -->
+            <div class="text-center mb-8">
+                <a href="index.html" class="text-3xl font-bold text-white">
+                    Revenue<span class="text-blue-400">Sentry</span>
+                </a>
+            </div>
+
+            <!-- Card del Form -->
+            <div class="bg-gray-800/50 border border-gray-700 rounded-2xl p-8 shadow-2xl shadow-blue-500/10">
+                <h2 class="text-2xl font-bold text-white text-center mb-1">Crea il tuo account</h2>
+                <p class="text-gray-400 text-center mb-6">Inizia ad ottimizzare i tuoi ricavi oggi stesso.</p>
+
+                <!-- Aggiunto un id al form per poterlo selezionare con JS -->
+                <form id="register-form" class="space-y-4">
+                    <!-- Campo Nome Hotel -->
+                    <div>
+                        <label for="hotel-name" class="block text-sm font-medium text-gray-300">Nome Hotel</label>
+                        <div class="mt-1">
+                            <input id="hotel-name" name="hotel-name" type="text" required
+                                   class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
+                        </div>
+                    </div>
+
+                    <!-- Campo Email -->
+                    <div>
+                        <label for="email" class="block text-sm font-medium text-gray-300">Email</label>
+                        <div class="mt-1">
+                            <input id="email" name="email" type="email" autocomplete="email" required
+                                   class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
+                        </div>
+                    </div>
+
+                    <!-- Campo Password -->
+                    <div>
+                        <label for="password" class="block text-sm font-medium text-gray-300">Password</label>
+                        <div class="mt-1">
+                            <input id="password" name="password" type="password" autocomplete="new-password" required
+                                   class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
+                        </div>
+                    </div>
+                    
+                    <!-- Campo Conferma Password -->
+                    <div>
+                        <label for="confirm-password" class="block text-sm font-medium text-gray-300">Conferma Password</label>
+                        <div class="mt-1">
+                            <input id="confirm-password" name="confirm-password" type="password" autocomplete="new-password" required
+                                   class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
+                        </div>
+                    </div>
+
+                    <!-- Messaggio di errore (inizialmente nascosto) -->
+                    <div id="error-message" class="hidden text-red-400 text-sm text-center"></div>
+
+                    <!-- Pulsante di Registrazione -->
+                    <div class="pt-2">
+                        <button type="submit"
+                                class="w-full shiny-button text-white font-bold py-3 px-4 rounded-lg text-base transition">
+                            Crea Account
+                        </button>
+                    </div>
+                </form>
+                
+                <!-- Link per l'Accesso -->
+                <div class="text-center mt-6">
+                    <p class="text-sm text-gray-400">
+                        Hai già un account? 
+                        <a href="login.html" class="font-medium text-blue-400 hover:underline">Accedi</a>
+                    </p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Script di Firebase -->
+    <script type="module">
+        // Importa le funzioni necessarie dal Firebase SDK
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { getAuth, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+        import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+        // ************************************************************************************
+        // IMPORTANTE: Sostituisci questo oggetto con la configurazione del tuo progetto Firebase
+        // ************************************************************************************
+        const firebaseConfig = {
+            apiKey: "LE_TUE_CREDENZIALI",
+            authDomain: "LE_TUE_CREDENZIALI",
+            projectId: "LE_TUE_CREDENZIALI",
+            storageBucket: "LE_TUE_CREDENZIALI",
+            messagingSenderId: "LE_TUE_CREDENZIALI",
+            appId: "LE_TUE_CREDENZIALI"
+        };
+
+        // Inizializza Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // Seleziona gli elementi del DOM
+        const registerForm = document.getElementById('register-form');
+        const errorMessageDiv = document.getElementById('error-message');
+
+        // Aggiungi un listener per l'evento di submit del form
+        registerForm.addEventListener('submit', async (e) => {
+            e.preventDefault(); // Previene il ricaricamento della pagina
+
+            // Recupera i valori dai campi del form
+            const hotelName = registerForm['hotel-name'].value;
+            const email = registerForm.email.value;
+            const password = registerForm.password.value;
+            const confirmPassword = registerForm['confirm-password'].value;
+
+            // Nascondi eventuali messaggi di errore precedenti
+            errorMessageDiv.classList.add('hidden');
+            errorMessageDiv.textContent = '';
+
+            // Controllo validità
+            if (password !== confirmPassword) {
+                errorMessageDiv.textContent = 'Le password non coincidono.';
+                errorMessageDiv.classList.remove('hidden');
+                return;
+            }
+            if (password.length < 6) {
+                errorMessageDiv.textContent = 'La password deve essere di almeno 6 caratteri.';
+                errorMessageDiv.classList.remove('hidden');
+                return;
+            }
+
+            try {
+                // Crea l'utente con email e password in Firebase Authentication
+                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                const user = userCredential.user;
+
+                // Salva le informazioni aggiuntive (nome hotel) nel database Firestore
+                // Creiamo un documento nella collezione 'users' con l'ID dell'utente appena creato
+                await setDoc(doc(db, "users", user.uid), {
+                    hotelName: hotelName,
+                    email: email,
+                    createdAt: new Date() // Salva la data di creazione
+                });
+
+                // Reindirizza l'utente alla dashboard dopo la registrazione
+                // IMPORTANTE: creeremo questo file nel prossimo step
+                window.location.href = '/dashboard.html'; 
+
+            } catch (error) {
+                // Gestisce e mostra gli errori di Firebase
+                let friendlyMessage = 'Si è verificato un errore. Riprova.';
+                if (error.code === 'auth/email-already-in-use') {
+                    friendlyMessage = 'Questo indirizzo email è già stato registrato.';
+                } else if (error.code === 'auth/invalid-email') {
+                    friendlyMessage = 'L\'indirizzo email non è valido.';
+                }
+                errorMessageDiv.textContent = friendlyMessage;
+                errorMessageDiv.classList.remove('hidden');
+                console.error("Errore durante la registrazione:", error);
+            }
+        });
+    </script>
+
+</body>
+</html>

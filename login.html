@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Accedi - RevenueSentry</title>
+    
+    <!-- Script di Tailwind CSS per lo stile -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Font "Inter" da Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <!-- Stili Personalizzati -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        .shiny-button {
+           background: #1e40af; 
+           position: relative;
+           overflow: hidden;
+           transition: background-color 0.3s ease;
+        }
+        .shiny-button:hover {
+            background: #2563eb;
+        }
+        .shiny-button::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: rgba(255, 255, 255, 0.15);
+            transform: rotate(45deg);
+            transition: transform 0.7s cubic-bezier(0.23, 1, 0.32, 1);
+        }
+        .shiny-button:hover::after {
+            transform: rotate(45deg) translate(20%, -20%);
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-200">
+
+    <!-- Contenitore Principale -->
+    <div class="min-h-screen flex flex-col items-center justify-center p-4">
+
+        <!-- Box di Login -->
+        <div class="w-full max-w-md">
+            <!-- Logo/Titolo -->
+            <div class="text-center mb-8">
+                <a href="index.html" class="text-3xl font-bold text-white">
+                    Revenue<span class="text-blue-400">Sentry</span>
+                </a>
+            </div>
+
+            <!-- Card del Form -->
+            <div class="bg-gray-800/50 border border-gray-700 rounded-2xl p-8 shadow-2xl shadow-blue-500/10">
+                <h2 class="text-2xl font-bold text-white text-center mb-1">Bentornato!</h2>
+                <p class="text-gray-400 text-center mb-6">Inserisci le tue credenziali per accedere.</p>
+
+                <form id="login-form" class="space-y-6">
+                    <!-- Campo Email -->
+                    <div>
+                        <label for="email" class="block text-sm font-medium text-gray-300">Email</label>
+                        <div class="mt-1">
+                            <input id="email" name="email" type="email" autocomplete="email" required
+                                   class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
+                        </div>
+                    </div>
+
+                    <!-- Campo Password -->
+                    <div>
+                        <div class="flex justify-between items-baseline">
+                             <label for="password" class="block text-sm font-medium text-gray-300">Password</label>
+                             <a href="#" class="text-sm text-blue-400 hover:underline">Password dimenticata?</a>
+                        </div>
+                        <div class="mt-1">
+                            <input id="password" name="password" type="password" autocomplete="current-password" required
+                                   class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
+                        </div>
+                    </div>
+
+                    <!-- Messaggio di errore (inizialmente nascosto) -->
+                    <div id="error-message" class="hidden text-red-400 text-sm text-center"></div>
+
+                    <!-- Pulsante di Accesso -->
+                    <div>
+                        <button type="submit"
+                                class="w-full shiny-button text-white font-bold py-3 px-4 rounded-lg text-base transition">
+                            Accedi
+                        </button>
+                    </div>
+                </form>
+                
+                <!-- Link per la Registrazione -->
+                <div class="text-center mt-6">
+                    <p class="text-sm text-gray-400">
+                        Non hai un account? 
+                        <a href="register.html" class="font-medium text-blue-400 hover:underline">Registrati</a>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Script di Firebase -->
+    <script type="module">
+        // Importa le funzioni necessarie dal Firebase SDK
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+        // ************************************************************************************
+        // IMPORTANTE: Usa lo stesso oggetto di configurazione della pagina di registrazione
+        // ************************************************************************************
+        const firebaseConfig = {
+            apiKey: "LE_TUE_CREDENZIALI",
+            authDomain: "LE_TUE_CREDENZIALI",
+            projectId: "LE_TUE_CREDENZIALI",
+            storageBucket: "LE_TUE_CREDENZIALI",
+            messagingSenderId: "LE_TUE_CREDENZIALI",
+            appId: "LE_TUE_CREDENZIALI"
+        };
+
+        // Inizializza Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+
+        // Seleziona gli elementi del DOM
+        const loginForm = document.getElementById('login-form');
+        const errorMessageDiv = document.getElementById('error-message');
+
+        // Aggiungi un listener per l'evento di submit del form
+        loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault(); // Previene il ricaricamento della pagina
+
+            // Recupera i valori dai campi del form
+            const email = loginForm.email.value;
+            const password = loginForm.password.value;
+
+            // Nascondi eventuali messaggi di errore precedenti
+            errorMessageDiv.classList.add('hidden');
+            errorMessageDiv.textContent = '';
+
+            try {
+                // Esegui il login con le credenziali fornite
+                const userCredential = await signInWithEmailAndPassword(auth, email, password);
+                
+                // Reindirizza l'utente alla dashboard dopo il login
+                window.location.href = '/dashboard.html';
+
+            } catch (error) {
+                // Gestisce e mostra gli errori di Firebase
+                let friendlyMessage = 'Credenziali non valide. Riprova.';
+                // I codici di errore di Firebase per il login sono meno specifici per sicurezza
+                // quindi un messaggio generico è spesso la scelta migliore.
+                
+                errorMessageDiv.textContent = friendlyMessage;
+                errorMessageDiv.classList.remove('hidden');
+                console.error("Errore durante il login:", error);
+            }
+        });
+    </script>
+
+</body>
+</html>
+

@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - RevenueSentry</title>
+
+    <!-- Script di Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Font "Inter" da Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <!-- Stili Personalizzati -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        /* Stile per la scrollbar (opzionale, per estetica) */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #1f2937; }
+        ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #6b7280; }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-200">
+
+    <!-- Schermata di caricamento (visibile finché Firebase non conferma l'autenticazione) -->
+    <div id="loader" class="fixed inset-0 bg-gray-900 flex items-center justify-center z-50">
+        <svg class="animate-spin h-8 w-8 text-blue-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+    </div>
+
+    <!-- Struttura della Dashboard (inizialmente nascosta) -->
+    <div id="dashboard-content" class="hidden h-screen flex">
+        
+        <!-- Sidebar di Navigazione -->
+        <aside class="w-64 bg-gray-800/50 border-r border-gray-700 flex-shrink-0 flex flex-col">
+            <!-- Logo -->
+            <div class="h-16 flex items-center justify-center border-b border-gray-700">
+                 <a href="index.html" class="text-2xl font-bold text-white">
+                    Revenue<span class="text-blue-400">Sentry</span>
+                </a>
+            </div>
+            <!-- Menu -->
+            <nav class="flex-1 px-4 py-6 space-y-2">
+                <a href="#" class="flex items-center px-4 py-2 text-base font-semibold bg-blue-500/20 text-blue-300 rounded-lg">
+                    <svg class="h-6 w-6 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+                    Panoramica
+                </a>
+                <a href="#" class="flex items-center px-4 py-2 text-base font-semibold text-gray-400 hover:bg-gray-700/50 hover:text-white rounded-lg transition">
+                    <svg class="h-6 w-6 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2a4 4 0 00-4-4H3V9h2a4 4 0 004-4V3l4 4-4 4zM15 17v-2a4 4 0 014-4h2V9h-2a4 4 0 01-4-4V3l-4 4 4 4z"/></svg>
+                    Costi
+                </a>
+                <a href="#" class="flex items-center px-4 py-2 text-base font-semibold text-gray-400 hover:bg-gray-700/50 hover:text-white rounded-lg transition">
+                     <svg class="h-6 w-6 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+                    Report
+                </a>
+            </nav>
+        </aside>
+
+        <!-- Contenuto Principale -->
+        <main class="flex-1 flex flex-col">
+            <!-- Header -->
+            <header class="h-16 bg-gray-800/30 border-b border-gray-700 flex items-center justify-between px-6">
+                <div>
+                    <!-- Nome Hotel caricato da Firestore -->
+                    <h1 id="hotel-name-display" class="text-xl font-semibold text-white">Caricamento...</h1>
+                </div>
+                <div>
+                    <button id="logout-button" class="bg-red-600/80 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-lg text-sm transition">
+                        Logout
+                    </button>
+                </div>
+            </header>
+
+            <!-- Area Contenuti -->
+            <div class="flex-1 p-8 overflow-y-auto">
+                <h2 class="text-3xl font-bold text-white mb-6">Panoramica Generale</h2>
+                <!-- Qui verranno inseriti i grafici e i dati -->
+                <div class="bg-gray-800/50 border border-gray-700 rounded-2xl p-8 text-center">
+                    <p class="text-gray-400">L'area dati della tua dashboard è in costruzione. A breve qui potrai visualizzare i grafici e le analisi dei costi del tuo hotel.</p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Script di Firebase -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+        import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+        // ************************************************************************************
+        // IMPORTANTE: Usa lo stesso oggetto di configurazione delle altre pagine
+        // ************************************************************************************
+        const firebaseConfig = {
+            apiKey: "LE_TUE_CREDENZIALI",
+            authDomain: "LE_TUE_CREDENZIALI",
+            projectId: "LE_TUE_CREDENZIALI",
+            storageBucket: "LE_TUE_CREDENZIALI",
+            messagingSenderId: "LE_TUE_CREDENZIALI",
+            appId: "LE_TUE_CREDENZIALI"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        const loader = document.getElementById('loader');
+        const dashboardContent = document.getElementById('dashboard-content');
+        const logoutButton = document.getElementById('logout-button');
+        const hotelNameDisplay = document.getElementById('hotel-name-display');
+
+        // Controlla lo stato dell'autenticazione
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                // L'utente è loggato
+                try {
+                    // Recupera i dati dell'utente da Firestore
+                    const userDocRef = doc(db, "users", user.uid);
+                    const userDocSnap = await getDoc(userDocRef);
+
+                    if (userDocSnap.exists()) {
+                        const userData = userDocSnap.data();
+                        hotelNameDisplay.textContent = userData.hotelName || 'Mio Hotel';
+                    } else {
+                        console.log("Nessun documento trovato per l'utente!");
+                        hotelNameDisplay.textContent = 'Hotel non trovato';
+                    }
+                } catch (error) {
+                    console.error("Errore nel recuperare i dati utente:", error);
+                    hotelNameDisplay.textContent = 'Errore Dati';
+                }
+
+                // Mostra la dashboard e nascondi il loader
+                loader.classList.add('hidden');
+                dashboardContent.classList.remove('hidden');
+            } else {
+                // L'utente non è loggato, reindirizza alla pagina di login
+                // *** CORREZIONE ***
+                // Costruisce un URL assoluto per la pagina di login, che è più robusto.
+                // Prende l'indirizzo base (es. "http://127.0.0.1:5500") e aggiunge "login.html"
+                const loginUrl = `${window.location.origin}/login.html`;
+                window.location.href = loginUrl;
+            }
+        });
+
+        // Gestione del logout
+        logoutButton.addEventListener('click', async () => {
+            try {
+                await signOut(auth);
+                // Il redirect alla pagina di login verrà gestito automaticamente 
+                // dal listener onAuthStateChanged
+            } catch (error) {
+                console.error('Errore durante il logout:', error);
+                alert('Impossibile effettuare il logout. Riprova.');
+            }
+        });
+    </script>
+</body>
+</html>
+
