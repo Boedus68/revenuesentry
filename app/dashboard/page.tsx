@@ -6,36 +6,27 @@ import Link from 'next/link';
 import { onAuthStateChanged, signOut, User } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../../lib/firebase';
-
-// Definiamo i tipi per i dati dei costi
-interface CostItem {
-fornitore: string;
-importo: number;
-}
-interface CostsData {
-ristorazione: CostItem[];
-utenze: {
-energia: CostItem;
-gas: CostItem;
-acqua: CostItem;
-};
-personale: {
-bustePaga: number;
-sicurezza: number;
-};
-altriCosti: {
-[key: string]: number;
-};
-}
+import { CostsData, RevenueData, HotelData, KPIData, Recommendation, CostAnalysis } from '../../lib/types';
+import KPICard from './components/KPICard';
+import RecommendationCard from './components/RecommendationCard';
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
 export default function DashboardPage() {
 const [user, setUser] = useState<User | null>(null);
 const [hotelName, setHotelName] = useState('Caricamento...');
-const [activeSection, setActiveSection] = useState('costi');
+const [activeSection, setActiveSection] = useState('panoramica');
 const [costs, setCosts] = useState<Partial<CostsData>>({});
+const [revenues, setRevenues] = useState<RevenueData[]>([]);
+const [hotelData, setHotelData] = useState<HotelData | null>(null);
+const [kpi, setKpi] = useState<KPIData | null>(null);
+const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
+const [costAnalyses, setCostAnalyses] = useState<CostAnalysis[]>([]);
+const [alerts, setAlerts] = useState<any[]>([]);
 const [loading, setLoading] = useState(true);
 const [saving, setSaving] = useState(false);
+const [analyzing, setAnalyzing] = useState(false);
 const [showToast, setShowToast] = useState(false);
+const [toastMessage, setToastMessage] = useState('');
 const router = useRouter();
 
 // Lista di altri costi per generare il form dinamicamente
@@ -76,6 +67,15 @@ useEffect(() => {
                     if (userData.costs) {
                         setCosts(userData.costs);
                     }
+                    if (userData.revenues) {
+                        setRevenues(userData.revenues);
+                    }
+                    if (userData.hotelData) {
+                        setHotelData(userData.hotelData);
+                    }
+                    
+                    // Calcola KPI e raccomandazioni
+                    await calculateAnalytics(userData.costs, userData.revenues, userData.hotelData);
                 } else {
                     setHotelName('Mio Hotel');
                 }
@@ -96,6 +96,42 @@ useEffect(() => {
         unsubscribe();
     };
 }, [router]);
+
+// Funzione per calcolare analytics
+const calculateAnalytics = async (
+    currentCosts?: Partial<CostsData>,
+    currentRevenues?: RevenueData[],
+    currentHotelData?: HotelData
+) => {
+    if (!currentCosts || !currentRevenues || currentRevenues.length === 0) {
+        return;
+    }
+
+    setAnalyzing(true);
+    try {
+        const response = await fetch('/api/analytics/recommendations', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                costs: currentCosts,
+                revenues: currentRevenues,
+                hotelData: currentHotelData,
+            }),
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            setKpi(data.kpi);
+            setRecommendations(data.recommendations || []);
+            setCostAnalyses(data.analyses || []);
+            setAlerts(data.alerts || []);
+        }
+    } catch (error) {
+        console.error('Errore nel calcolo analytics:', error);
+    } finally {
+        setAnalyzing(false);
+    }
+};
 
 const handleLogout = async () => {
     await signOut(auth);
@@ -151,7 +187,7 @@ const handleAltriCostiChange = (id: string, value: string) => {
     }));
 };
 
- const handleSaveCosts = async (e: React.FormEvent) => {
+const handleSaveCosts = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
     setSaving(true);
@@ -159,18 +195,90 @@ const handleAltriCostiChange = (id: string, value: string) => {
     const cleanedCosts = JSON.parse(JSON.stringify(costs));
     if (cleanedCosts.ristorazione) {
         cleanedCosts.ristorazione = cleanedCosts.ristorazione.filter(
-            (item: CostItem | null) => item && (item.fornitore || (item.importo && item.importo > 0))
+            (item: any) => item && (item.fornitore || (item.importo && item.importo > 0))
         );
     }
 
     try {
         const userDocRef = doc(db, "users", user.uid);
         await setDoc(userDocRef, { costs: cleanedCosts }, { merge: true });
+        setCosts(cleanedCosts);
+        
+        // Ricalcola analytics
+        await calculateAnalytics(cleanedCosts, revenues, hotelData || undefined);
+        
+        setToastMessage('Dati salvati con successo!');
         setShowToast(true);
         setTimeout(() => setShowToast(false), 3000);
     } catch (error) {
         console.error("Errore nel salvataggio dei costi:", error);
-        alert("Si è verificato un errore durante il salvataggio.");
+        setToastMessage("Si è verificato un errore durante il salvataggio.");
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 3000);
+    } finally {
+        setSaving(false);
+    }
+};
+
+// Gestione ricavi
+const handleSaveRevenues = async (revenueData: RevenueData) => {
+    if (!user) return;
+    
+    const updatedRevenues = [...revenues];
+    const existingIndex = updatedRevenues.findIndex(r => r.mese === revenueData.mese);
+    
+    if (existingIndex >= 0) {
+        updatedRevenues[existingIndex] = revenueData;
+    } else {
+        updatedRevenues.push(revenueData);
+    }
+    
+    // Ordina per mese
+    updatedRevenues.sort((a, b) => a.mese.localeCompare(b.mese));
+    
+    setSaving(true);
+    try {
+        const userDocRef = doc(db, "users", user.uid);
+        await setDoc(userDocRef, { revenues: updatedRevenues }, { merge: true });
+        setRevenues(updatedRevenues);
+        
+        // Ricalcola analytics
+        await calculateAnalytics(costs, updatedRevenues, hotelData || undefined);
+        
+        setToastMessage('Dati ricavi salvati con successo!');
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 3000);
+    } catch (error) {
+        console.error("Errore nel salvataggio ricavi:", error);
+        setToastMessage("Errore nel salvataggio ricavi.");
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 3000);
+    } finally {
+        setSaving(false);
+    }
+};
+
+// Gestione dati hotel
+const handleSaveHotelData = async (data: HotelData) => {
+    if (!user) return;
+    
+    setSaving(true);
+    try {
+        const userDocRef = doc(db, "users", user.uid);
+        await setDoc(userDocRef, { hotelData: data }, { merge: true });
+        setHotelData(data);
+        
+        // Ricalcola analytics
+        await calculateAnalytics(costs, revenues, data);
+        
+        setToastMessage('Dati hotel salvati con successo!');
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 3000);
+    } catch (error) {
+        console.error("Errore nel salvataggio dati hotel:", error);
+        setToastMessage("Errore nel salvataggio dati hotel.");
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 3000);
     } finally {
         setSaving(false);
     }
@@ -211,11 +319,23 @@ return (
                     Revenue<span className="text-blue-400">Sentry</span>
                 </Link>
             </div>
-            <nav className="flex-1 px-4 py-6 space-y-2">
+            <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
                 <NavLink id="panoramica" text="Panoramica" icon={<svg className="h-6 w-6 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>} />
+                <NavLink id="ricavi" text="Ricavi" icon={<svg className="h-6 w-6 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>} />
                 <NavLink id="costi" text="Costi" icon={<svg className="h-6 w-6 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 17v-2a4 4 0 00-4-4H3V9h2a4 4 0 004-4V3l4 4-4 4zM15 17v-2a4 4 0 014-4h2V9h-2a4 4 0 01-4-4V3l-4 4 4 4z"/></svg>} />
+                <NavLink id="raccomandazioni" text="Raccomandazioni IA" icon={<svg className="h-6 w-6 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>} />
                 <NavLink id="report" text="Report" icon={<svg className="h-6 w-6 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" /><path strokeLinecap="round" strokeLinejoin="round" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" /></svg>} />
             </nav>
+            {alerts.length > 0 && (
+                <div className="px-4 py-4 border-t border-gray-700">
+                    <div className="flex items-center gap-2 text-red-400 mb-2">
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                        <span className="text-sm font-semibold">{alerts.length} Alert</span>
+                    </div>
+                </div>
+            )}
         </aside>
 
         {/* Main Content */}
@@ -229,11 +349,137 @@ return (
             
             <div className="flex-1 p-8 overflow-y-auto">
                 {activeSection === 'panoramica' && (
-                     <div>
-                        <h2 className="text-3xl font-bold text-white mb-6">Panoramica Generale</h2>
-                        <div className="bg-gray-800/50 border border-gray-700 rounded-2xl p-8 text-center">
-                            <p className="text-gray-400">Questa sezione è in costruzione. A breve qui potrai visualizzare i grafici e le analisi principali.</p>
+                    <div>
+                        <div className="flex justify-between items-center mb-6">
+                            <h2 className="text-3xl font-bold text-white">Panoramica Generale</h2>
+                            {analyzing && (
+                                <div className="flex items-center gap-2 text-gray-400">
+                                    <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    <span>Analisi in corso...</span>
+                                </div>
+                            )}
                         </div>
+
+                        {kpi ? (
+                            <>
+                                {/* KPI Cards */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                                    <KPICard
+                                        title="RevPAR"
+                                        value={`€${kpi.revpar.toFixed(2)}`}
+                                        subtitle="Revenue Per Available Room"
+                                        icon={<svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>}
+                                        color="blue"
+                                    />
+                                    <KPICard
+                                        title="GOP Margin"
+                                        value={`${kpi.gopMargin.toFixed(1)}%`}
+                                        subtitle={`GOP: €${kpi.gop.toLocaleString('it-IT')}`}
+                                        icon={<svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>}
+                                        color={kpi.gopMargin >= 25 ? 'green' : kpi.gopMargin >= 15 ? 'yellow' : 'red'}
+                                    />
+                                    <KPICard
+                                        title="Occupazione"
+                                        value={`${kpi.occupazione.toFixed(1)}%`}
+                                        subtitle={`ADR: €${kpi.adr.toFixed(2)}`}
+                                        icon={<svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>}
+                                        color={kpi.occupazione >= 70 ? 'green' : kpi.occupazione >= 50 ? 'yellow' : 'red'}
+                                    />
+                                    <KPICard
+                                        title="Totale Ricavi"
+                                        value={`€${kpi.totaleRicavi.toLocaleString('it-IT')}`}
+                                        subtitle={`Spese: €${kpi.totaleSpese.toLocaleString('it-IT')}`}
+                                        icon={<svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
+                                        color="purple"
+                                    />
+                                </div>
+
+                                {/* Grafici */}
+                                {revenues.length > 0 && (
+                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                                        {/* Grafico Ricavi/Spese nel tempo */}
+                                        <div className="bg-gray-800/50 border border-gray-700 rounded-2xl p-6">
+                                            <h3 className="text-xl font-semibold text-white mb-4">Ricavi e Spese nel Tempo</h3>
+                                            <ResponsiveContainer width="100%" height={300}>
+                                                <LineChart data={revenues.slice(-6).map(r => ({
+                                                    mese: r.mese.slice(5),
+                                                    ricavi: r.entrateTotali,
+                                                    spese: kpi.totaleSpese,
+                                                }))}>
+                                                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                                                    <XAxis dataKey="mese" stroke="#9CA3AF" />
+                                                    <YAxis stroke="#9CA3AF" />
+                                                    <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #374151', borderRadius: '8px' }} />
+                                                    <Legend />
+                                                    <Line type="monotone" dataKey="ricavi" stroke="#3B82F6" strokeWidth={2} name="Ricavi" />
+                                                    <Line type="monotone" dataKey="spese" stroke="#EF4444" strokeWidth={2} name="Spese" />
+                                                </LineChart>
+                                            </ResponsiveContainer>
+                                        </div>
+
+                                        {/* Grafico Distribuzione Costi */}
+                                        <div className="bg-gray-800/50 border border-gray-700 rounded-2xl p-6">
+                                            <h3 className="text-xl font-semibold text-white mb-4">Distribuzione Costi</h3>
+                                            <ResponsiveContainer width="100%" height={300}>
+                                                <PieChart>
+                                                    <Pie
+                                                        data={[
+                                                            { name: 'Ristorazione', value: (costs.ristorazione || []).reduce((sum, item) => sum + (item.importo || 0), 0) },
+                                                            { name: 'Utenze', value: ((costs.utenze?.energia?.importo || 0) + (costs.utenze?.gas?.importo || 0) + (costs.utenze?.acqua?.importo || 0)) },
+                                                            { name: 'Personale', value: ((costs.personale?.bustePaga || 0) + (costs.personale?.sicurezza || 0)) },
+                                                            { name: 'Altri', value: Object.values(costs.altriCosti || {}).reduce((sum, val) => sum + (val || 0), 0) },
+                                                        ].filter(item => item.value > 0)}
+                                                        cx="50%"
+                                                        cy="50%"
+                                                        labelLine={false}
+                                                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                                                        outerRadius={80}
+                                                        fill="#8884d8"
+                                                        dataKey="value"
+                                                    >
+                                                        {['#3B82F6', '#10B981', '#F59E0B', '#EF4444'].map((color, index) => (
+                                                            <Cell key={`cell-${index}`} fill={color} />
+                                                        ))}
+                                                    </Pie>
+                                                    <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #374151', borderRadius: '8px' }} />
+                                                </PieChart>
+                                            </ResponsiveContainer>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Trend Occupazione */}
+                                {revenues.length > 0 && (
+                                    <div className="bg-gray-800/50 border border-gray-700 rounded-2xl p-6">
+                                        <h3 className="text-xl font-semibold text-white mb-4">Trend Occupazione e ADR</h3>
+                                        <ResponsiveContainer width="100%" height={300}>
+                                            <BarChart data={revenues.slice(-6).map(r => ({
+                                                mese: r.mese.slice(5),
+                                                occupazione: r.occupazione,
+                                                adr: r.prezzoMedioCamera,
+                                            }))}>
+                                                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                                                <XAxis dataKey="mese" stroke="#9CA3AF" />
+                                                <YAxis yAxisId="left" stroke="#9CA3AF" />
+                                                <YAxis yAxisId="right" orientation="right" stroke="#9CA3AF" />
+                                                <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #374151', borderRadius: '8px' }} />
+                                                <Legend />
+                                                <Bar yAxisId="left" dataKey="occupazione" fill="#3B82F6" name="Occupazione %" />
+                                                <Bar yAxisId="right" dataKey="adr" fill="#10B981" name="ADR €" />
+                                            </BarChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                )}
+                            </>
+                        ) : (
+                            <div className="bg-gray-800/50 border border-gray-700 rounded-2xl p-8 text-center">
+                                <p className="text-gray-400 mb-4">Inserisci dati di ricavi e costi per visualizzare l'analisi completa.</p>
+                                <p className="text-sm text-gray-500">Vai alle sezioni "Ricavi" e "Costi" per iniziare.</p>
+                            </div>
+                        )}
                     </div>
                 )}
                 {activeSection === 'costi' && (
@@ -294,12 +540,326 @@ return (
                         </div>
                     </form>
                 )}
+                {activeSection === 'ricavi' && (
+                    <div>
+                        <div className="flex justify-between items-center mb-6">
+                            <h2 className="text-3xl font-bold text-white">Inserimento Dati Ricavi</h2>
+                            <button
+                                onClick={() => {
+                                    const mese = prompt('Inserisci il mese (formato YYYY-MM, es. 2025-01):');
+                                    if (mese && mese.match(/^\d{4}-\d{2}$/)) {
+                                        const revenueData: RevenueData = {
+                                            mese,
+                                            entrateTotali: 0,
+                                            occupazione: 0,
+                                            prezzoMedioCamera: 0,
+                                            camereVendute: 0,
+                                            nottiTotali: 0,
+                                        };
+                                        handleSaveRevenues(revenueData);
+                                    }
+                                }}
+                                className="bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-6 rounded-lg transition"
+                            >
+                                Aggiungi Mese
+                            </button>
+                        </div>
+
+                        {/* Dati Hotel */}
+                        <div className="bg-gray-800/50 border border-gray-700 rounded-2xl p-6 mb-6">
+                            <h3 className="text-xl font-semibold text-white mb-4">Configurazione Hotel</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-300 mb-2">Numero Camere Totali</label>
+                                    <input
+                                        type="number"
+                                        value={hotelData?.camereTotali || ''}
+                                        onChange={(e) => {
+                                            const newData = { ...hotelData, camereTotali: parseInt(e.target.value) || 0 };
+                                            setHotelData(newData as HotelData);
+                                            handleSaveHotelData(newData as HotelData);
+                                        }}
+                                        className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white"
+                                        placeholder="Es. 50"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-300 mb-2">Categoria</label>
+                                    <select
+                                        value={hotelData?.categoria || ''}
+                                        onChange={(e) => {
+                                            const newData = { ...hotelData, categoria: e.target.value as any };
+                                            setHotelData(newData as HotelData);
+                                            handleSaveHotelData(newData as HotelData);
+                                        }}
+                                        className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white"
+                                    >
+                                        <option value="">Seleziona...</option>
+                                        <option value="lussuoso">Lussuoso</option>
+                                        <option value="business">Business</option>
+                                        <option value="economico">Economico</option>
+                                        <option value="boutique">Boutique</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-300 mb-2">Stelle</label>
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        max="5"
+                                        value={hotelData?.stelle || ''}
+                                        onChange={(e) => {
+                                            const newData = { ...hotelData, stelle: parseInt(e.target.value) || undefined };
+                                            setHotelData(newData as HotelData);
+                                            handleSaveHotelData(newData as HotelData);
+                                        }}
+                                        className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white"
+                                        placeholder="Es. 4"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Dati Ricavi per Mese */}
+                        {revenues.length > 0 ? (
+                            <div className="space-y-4">
+                                {revenues.slice().reverse().map((revenue, idx) => (
+                                    <div key={idx} className="bg-gray-800/50 border border-gray-700 rounded-2xl p-6">
+                                        <h3 className="text-lg font-semibold text-white mb-4">
+                                            {new Date(revenue.mese + '-01').toLocaleDateString('it-IT', { month: 'long', year: 'numeric' })}
+                                        </h3>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-300 mb-2">Entrate Totali (€)</label>
+                                                <input
+                                                    type="number"
+                                                    step="0.01"
+                                                    value={revenue.entrateTotali || ''}
+                                                    onChange={(e) => {
+                                                        const updated = [...revenues];
+                                                        updated[revenues.length - 1 - idx] = { ...revenue, entrateTotali: parseFloat(e.target.value) || 0 };
+                                                        setRevenues(updated);
+                                                        handleSaveRevenues(updated[revenues.length - 1 - idx]);
+                                                    }}
+                                                    className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-300 mb-2">Occupazione (%)</label>
+                                                <input
+                                                    type="number"
+                                                    step="0.1"
+                                                    max="100"
+                                                    value={revenue.occupazione || ''}
+                                                    onChange={(e) => {
+                                                        const updated = [...revenues];
+                                                        updated[revenues.length - 1 - idx] = { ...revenue, occupazione: parseFloat(e.target.value) || 0 };
+                                                        setRevenues(updated);
+                                                        handleSaveRevenues(updated[revenues.length - 1 - idx]);
+                                                    }}
+                                                    className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-300 mb-2">Prezzo Medio Camera - ADR (€)</label>
+                                                <input
+                                                    type="number"
+                                                    step="0.01"
+                                                    value={revenue.prezzoMedioCamera || ''}
+                                                    onChange={(e) => {
+                                                        const updated = [...revenues];
+                                                        updated[revenues.length - 1 - idx] = { ...revenue, prezzoMedioCamera: parseFloat(e.target.value) || 0 };
+                                                        setRevenues(updated);
+                                                        handleSaveRevenues(updated[revenues.length - 1 - idx]);
+                                                    }}
+                                                    className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-300 mb-2">Camere Vendute</label>
+                                                <input
+                                                    type="number"
+                                                    value={revenue.camereVendute || ''}
+                                                    onChange={(e) => {
+                                                        const updated = [...revenues];
+                                                        updated[revenues.length - 1 - idx] = { ...revenue, camereVendute: parseInt(e.target.value) || 0 };
+                                                        setRevenues(updated);
+                                                        handleSaveRevenues(updated[revenues.length - 1 - idx]);
+                                                    }}
+                                                    className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-300 mb-2">Notti Totali</label>
+                                                <input
+                                                    type="number"
+                                                    value={revenue.nottiTotali || ''}
+                                                    onChange={(e) => {
+                                                        const updated = [...revenues];
+                                                        updated[revenues.length - 1 - idx] = { ...revenue, nottiTotali: parseInt(e.target.value) || 0 };
+                                                        setRevenues(updated);
+                                                        handleSaveRevenues(updated[revenues.length - 1 - idx]);
+                                                    }}
+                                                    className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="bg-gray-800/50 border border-gray-700 rounded-2xl p-8 text-center">
+                                <p className="text-gray-400 mb-4">Nessun dato ricavi inserito.</p>
+                                <p className="text-sm text-gray-500">Clicca su "Aggiungi Mese" per iniziare.</p>
+                            </div>
+                        )}
+                    </div>
+                )}
+                {activeSection === 'raccomandazioni' && (
+                    <div>
+                        <div className="flex justify-between items-center mb-6">
+                            <h2 className="text-3xl font-bold text-white">Raccomandazioni IA</h2>
+                            {analyzing && (
+                                <div className="flex items-center gap-2 text-gray-400">
+                                    <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    <span>Analisi in corso...</span>
+                                </div>
+                            )}
+                        </div>
+
+                        {recommendations.length > 0 ? (
+                            <div className="space-y-6">
+                                <div className="bg-blue-500/10 border border-blue-500/50 rounded-2xl p-4 mb-6">
+                                    <p className="text-blue-300">
+                                        <strong>{recommendations.length}</strong> raccomandazioni trovate. 
+                                        Potenziale risparmio totale: <strong>€{recommendations.reduce((sum, r) => sum + r.impattoStimato, 0).toLocaleString('it-IT')}</strong>
+                                    </p>
+                                </div>
+                                {recommendations.map((rec) => (
+                                    <RecommendationCard key={rec.id} recommendation={rec} />
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="bg-gray-800/50 border border-gray-700 rounded-2xl p-8 text-center">
+                                <p className="text-gray-400 mb-4">Inserisci dati di costi e ricavi per ricevere raccomandazioni personalizzate.</p>
+                                <p className="text-sm text-gray-500">Vai alle sezioni "Costi" e "Ricavi" per iniziare.</p>
+                            </div>
+                        )}
+
+                        {/* Analisi Costi */}
+                        {costAnalyses.length > 0 && (
+                            <div className="mt-8">
+                                <h3 className="text-2xl font-bold text-white mb-4">Analisi Dettagliata Costi</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    {costAnalyses.map((analysis, idx) => (
+                                        <div key={idx} className="bg-gray-800/50 border border-gray-700 rounded-xl p-4">
+                                            <h4 className="font-semibold text-white mb-2">{analysis.categoria}</h4>
+                                            <p className="text-2xl font-bold text-blue-400 mb-2">€{analysis.importoAttuale.toLocaleString('it-IT')}</p>
+                                            {analysis.variazionePercentuale !== undefined && (
+                                                <p className={`text-sm ${analysis.variazionePercentuale > 0 ? 'text-red-400' : 'text-green-400'}`}>
+                                                    {analysis.variazionePercentuale > 0 ? '+' : ''}{analysis.variazionePercentuale.toFixed(1)}% rispetto al mese precedente
+                                                </p>
+                                            )}
+                                            {analysis.anomalia && (
+                                                <span className="inline-block mt-2 px-2 py-1 bg-red-500/20 text-red-300 text-xs rounded">Anomalia</span>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
                 {activeSection === 'report' && (
                     <div>
                        <h2 className="text-3xl font-bold text-white mb-6">Report e Analisi</h2>
-                        <div className="bg-gray-800/50 border border-gray-700 rounded-2xl p-8 text-center">
-                            <p className="text-gray-400">Questa sezione è in costruzione. A breve qui potrai generare e scaricare i report dettagliati.</p>
-                        </div>
+                       {kpi && revenues.length > 0 ? (
+                           <div className="space-y-6">
+                               {/* Summary Report */}
+                               <div className="bg-gray-800/50 border border-gray-700 rounded-2xl p-6">
+                                   <h3 className="text-xl font-semibold text-white mb-4">Report Mensile</h3>
+                                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                       <div>
+                                           <p className="text-sm text-gray-400 mb-1">Ricavi Totali</p>
+                                           <p className="text-2xl font-bold text-green-400">€{kpi.totaleRicavi.toLocaleString('it-IT')}</p>
+                                       </div>
+                                       <div>
+                                           <p className="text-sm text-gray-400 mb-1">Spese Totali</p>
+                                           <p className="text-2xl font-bold text-red-400">€{kpi.totaleSpese.toLocaleString('it-IT')}</p>
+                                       </div>
+                                       <div>
+                                           <p className="text-sm text-gray-400 mb-1">Profitto Operativo (GOP)</p>
+                                           <p className={`text-2xl font-bold ${kpi.gop >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                               €{kpi.gop.toLocaleString('it-IT')}
+                                           </p>
+                                       </div>
+                                   </div>
+                               </div>
+
+                               {/* KPI Report */}
+                               <div className="bg-gray-800/50 border border-gray-700 rounded-2xl p-6">
+                                   <h3 className="text-xl font-semibold text-white mb-4">Key Performance Indicators</h3>
+                                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                       <div>
+                                           <p className="text-sm text-gray-400 mb-1">RevPAR</p>
+                                           <p className="text-xl font-bold text-white">€{kpi.revpar.toFixed(2)}</p>
+                                       </div>
+                                       <div>
+                                           <p className="text-sm text-gray-400 mb-1">ADR</p>
+                                           <p className="text-xl font-bold text-white">€{kpi.adr.toFixed(2)}</p>
+                                       </div>
+                                       <div>
+                                           <p className="text-sm text-gray-400 mb-1">Occupazione</p>
+                                           <p className="text-xl font-bold text-white">{kpi.occupazione.toFixed(1)}%</p>
+                                       </div>
+                                       <div>
+                                           <p className="text-sm text-gray-400 mb-1">GOP Margin</p>
+                                           <p className="text-xl font-bold text-white">{kpi.gopMargin.toFixed(1)}%</p>
+                                       </div>
+                                       <div>
+                                           <p className="text-sm text-gray-400 mb-1">CPPR</p>
+                                           <p className="text-xl font-bold text-white">€{kpi.cppr.toFixed(2)}</p>
+                                       </div>
+                                       <div>
+                                           <p className="text-sm text-gray-400 mb-1">Profit per Room</p>
+                                           <p className="text-xl font-bold text-white">€{kpi.profitPerRoom.toFixed(2)}</p>
+                                       </div>
+                                   </div>
+                               </div>
+
+                               {/* Export Button */}
+                               <div className="bg-gray-800/50 border border-gray-700 rounded-2xl p-6">
+                                   <button
+                                       onClick={() => {
+                                           const report = {
+                                               hotel: hotelName,
+                                               periodo: revenues[revenues.length - 1]?.mese || '',
+                                               kpi,
+                                               revenues: revenues[revenues.length - 1],
+                                               costs,
+                                           };
+                                           const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
+                                           const url = URL.createObjectURL(blob);
+                                           const a = document.createElement('a');
+                                           a.href = url;
+                                           a.download = `report-${hotelName}-${new Date().toISOString().split('T')[0]}.json`;
+                                           a.click();
+                                           URL.revokeObjectURL(url);
+                                       }}
+                                       className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-6 rounded-lg transition"
+                                   >
+                                       Esporta Report (JSON)
+                                   </button>
+                               </div>
+                           </div>
+                       ) : (
+                           <div className="bg-gray-800/50 border border-gray-700 rounded-2xl p-8 text-center">
+                               <p className="text-gray-400">Inserisci dati di costi e ricavi per generare i report.</p>
+                           </div>
+                       )}
                     </div>
                 )}
             </div>
@@ -307,8 +867,10 @@ return (
 
         {/* Toast */}
         {showToast && (
-            <div className="fixed bottom-8 right-8 bg-green-500 text-white py-3 px-6 rounded-lg shadow-lg">
-                Dati salvati con successo!
+            <div className={`fixed bottom-8 right-8 py-3 px-6 rounded-lg shadow-lg z-50 ${
+                toastMessage.includes('successo') ? 'bg-green-500' : 'bg-red-500'
+            } text-white`}>
+                {toastMessage || 'Dati salvati con successo!'}
             </div>
         )}
     </div>
