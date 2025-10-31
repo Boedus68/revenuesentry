@@ -304,6 +304,10 @@ function parseExcelData(data: any[]): ImportedCost[] {
   
   // Se non trova fornitore, cerca la prima colonna di testo (escludi date e numeri)
   let finalFornitoreCol = fornitoreCol;
+  
+  // Log per debug
+  console.log(`Ricerca colonna fornitore: trovata="${fornitoreCol}", colonne disponibili=`, keys.slice(0, 10));
+  
   if (!finalFornitoreCol && keys.length > 0) {
     // Cerca colonne con valori testuali (non date, non numeri)
     for (const key of keys) {
