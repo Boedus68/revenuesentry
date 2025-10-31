@@ -83,9 +83,14 @@ export default function CategorizeCostsDialog({
                 <div className="grid grid-cols-12 gap-4 items-center">
                   {/* Fornitore */}
                   <div className="col-span-4">
-                    <div className="font-semibold text-white text-lg">{cost.fornitore}</div>
+                    <div className="font-semibold text-white text-lg">
+                      {cost.fornitore || 'Fornitore non disponibile'}
+                    </div>
                     {cost.data && (
                       <div className="text-xs text-gray-400 mt-1">Data: {cost.data}</div>
+                    )}
+                    {!cost.fornitore && (
+                      <div className="text-xs text-red-400 mt-1">⚠️ Fornitore non trovato nel file</div>
                     )}
                   </div>
                   

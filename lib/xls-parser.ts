@@ -405,11 +405,61 @@ function parseExcelData(data: any[]): ImportedCost[] {
       }
     }
     
-    const fornitore = (row[finalFornitoreCol || ''] || '').toString().trim();
+    let fornitore = '';
+    if (finalFornitoreCol) {
+      fornitore = (row[finalFornitoreCol] || '').toString().trim();
+    } else {
+      // Se non troviamo la colonna fornitore, prova a cercare in tutte le colonne testuali
+      for (const key of keys) {
+        const val = row[key];
+        if (val && typeof val === 'string' && val.length > 2) {
+          const datePattern = /^\d{1,2}\/\d{1,2}\/\d{2,4}$/;
+          const isNumeric = !isNaN(parseFloat(val.replace(/[^\d.,-]/g, '').replace(',', '.')));
+          // Non è una data, non è un numero, e ha almeno 3 caratteri
+          if (!datePattern.test(val) && !isNumeric && val.length >= 3) {
+            // Verifica che non sia un'etichetta di header comune
+            const lowerVal = val.toLowerCase();
+            if (!lowerVal.includes('importo') && !lowerVal.includes('totale') && 
+                !lowerVal.includes('imponibile') && !lowerVal.includes('data') &&
+                !lowerVal.includes('fattura') && !lowerVal.includes('descrizione')) {
+              fornitore = val.trim();
+              if (!finalFornitoreCol) {
+                finalFornitoreCol = key; // Salva per prossime iterazioni
+                console.log(`Fornitore identificato nella colonna "${key}"`);
+              }
+              break;
+            }
+          }
+        }
+      }
+    }
+    
+    // Se ancora non abbiamo il fornitore, prova con la prima colonna non numerica
+    if (!fornitore || fornitore.length < 2) {
+      for (const key of keys) {
+        if (key === finalImportoCol || key === descrizioneCol || key === dataCol) continue;
+        const val = row[key];
+        if (val && typeof val === 'string' && val.trim().length >= 2) {
+          const datePattern = /^\d{1,2}\/\d{1,2}\/\d{2,4}$/;
+          if (!datePattern.test(val.trim())) {
+            fornitore = val.toString().trim();
+            console.log(`Fornitore trovato in colonna fallback "${key}": "${fornitore}"`);
+            break;
+          }
+        }
+      }
+    }
+    
     const importoStr = (row[finalImportoCol || ''] || '').toString().trim();
     const descrizione = (row[descrizioneCol || ''] || '').toString().trim();
     const dataFattura = (row[dataCol || ''] || '').toString().trim();
     const categoria = (row[categoriaCol || ''] || '').toString().trim();
+    
+    // Log per debug se fornitore è ancora vuoto
+    if (!fornitore || fornitore.length < 2) {
+      console.warn(`⚠️ Riga ${index + 1}: Fornitore non trovato. Righe disponibili:`, Object.keys(row));
+      console.warn(`   Valori riga:`, row);
+    }
     
     // Estrai importo (rimuovi simboli e converti)
     let importo = 0;
