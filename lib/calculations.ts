@@ -1,6 +1,6 @@
 // Servizi di calcolo per Revenue Management
 
-import { CostsData, RevenueData, KPIData, CostAnalysis, HotelData } from './types';
+import { CostsData, RevenueData, KPIData, CostAnalysis, HotelData, CostItem } from './types';
 
 /**
  * Calcola KPI principali per l'hotel

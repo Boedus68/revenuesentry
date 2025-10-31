@@ -1,6 +1,6 @@
 "use client";
 
-import { Recommendation } from '../../../../lib/types';
+import { Recommendation } from '../../../lib/types';
 
 interface RecommendationCardProps {
   recommendation: Recommendation;
