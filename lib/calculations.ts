@@ -13,11 +13,11 @@ export function calculateKPI(
   // Calcola totali spese
   const totaleSpese = calculateTotalCosts(costs);
 
-  // Calcola ricavi totali (ultimo mese)
-  const ultimoMese = revenues[revenues.length - 1];
-  const totaleRicavi = ultimoMese?.entrateTotali || 0;
+  // Calcola ricavi totali (somma di tutti i mesi)
+  const totaleRicavi = revenues.reduce((sum, revenue) => sum + (revenue.entrateTotali || 0), 0);
 
-  // KPI base
+  // KPI base (usiamo l'ultimo mese per occupazione e ADR per i calcoli KPI specifici)
+  const ultimoMese = revenues[revenues.length - 1];
   const camereTotali = hotelData?.camereTotali || 1;
   const occupazione = ultimoMese?.occupazione || 0;
   const adr = ultimoMese?.prezzoMedioCamera || 0;
@@ -25,10 +25,10 @@ export function calculateKPI(
   // RevPAR = ADR × Occupancy Rate
   const revpar = (adr * occupazione) / 100;
 
-  // CPPR = Total Costs / (Occupancy % × Rooms × Days in Month)
-  const giorniMese = 30; // approssimazione
-  const camereOccupate = (camereTotali * occupazione * giorniMese) / 100;
-  const cppr = camereOccupate > 0 ? totaleSpese / camereOccupate : 0;
+  // CPPR = Total Costs / Total Room Nights
+  // Calcola le notti totali da tutti i mesi
+  const nottiTotali = revenues.reduce((sum, revenue) => sum + (revenue.nottiTotali || 0), 0);
+  const cppr = nottiTotali > 0 ? totaleSpese / nottiTotali : 0;
 
   // GOP (Gross Operating Profit) = Revenue - Operating Costs
   const gop = totaleRicavi - totaleSpese;
