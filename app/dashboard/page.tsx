@@ -14,19 +14,41 @@ import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, L
 
 // Helper per calcolare il totale costi di un mese
 const calculateTotalCostsForMonth = (costs: Partial<CostsData>): number => {
+    if (!costs || Object.keys(costs).length === 0) return 0;
+    
     let totale = 0;
-    if (costs.ristorazione) {
-        totale += costs.ristorazione.reduce((sum, item) => sum + (item.importo || 0), 0);
+    
+    // Ristorazione
+    if (costs.ristorazione && Array.isArray(costs.ristorazione)) {
+        const ristorazioneTot = costs.ristorazione.reduce((sum, item) => {
+            const importo = item?.importo || 0;
+            return sum + (typeof importo === 'number' ? importo : parseFloat(importo) || 0);
+        }, 0);
+        totale += ristorazioneTot;
     }
+    
+    // Utenze
     if (costs.utenze) {
-        totale += (costs.utenze.energia?.importo || 0) + (costs.utenze.gas?.importo || 0) + (costs.utenze.acqua?.importo || 0);
+        totale += (costs.utenze.energia?.importo || 0);
+        totale += (costs.utenze.gas?.importo || 0);
+        totale += (costs.utenze.acqua?.importo || 0);
     }
+    
+    // Personale
     if (costs.personale) {
-        totale += (costs.personale.bustePaga || 0) + (costs.personale.sicurezza || 0);
+        totale += (costs.personale.bustePaga || 0);
+        totale += (costs.personale.sicurezza || 0);
     }
-    if (costs.altriCosti) {
-        totale += Object.values(costs.altriCosti).reduce((sum, val) => sum + (val || 0), 0);
+    
+    // Altri costi
+    if (costs.altriCosti && typeof costs.altriCosti === 'object') {
+        const altriCostiTot = Object.values(costs.altriCosti).reduce((sum: number, val: any) => {
+            const numVal = typeof val === 'number' ? val : parseFloat(val) || 0;
+            return sum + numVal;
+        }, 0);
+        totale += altriCostiTot;
     }
+    
     return totale;
 };
 
@@ -286,9 +308,13 @@ const handleSaveCosts = async (e: React.FormEvent) => {
         // Ricalcola analytics con tutti i costi mensili
         await calculateAnalytics(updatedMonthlyCosts, revenues, hotelData || undefined);
         
-        setToastMessage('Dati costi salvati con successo!');
+        const totaleSalvato = calculateTotalCostsForMonth(cleanedCosts);
+        console.log('Costi salvati per il mese', selectedMonth, 'Totale:', totaleSalvato);
+        console.log('Struttura costi salvati:', cleanedCosts);
+        
+        setToastMessage(`Dati costi salvati con successo! Totale: €${totaleSalvato.toLocaleString('it-IT')}`);
         setShowToast(true);
-        setTimeout(() => setShowToast(false), 3000);
+        setTimeout(() => setShowToast(false), 4000);
     } catch (error) {
         console.error("Errore nel salvataggio dei costi:", error);
         setToastMessage("Si è verificato un errore durante il salvataggio.");
@@ -384,30 +410,36 @@ const handleImportCosts = async (importedCosts: any[]) => {
         console.log('Personale:', finalCosts.personale);
         console.log('Altri costi:', finalCosts.altriCosti);
         
-        // Forza update completo dello stato
-        // Prima resetta per forzare re-render
-        setCosts({});
+        // Imposta i costi nello stato in modo sincrono
+        setCosts(finalCosts);
+        console.log('Stato costi impostato immediatamente:', finalCosts);
         
-        // Poi imposta i nuovi valori con un piccolo delay
+        // Verifica dopo un breve delay che lo stato sia stato aggiornato
         setTimeout(() => {
-            setCosts(finalCosts);
-            console.log('Stato costi impostato:', finalCosts);
-        }, 50);
-        
-        // Verifica che lo stato sia stato aggiornato
-        setTimeout(() => {
-            setCosts(current => {
-                console.log('Verifica stato finale:', current);
-                // Se lo stato è vuoto o non aggiornato, forza l'aggiornamento
-                if (!current || Object.keys(current).length === 0 || 
-                    (finalCosts.ristorazione && finalCosts.ristorazione.length > 0 && 
-                     (!current.ristorazione || current.ristorazione.length === 0))) {
-                    console.log('Forzando aggiornamento stato...');
+            // Forza re-render se necessario
+            setCosts(prev => {
+                // Se prev è vuoto o diverso da finalCosts, usa finalCosts
+                if (!prev || Object.keys(prev).length === 0) {
+                    console.log('Stato vuoto rilevato, reimpostando...');
                     return finalCosts;
                 }
-                return current;
+                // Verifica che ristorazione sia presente
+                if (finalCosts.ristorazione && finalCosts.ristorazione.length > 0) {
+                    if (!prev.ristorazione || prev.ristorazione.length !== finalCosts.ristorazione.length) {
+                        console.log('Ristorazione non corrisponde, reimpostando...');
+                        return finalCosts;
+                    }
+                }
+                // Verifica altri costi
+                const prevAltriCostiKeys = Object.keys(prev.altriCosti || {}).length;
+                const finalAltriCostiKeys = Object.keys(finalCosts.altriCosti || {}).length;
+                if (finalAltriCostiKeys > prevAltriCostiKeys) {
+                    console.log('Altri costi non corrispondono, reimpostando...');
+                    return finalCosts;
+                }
+                return prev;
             });
-        }, 150);
+        }, 100);
         
         // Scrolla alla sezione costi per mostrare i dati importati
         setTimeout(() => {
@@ -417,9 +449,14 @@ const handleImportCosts = async (importedCosts: any[]) => {
             }
         }, 200);
         
-        setToastMessage(`✅ Importati ${importedCosts.length} costi! Verifica i dati nel form e clicca "Salva Costi Mese" per completare.`);
+        // Calcola il totale importato per mostrarlo nel messaggio
+        const totaleImportato = calculateTotalCostsForMonth(finalCosts);
+        
+        setToastMessage(`✅ Importati ${importedCosts.length} costi per un totale di €${totaleImportato.toLocaleString('it-IT')}! Verifica i dati nel form e clicca "Salva Costi Mese" per completare.`);
         setShowToast(true);
-        setTimeout(() => setShowToast(false), 5000);
+        setTimeout(() => setShowToast(false), 7000);
+        
+        console.log('Totale costi importati:', totaleImportato);
     } catch (error: any) {
         console.error("Errore nell'importazione:", error);
         console.error("Stack:", error.stack);
