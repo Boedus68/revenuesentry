@@ -590,12 +590,57 @@ function parseExcelData(data: any[]): ImportedCost[] {
     // Genera un ID univoco per ogni costo
     const costId = `${Date.now()}-${index}-${Math.random().toString(36).substring(2, 11)}`;
     
+    // Usa il fornitore trovato o prova a estrarlo dalle altre colonne
+    let finalFornitore = fornitore && fornitore.length >= 2 ? fornitore : '';
+    
+    // Se ancora non abbiamo fornitore, prova a cercare in tutte le colonne della riga
+    if (!finalFornitore || finalFornitore.length < 2) {
+      // Prova tutte le colonne in ordine, escludendo quelle già usate
+      for (const key of keys) {
+        if (key === finalImportoCol || key === descrizioneCol || key === dataCol) continue;
+        const val = row[key];
+        if (val !== undefined && val !== null && val !== '') {
+          const str = val.toString().trim();
+          // Non è vuoto, non è un numero, non è una data
+          if (str.length >= 2) {
+            const datePattern = /^\d{1,2}\/\d{1,2}\/\d{2,4}$/;
+            const isNumeric = !isNaN(parseFloat(str.replace(/[^\d.,-]/g, '').replace(',', '.')));
+            if (!datePattern.test(str) && !isNumeric) {
+              // Verifica che non sia una label di header
+              const lowerStr = str.toLowerCase();
+              if (!lowerStr.includes('importo') && !lowerStr.includes('totale') && 
+                  !lowerStr.includes('imponibile') && !lowerStr.includes('data') &&
+                  !lowerStr.includes('fattura') && !lowerStr.includes('descrizione') &&
+                  !lowerStr.includes('fornitore') && !lowerStr.includes('ragione')) {
+                finalFornitore = str;
+                console.log(`Fornitore trovato in colonna "${key}": "${finalFornitore}"`);
+                if (!finalFornitoreCol) {
+                  finalFornitoreCol = key;
+                }
+                break;
+              }
+            }
+          }
+        }
+      }
+    }
+    
+    // Se ancora non abbiamo fornitore, usa placeholder
+    if (!finalFornitore || finalFornitore.length < 2) {
+      console.error(`❌ ERRORE: Fornitore non trovato per riga ${index + 1}`);
+      console.error(`   Colonne disponibili:`, Object.keys(row));
+      console.error(`   Valori:`, Object.entries(row).map(([k, v]) => `"${k}": "${v}"`).join(', '));
+      finalFornitore = `Fornitore Mancante ${index + 1}`;
+    }
+    
+    console.log(`✓ Costo ${index + 1}: Fornitore="${finalFornitore}", Importo=€${importo.toFixed(2)}`);
+    
     costs.push({
       id: costId,
-      fornitore: fornitore || `Fornitore ${index + 1}`,
+      fornitore: finalFornitore,
       importo: Math.abs(importo), // Usa valore assoluto (le fatture possono essere negative)
       categoria: undefined, // L'utente dovrà categorizzare manualmente
-      descrizione: descrizione || fornitore,
+      descrizione: descrizione || '',
       data: dataFattura,
     });
   });
