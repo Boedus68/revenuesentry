@@ -849,12 +849,19 @@ return (
                                                         }
                                                     });
                                                     
-                                                    // Ordina per mese
+                                                    // Ordina per mese usando il mese completo originale (YYYY-MM)
                                                     chartData.sort((a, b) => {
-                                                        // Converti "MM" in numero per ordinare
-                                                        const monthA = parseInt(a.mese.split('-')[0] || a.mese);
-                                                        const monthB = parseInt(b.mese.split('-')[0] || b.mese);
-                                                        return monthA - monthB;
+                                                        // Trova il mese completo originale per ordinare correttamente
+                                                        const revenueA = revenues.find(r => r.mese.slice(5) === a.mese);
+                                                        const revenueB = revenues.find(r => r.mese.slice(5) === b.mese);
+                                                        
+                                                        const monthCostA = monthlyCosts.find(mc => mc.mese.slice(5) === a.mese);
+                                                        const monthCostB = monthlyCosts.find(mc => mc.mese.slice(5) === b.mese);
+                                                        
+                                                        const fullMonthA = revenueA?.mese || monthCostA?.mese || `2024-${a.mese.padStart(2, '0')}`;
+                                                        const fullMonthB = revenueB?.mese || monthCostB?.mese || `2024-${b.mese.padStart(2, '0')}`;
+                                                        
+                                                        return fullMonthA.localeCompare(fullMonthB);
                                                     });
                                                     
                                                     // Prendi gli ultimi 6 elementi
