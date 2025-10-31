@@ -827,8 +827,9 @@ export function mapImportedCostsToCostsData(costs: ImportedCost[], mese: string)
         // Altri costi
         if (!costsData.altriCosti) costsData.altriCosti = {};
         // Usa un nome più leggibile per la chiave
-        const key = cost.categoria.toLowerCase().replace(/\s+/g, '') || 
-                   cost.fornitore.toLowerCase().replace(/\s+/g, '').substring(0, 20);
+        const key = cost.categoria 
+          ? cost.categoria.toLowerCase().replace(/\s+/g, '')
+          : cost.fornitore.toLowerCase().replace(/\s+/g, '').substring(0, 20);
         costsData.altriCosti[key] = (costsData.altriCosti[key] || 0) + cost.importo;
         break;
     }
