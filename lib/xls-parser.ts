@@ -168,24 +168,85 @@ function parseExcelData(data: any[]): ImportedCost[] {
     categoria: categoriaCol
   });
   
-  // Se non trova importo, cerca la colonna numerica più grande
+  // Se non trova importo, cerca la colonna numerica con valori medi più alti (solitamente imponibile/totale)
   let finalImportoCol = importoCol;
   if (!finalImportoCol) {
-    // Prova a trovare colonne con valori numerici
-    const numericCols = keys.filter(key => {
-      let hasNumeric = false;
-      for (let i = 1; i < Math.min(data.length, 5); i++) {
+    console.log('Colonna importo non trovata tramite nomi, cercando colonna con valori più alti...');
+    
+    // Cerca colonne numeriche e trova quella con valori medi più alti
+    const numericColsWithValues: Array<{key: string, avg: number, max: number, count: number}> = [];
+    
+    keys.forEach(key => {
+      // Salta colonne testuali evidenti
+      const keyLower = key.toLowerCase();
+      if (keyLower.includes('fornitore') || keyLower.includes('ragione') || 
+          keyLower.includes('descrizione') || keyLower.includes('oggetto') || 
+          keyLower.includes('causale') || keyLower.includes('data') ||
+          keyLower.includes('fattura') || keyLower.includes('numero')) {
+        return;
+      }
+      
+      let sum = 0;
+      let count = 0;
+      let max = 0;
+      let min = Infinity;
+      
+      // Analizza le prime 50 righe per statistiche
+      for (let i = 1; i < Math.min(data.length, 50); i++) {
         const val = data[i]?.[key];
-        if (val && !isNaN(parseFloat(val.toString().replace(/[^\d.,-]/g, '').replace(',', '.')))) {
-          hasNumeric = true;
-          break;
+        if (val !== undefined && val !== null && val !== '') {
+          const str = val.toString().trim();
+          // Gestisci formato numerico
+          let cleaned = str.replace(/[€$£]/g, '').trim();
+          if (cleaned.includes(',') && cleaned.includes('.')) {
+            const lastComma = cleaned.lastIndexOf(',');
+            const lastDot = cleaned.lastIndexOf('.');
+            if (lastComma > lastDot) {
+              cleaned = cleaned.replace(/\./g, '').replace(',', '.');
+            } else {
+              cleaned = cleaned.replace(/,/g, '');
+            }
+          } else if (cleaned.includes(',')) {
+            cleaned = cleaned.replace(',', '.');
+          }
+          cleaned = cleaned.replace(/[^\d.-]/g, '');
+          const num = parseFloat(cleaned);
+          
+          if (!isNaN(num) && num !== 0) {
+            const absNum = Math.abs(num);
+            // Ignora valori molto piccoli (probabilmente quantitativi o percentuali)
+            if (absNum >= 1) {
+              sum += absNum;
+              count++;
+              max = Math.max(max, absNum);
+              min = Math.min(min, absNum);
+            }
+          }
         }
       }
-      return hasNumeric;
+      
+      if (count > 0 && max >= 10) { // Filtra colonne con valori troppo piccoli
+        const avg = sum / count;
+        numericColsWithValues.push({
+          key,
+          avg,
+          max,
+          count
+        });
+        console.log(`Colonna "${key}": media=${avg.toFixed(2)}, max=${max.toFixed(2)}, count=${count}`);
+      }
     });
-    if (numericCols.length > 0) {
-      finalImportoCol = numericCols[numericCols.length - 1]; // Prende l'ultima colonna numerica (solitamente l'importo)
+    
+    if (numericColsWithValues.length > 0) {
+      // Ordina per media decrescente e prendi la colonna con valori medi più alti
+      numericColsWithValues.sort((a, b) => b.avg - a.avg);
+      finalImportoCol = numericColsWithValues[0].key;
+      console.log(`✅ Colonna importo identificata automaticamente: "${finalImportoCol}" (media: ${numericColsWithValues[0].avg.toFixed(2)}, max: ${numericColsWithValues[0].max.toFixed(2)})`);
+    } else {
+      console.warn('⚠️ Nessuna colonna numerica valida trovata!');
     }
+  } else {
+    console.log(`✅ Colonna importo trovata tramite nome: "${finalImportoCol}"`);
   }
   
   // Se non trova fornitore, cerca la prima colonna di testo
