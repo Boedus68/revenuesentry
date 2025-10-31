@@ -256,6 +256,54 @@ const handleAltriCostiChange = (id: string, value: string) => {
     }));
 };
 
+// Cancella tutti i costi del mese selezionato
+const handleDeleteMonthCosts = async () => {
+    if (!user || !selectedMonth) {
+        setToastMessage('Seleziona un mese per cancellare i costi.');
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 3000);
+        return;
+    }
+    
+    // Chiedi conferma
+    if (!confirm(`Sei sicuro di voler cancellare tutti i costi di ${new Date(selectedMonth + '-01').toLocaleDateString('it-IT', { month: 'long', year: 'numeric' })}? Questa azione è irreversibile.`)) {
+        return;
+    }
+    
+    setSaving(true);
+    
+    try {
+        const userDocRef = doc(db, "users", user.uid);
+        
+        // Rimuovi il mese dalla lista monthlyCosts
+        const updatedMonthlyCosts = monthlyCosts.filter(mc => mc.mese !== selectedMonth);
+        
+        // Salva in Firestore
+        await setDoc(userDocRef, { monthlyCosts: updatedMonthlyCosts }, { merge: true });
+        setMonthlyCosts(updatedMonthlyCosts);
+        
+        // Resetta i costi e il mese selezionato
+        setCosts({});
+        setSelectedMonth('');
+        setImportedCostsUncategorized([]);
+        setShowCategorizeDialog(false);
+        
+        // Ricalcola analytics con i costi rimanenti
+        await calculateAnalytics(updatedMonthlyCosts, revenues, hotelData || undefined);
+        
+        setToastMessage('Costi del mese cancellati con successo!');
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 3000);
+    } catch (error) {
+        console.error("Errore nella cancellazione dei costi:", error);
+        setToastMessage("Si è verificato un errore durante la cancellazione.");
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 3000);
+    } finally {
+        setSaving(false);
+    }
+};
+
 const handleSaveCosts = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user || !selectedMonth) {
@@ -910,9 +958,24 @@ return (
                                             </div>
                                         )}
                                     </div>
-                                    <button type="submit" disabled={saving} className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-6 rounded-lg transition disabled:bg-gray-600">
-                                        {saving ? 'Salvataggio...' : 'Salva Costi Mese'}
-                                    </button>
+                                    <div className="flex gap-3">
+                                        {(costs && Object.keys(costs).length > 0) || monthlyCosts.some(mc => mc.mese === selectedMonth) ? (
+                                            <button
+                                                type="button"
+                                                onClick={handleDeleteMonthCosts}
+                                                disabled={saving}
+                                                className="bg-red-600 hover:bg-red-500 text-white font-bold py-2 px-4 rounded-lg transition disabled:bg-gray-600 flex items-center gap-2"
+                                            >
+                                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                </svg>
+                                                Cancella Mese
+                                            </button>
+                                        ) : null}
+                                        <button type="submit" disabled={saving} className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-6 rounded-lg transition disabled:bg-gray-600">
+                                            {saving ? 'Salvataggio...' : 'Salva Costi Mese'}
+                                        </button>
+                                    </div>
                                 </div>
 
                         {/* Sezioni Form */}
