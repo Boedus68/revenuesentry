@@ -36,28 +36,71 @@ export function parseXLSFile(file: File): Promise<ImportedCost[]> {
         for (const sheetName of workbook.SheetNames) {
           const worksheet = workbook.Sheets[sheetName];
           
-          // Prova prima con header normalizzato
+          // Prova prima con header normalizzato (ma mantieni anche gli indici colonna)
           let jsonData = XLSX.utils.sheet_to_json(worksheet, { 
             raw: false,
+            defval: '',
+            blankrows: false,
+            range: undefined // Usa tutto il range
+          });
+          
+          console.log(`Foglio "${sheetName}":`, jsonData.length, 'righe');
+          console.log('Prima riga dati (chiavi):', Object.keys(jsonData[0] || {}));
+          
+          // Prova anche con mapping esplicito per colonna H
+          // Converti in formato array per avere accesso agli indici colonna
+          const arrayData = XLSX.utils.sheet_to_json(worksheet, { 
+            header: 1,
             defval: '',
             blankrows: false
           });
           
-          console.log(`Foglio "${sheetName}":`, jsonData.length, 'righe');
+          console.log('Array data (prime 3 righe):', arrayData.slice(0, 3));
           
-          if (jsonData.length === 0) {
-            // Prova senza header (array di array)
-            const arrayData = XLSX.utils.sheet_to_json(worksheet, { 
-              header: 1,
-              defval: '',
-              blankrows: false
-            });
-            
-            if (arrayData.length > 0) {
-              console.log('Formato array rilevato');
-              costs = parseExcelAsArray(arrayData);
+          // Se abbiamo dati in formato array, prova a identificare la colonna H (indice 7)
+          if (arrayData.length > 0) {
+            // Trova la riga header
+            let headerRowIndex = 0;
+            for (let i = 0; i < Math.min(arrayData.length, 5); i++) {
+              const row = arrayData[i];
+              if (Array.isArray(row)) {
+                const rowStr = row.join(' ').toLowerCase();
+                if (rowStr.includes('importo') || rowStr.includes('fornitore') || rowStr.includes('totale')) {
+                  headerRowIndex = i;
+                  break;
+                }
+              }
             }
-          } else {
+            
+            console.log(`Riga header trovata all'indice: ${headerRowIndex}`);
+            
+            // Se c'è una riga header, estrai i nomi delle colonne
+            if (headerRowIndex < arrayData.length && Array.isArray(arrayData[headerRowIndex])) {
+              const headers = arrayData[headerRowIndex] as string[];
+              console.log('Headers trovati:', headers);
+              
+              // Cerca "Fornitore" nell'header
+              const fornitoreColIndex = headers.findIndex(h => 
+                h && (h.toString().toLowerCase().includes('fornitore') || 
+                     h.toString().toLowerCase().includes('ragione'))
+              );
+              
+              // Se non trova, usa la colonna H (indice 7)
+              const finalFornitoreIndex = fornitoreColIndex >= 0 ? fornitoreColIndex : 7;
+              
+              console.log(`Usando colonna indice ${finalFornitoreIndex} come fornitore (H = 7)`);
+              
+              // Estrai dati con mapping esplicito
+              costs = parseExcelDataWithColumnIndex(arrayData, headerRowIndex, finalFornitoreIndex);
+            } else {
+              // Nessun header trovato, usa formato array standard
+              if (jsonData.length === 0) {
+                costs = parseExcelAsArray(arrayData);
+              } else {
+                costs = parseExcelData(jsonData);
+              }
+            }
+          } else if (jsonData.length > 0) {
             costs = parseExcelData(jsonData);
           }
           
@@ -646,6 +689,113 @@ function parseExcelData(data: any[]): ImportedCost[] {
   });
   
   console.log('Costi estratti:', costs.length);
+  
+  return costs;
+}
+
+/**
+ * Parse Excel dati con mapping esplicito colonna fornitore
+ */
+function parseExcelDataWithColumnIndex(arrayData: any[], headerRowIndex: number, fornitoreColIndex: number): ImportedCost[] {
+  const costs: ImportedCost[] = [];
+  
+  if (!Array.isArray(arrayData) || arrayData.length <= headerRowIndex) {
+    return costs;
+  }
+  
+  const headers = arrayData[headerRowIndex] as string[];
+  
+  // Trova indici delle altre colonne importanti
+  const importoColIndex = headers.findIndex(h => 
+    h && (h.toString().toLowerCase().includes('importo') || 
+         h.toString().toLowerCase().includes('imponibile') ||
+         h.toString().toLowerCase().includes('totale'))
+  );
+  
+  const descrizioneColIndex = headers.findIndex(h => 
+    h && h.toString().toLowerCase().includes('descrizione')
+  );
+  
+  const dataColIndex = headers.findIndex(h => 
+    h && (h.toString().toLowerCase().includes('data') || 
+         h.toString().toLowerCase().includes('date'))
+  );
+  
+  console.log(`Mapping colonne: Fornitore=${fornitoreColIndex}, Importo=${importoColIndex}, Descrizione=${descrizioneColIndex}, Data=${dataColIndex}`);
+  
+  // Processa le righe dopo l'header
+  for (let i = headerRowIndex + 1; i < arrayData.length; i++) {
+    const row = arrayData[i];
+    if (!Array.isArray(row)) continue;
+    
+    // Estrai fornitore dalla colonna specificata
+    const fornitore = (row[fornitoreColIndex] || '').toString().trim();
+    
+    // Estrai importo
+    let importo = 0;
+    if (importoColIndex >= 0 && row[importoColIndex]) {
+      const importoStr = row[importoColIndex].toString().trim();
+      let cleaned = importoStr.replace(/[€$£]/g, '').trim();
+      if (cleaned.includes(',') && cleaned.includes('.')) {
+        const lastComma = cleaned.lastIndexOf(',');
+        const lastDot = cleaned.lastIndexOf('.');
+        if (lastComma > lastDot) {
+          cleaned = cleaned.replace(/\./g, '').replace(',', '.');
+        } else {
+          cleaned = cleaned.replace(/,/g, '');
+        }
+      } else if (cleaned.includes(',')) {
+        cleaned = cleaned.replace(',', '.');
+      }
+      cleaned = cleaned.replace(/[^\d.-]/g, '');
+      importo = parseFloat(cleaned) || 0;
+    }
+    
+    // Se importo è zero, prova a cercare in altre colonne numeriche
+    if (importo === 0 || importo < 1) {
+      for (let colIdx = 0; colIdx < row.length; colIdx++) {
+        if (colIdx === fornitoreColIndex || colIdx === descrizioneColIndex) continue;
+        const val = row[colIdx];
+        if (val) {
+          const num = parseFloat(val.toString().replace(/[^\d.,-]/g, '').replace(',', '.'));
+          if (!isNaN(num) && Math.abs(num) >= 1 && Math.abs(num) < 100000) {
+            importo = Math.abs(num);
+            break;
+          }
+        }
+      }
+    }
+    
+    // Salta se non abbiamo importo valido
+    if (importo === 0 || importo < 1 || importo > 100000) {
+      continue;
+    }
+    
+    // Salta se fornitore è vuoto o è un header
+    if (!fornitore || fornitore.length < 2 || 
+        fornitore.toLowerCase().includes('fornitore') ||
+        fornitore.toLowerCase().includes('ragione')) {
+      continue;
+    }
+    
+    const descrizione = (descrizioneColIndex >= 0 ? row[descrizioneColIndex] : '').toString().trim();
+    const dataFattura = (dataColIndex >= 0 ? row[dataColIndex] : '').toString().trim();
+    
+    const costId = `${Date.now()}-${i}-${Math.random().toString(36).substring(2, 11)}`;
+    
+    console.log(`✓ Riga ${i}: Fornitore="${fornitore}" (colonna ${fornitoreColIndex}), Importo=€${importo.toFixed(2)}`);
+    
+    costs.push({
+      id: costId,
+      fornitore: fornitore,
+      importo: importo,
+      categoria: undefined,
+      descrizione: descrizione || '',
+      data: dataFattura,
+    });
+  }
+  
+  console.log(`Costi estratti con mapping colonna H: ${costs.length}`);
   
   return costs;
 }
