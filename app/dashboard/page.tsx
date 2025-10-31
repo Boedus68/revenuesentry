@@ -815,11 +815,51 @@ return (
                                         <div className="bg-gray-800/50 border border-gray-700 rounded-2xl p-6">
                                             <h3 className="text-xl font-semibold text-white mb-4">Ricavi e Spese nel Tempo</h3>
                                             <ResponsiveContainer width="100%" height={300}>
-                                                <LineChart data={revenues.slice(-6).map(r => ({
-                                                    mese: r.mese.slice(5),
-                                                    ricavi: r.entrateTotali,
-                                                    spese: kpi.totaleSpese,
-                                                }))}>
+                                                <LineChart data={(() => {
+                                                    // Combina revenues e monthlyCosts per mese
+                                                    const chartData: Array<{ mese: string; ricavi: number; spese: number }> = [];
+                                                    
+                                                    // Prendi gli ultimi 6 mesi
+                                                    const recentRevenues = revenues.slice(-6);
+                                                    
+                                                    recentRevenues.forEach(revenue => {
+                                                        const monthKey = revenue.mese; // formato "YYYY-MM"
+                                                        const monthCosts = monthlyCosts.find(mc => mc.mese === monthKey);
+                                                        const speseMese = monthCosts ? calculateTotalCostsForMonth(monthCosts.costs) : 0;
+                                                        
+                                                        chartData.push({
+                                                            mese: monthKey.slice(5), // mostra solo "MM" o meglio "MM-YYYY"
+                                                            ricavi: revenue.entrateTotali || 0,
+                                                            spese: speseMese,
+                                                        });
+                                                    });
+                                                    
+                                                    // Se ci sono costi mensili senza ricavi corrispondenti, aggiungili
+                                                    monthlyCosts.forEach(mc => {
+                                                        const monthKey = mc.mese;
+                                                        if (!chartData.find(d => d.mese === monthKey.slice(5))) {
+                                                            const speseMese = calculateTotalCostsForMonth(mc.costs);
+                                                            if (speseMese > 0) {
+                                                                chartData.push({
+                                                                    mese: monthKey.slice(5),
+                                                                    ricavi: 0,
+                                                                    spese: speseMese,
+                                                                });
+                                                            }
+                                                        }
+                                                    });
+                                                    
+                                                    // Ordina per mese
+                                                    chartData.sort((a, b) => {
+                                                        // Converti "MM" in numero per ordinare
+                                                        const monthA = parseInt(a.mese.split('-')[0] || a.mese);
+                                                        const monthB = parseInt(b.mese.split('-')[0] || b.mese);
+                                                        return monthA - monthB;
+                                                    });
+                                                    
+                                                    // Prendi gli ultimi 6 elementi
+                                                    return chartData.slice(-6);
+                                                })()}>
                                                     <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                                                     <XAxis dataKey="mese" stroke="#9CA3AF" />
                                                     <YAxis stroke="#9CA3AF" />

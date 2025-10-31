@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from 'react';
 import { ImportedCost } from '../../../lib/xls-parser';
 
 interface CategorizeCostsDialogProps {
@@ -9,7 +10,7 @@ interface CategorizeCostsDialogProps {
   onConfirm: () => void;
 }
 
-const CATEGORIE = [
+const CATEGORIE_PREDEFINITE = [
   { value: 'Ristorazione', label: 'Ristorazione' },
   { value: 'Utenze - Energia', label: 'Utenze - Energia' },
   { value: 'Utenze - Gas', label: 'Utenze - Gas' },
@@ -32,6 +33,49 @@ export default function CategorizeCostsDialog({
   onClose,
   onConfirm,
 }: CategorizeCostsDialogProps) {
+  const [customCategories, setCustomCategories] = useState<string[]>([]);
+  const [newCategoryInput, setNewCategoryInput] = useState('');
+  const [showNewCategoryInput, setShowNewCategoryInput] = useState(false);
+  
+  // Carica categorie personalizzate da localStorage all'avvio
+  useEffect(() => {
+    const saved = localStorage.getItem('customCategories');
+    if (saved) {
+      try {
+        setCustomCategories(JSON.parse(saved));
+      } catch (e) {
+        console.error('Errore nel caricamento categorie personalizzate:', e);
+      }
+    }
+  }, []);
+  
+  // Salva categorie personalizzate quando cambiano
+  useEffect(() => {
+    if (customCategories.length > 0) {
+      localStorage.setItem('customCategories', JSON.stringify(customCategories));
+    }
+  }, [customCategories]);
+  
+  // Combina categorie predefinite e personalizzate
+  const allCategories = [...CATEGORIE_PREDEFINITE, ...customCategories.map(cat => ({ value: cat, label: cat }))];
+  
+  // Aggiungi nuova categoria personalizzata
+  const handleAddCustomCategory = (costId?: string) => {
+    const trimmed = newCategoryInput.trim();
+    if (trimmed && !allCategories.find(c => c.value.toLowerCase() === trimmed.toLowerCase())) {
+      const updatedCategories = [...customCategories, trimmed];
+      setCustomCategories(updatedCategories);
+      
+      // Se è stata specificata per un costo, applica la categoria
+      if (costId) {
+        onCategorize(costId, trimmed);
+      }
+      
+      setNewCategoryInput('');
+      setShowNewCategoryInput(false);
+    }
+  };
+  
   if (costs.length === 0) return null;
   
   const totalCategorized = costs.filter(c => c.categoria).length;
@@ -123,18 +167,62 @@ export default function CategorizeCostsDialog({
                   
                   {/* Dropdown selezione categoria */}
                   <div className="col-span-3">
-                    <select
-                      value={cost.categoria || ''}
-                      onChange={(e) => onCategorize(cost.id, e.target.value)}
-                      className="w-full bg-gray-700 border-2 border-gray-600 rounded-lg px-3 py-2.5 text-white text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
-                    >
-                      <option value="">Seleziona categoria...</option>
-                      {CATEGORIE.map(cat => (
-                        <option key={cat.value} value={cat.value}>
-                          {cat.label}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="flex gap-2 items-center">
+                      <select
+                        value={cost.categoria || ''}
+                        onChange={(e) => {
+                          if (e.target.value === '__custom__') {
+                            setShowNewCategoryInput(true);
+                          } else {
+                            onCategorize(cost.id, e.target.value);
+                            setShowNewCategoryInput(false);
+                            setNewCategoryInput('');
+                          }
+                        }}
+                        className="flex-1 bg-gray-700 border-2 border-gray-600 rounded-lg px-3 py-2.5 text-white text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+                      >
+                        <option value="">Seleziona categoria...</option>
+                        {allCategories.map(cat => (
+                          <option key={cat.value} value={cat.value}>
+                            {cat.label}
+                          </option>
+                        ))}
+                        <option value="__custom__">➕ Nuova Categoria Personalizzata</option>
+                      </select>
+                      {showNewCategoryInput && (
+                        <div className="flex gap-2 items-center ml-2">
+                          <input
+                            type="text"
+                            value={newCategoryInput}
+                            onChange={(e) => setNewCategoryInput(e.target.value)}
+                            onKeyPress={(e) => {
+                              if (e.key === 'Enter') {
+                                handleAddCustomCategory(cost.id);
+                              }
+                            }}
+                            placeholder="Nome categoria..."
+                            className="bg-gray-700 border-2 border-blue-500 rounded-lg px-3 py-2 text-white text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 w-48"
+                            autoFocus
+                          />
+                          <button
+                            onClick={() => handleAddCustomCategory(cost.id)}
+                            disabled={!newCategoryInput.trim()}
+                            className="bg-blue-600 hover:bg-blue-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-white px-3 py-2 rounded-lg text-sm font-medium transition"
+                          >
+                            Aggiungi
+                          </button>
+                          <button
+                            onClick={() => {
+                              setShowNewCategoryInput(false);
+                              setNewCategoryInput('');
+                            }}
+                            className="bg-gray-600 hover:bg-gray-500 text-white px-3 py-2 rounded-lg text-sm font-medium transition"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
                 
