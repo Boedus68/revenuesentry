@@ -532,13 +532,15 @@ function parseExcelData(data: any[]): ImportedCost[] {
       // Continua comunque, ma logghiamo
     }
     
-    // Determina categoria automatica se non presente
-    let categoriaFinale = categoria || categorizeByDescription(fornitore, descrizione);
+    // NON categorizziamo automaticamente - lasciamo all'utente la scelta
+    // Genera un ID univoco per ogni costo
+    const costId = `${Date.now()}-${index}-${Math.random().toString(36).substring(2, 11)}`;
     
     costs.push({
+      id: costId,
       fornitore: fornitore || `Fornitore ${index + 1}`,
       importo: Math.abs(importo), // Usa valore assoluto (le fatture possono essere negative)
-      categoria: categoriaFinale,
+      categoria: undefined, // L'utente dovrà categorizzare manualmente
       descrizione: descrizione || fornitore,
       data: dataFattura,
     });
@@ -585,10 +587,12 @@ function parseExcelAsArray(data: any[]): ImportedCost[] {
       const importo = parseFloat(importoStr.replace(/[^\d.,-]/g, '').replace(',', '.')) || 0;
       
       if (importo > 0) {
+        const costId = `${Date.now()}-${i}-${Math.random().toString(36).substring(2, 11)}`;
         costs.push({
+          id: costId,
           fornitore: fornitore || `Fornitore ${i}`,
           importo: Math.abs(importo),
-          categoria: categorizeByDescription(fornitore, ''),
+          categoria: undefined, // L'utente dovrà categorizzare manualmente
           descrizione: '',
         });
       }
