@@ -743,8 +743,20 @@ return (
                         </div>
 
                         {selectedMonth ? (
-                            <form onSubmit={handleSaveCosts}>
-                                <div className="flex justify-end mb-6">
+                            <form onSubmit={handleSaveCosts} data-section="costi">
+                                <div className="flex justify-between items-center mb-6">
+                                    <div className="flex items-center gap-2">
+                                        {costs && Object.keys(costs).length > 0 && (
+                                            <div className="flex items-center gap-2 px-4 py-2 bg-blue-500/20 border border-blue-500/50 rounded-lg">
+                                                <svg className="w-5 h-5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                </svg>
+                                                <span className="text-blue-300 text-sm font-semibold">
+                                                    Dati presenti per {new Date(selectedMonth + '-01').toLocaleDateString('it-IT', { month: 'long', year: 'numeric' })}
+                                                </span>
+                                            </div>
+                                        )}
+                                    </div>
                                     <button type="submit" disabled={saving} className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-6 rounded-lg transition disabled:bg-gray-600">
                                         {saving ? 'Salvataggio...' : 'Salva Costi Mese'}
                                     </button>
