@@ -182,7 +182,9 @@ export default function ImportCostsDialog({
               <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4">
                 {Object.entries(
                   importedCosts.reduce((acc, cost) => {
-                    acc[cost.categoria] = (acc[cost.categoria] || 0) + cost.importo;
+                    if (cost.categoria) {
+                      acc[cost.categoria] = (acc[cost.categoria] || 0) + cost.importo;
+                    }
                     return acc;
                   }, {} as Record<string, number>)
                 ).map(([categoria, totale]) => (
