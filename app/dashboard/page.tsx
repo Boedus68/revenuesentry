@@ -11,6 +11,24 @@ import KPICard from './components/KPICard';
 import RecommendationCard from './components/RecommendationCard';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
+// Helper per calcolare il totale costi di un mese
+const calculateTotalCostsForMonth = (costs: Partial<CostsData>): number => {
+    let totale = 0;
+    if (costs.ristorazione) {
+        totale += costs.ristorazione.reduce((sum, item) => sum + (item.importo || 0), 0);
+    }
+    if (costs.utenze) {
+        totale += (costs.utenze.energia?.importo || 0) + (costs.utenze.gas?.importo || 0) + (costs.utenze.acqua?.importo || 0);
+    }
+    if (costs.personale) {
+        totale += (costs.personale.bustePaga || 0) + (costs.personale.sicurezza || 0);
+    }
+    if (costs.altriCosti) {
+        totale += Object.values(costs.altriCosti).reduce((sum, val) => sum + (val || 0), 0);
+    }
+    return totale;
+};
+
 export default function DashboardPage() {
 const [user, setUser] = useState<User | null>(null);
 const [hotelName, setHotelName] = useState('Caricamento...');
