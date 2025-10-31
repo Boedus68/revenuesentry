@@ -396,6 +396,8 @@ function categorizeByDescription(fornitore: string, descrizione: string): string
  * Converte i costi importati nel formato CostsData del sistema
  */
 export function mapImportedCostsToCostsData(costs: ImportedCost[], mese: string): Partial<CostsData> {
+  console.log('Mapping', costs.length, 'costi importati per il mese', mese);
+  
   const costsData: Partial<CostsData> = {
     ristorazione: [],
     utenze: {
@@ -409,6 +411,12 @@ export function mapImportedCostsToCostsData(costs: ImportedCost[], mese: string)
     },
     altriCosti: {},
   };
+  
+  console.log('Costi da processare:', costs.map(c => ({ 
+    fornitore: c.fornitore, 
+    importo: c.importo, 
+    categoria: c.categoria 
+  })));
   
   costs.forEach(cost => {
     switch (cost.categoria) {
@@ -516,11 +524,52 @@ export function mapImportedCostsToCostsData(costs: ImportedCost[], mese: string)
       default:
         // Altri costi
         if (!costsData.altriCosti) costsData.altriCosti = {};
-        const key = cost.fornitore.toLowerCase().replace(/\s+/g, '');
+        // Usa un nome più leggibile per la chiave
+        const key = cost.categoria.toLowerCase().replace(/\s+/g, '') || 
+                   cost.fornitore.toLowerCase().replace(/\s+/g, '').substring(0, 20);
         costsData.altriCosti[key] = (costsData.altriCosti[key] || 0) + cost.importo;
         break;
     }
   });
+  
+  // Pulisci valori vuoti o zero
+  if (costsData.ristorazione && costsData.ristorazione.length === 0) {
+    delete costsData.ristorazione;
+  }
+  
+  // Rimuovi utenze con importo zero
+  if (costsData.utenze) {
+    if (costsData.utenze.energia?.importo === 0) {
+      costsData.utenze.energia = { fornitore: '', importo: 0 };
+    }
+    if (costsData.utenze.gas?.importo === 0) {
+      costsData.utenze.gas = { fornitore: '', importo: 0 };
+    }
+    if (costsData.utenze.acqua?.importo === 0) {
+      costsData.utenze.acqua = { fornitore: '', importo: 0 };
+    }
+  }
+  
+  // Rimuovi personale con valori zero
+  if (costsData.personale) {
+    if (costsData.personale.bustePaga === 0 && costsData.personale.sicurezza === 0) {
+      costsData.personale = { bustePaga: 0, sicurezza: 0 };
+    }
+  }
+  
+  // Rimuovi altri costi con valori zero
+  if (costsData.altriCosti) {
+    Object.keys(costsData.altriCosti).forEach(key => {
+      if (!costsData.altriCosti![key] || costsData.altriCosti![key] === 0) {
+        delete costsData.altriCosti![key];
+      }
+    });
+    if (Object.keys(costsData.altriCosti).length === 0) {
+      costsData.altriCosti = {};
+    }
+  }
+  
+  console.log('Costi mappati finali:', costsData);
   
   return costsData;
 }

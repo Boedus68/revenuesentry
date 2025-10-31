@@ -301,18 +301,27 @@ const handleSaveCosts = async (e: React.FormEvent) => {
 
 // Gestione importazione costi da Excel
 const handleImportCosts = async (importedCosts: any[]) => {
-    if (!selectedMonth || importedCosts.length === 0) return;
+    if (!selectedMonth || importedCosts.length === 0) {
+        setToastMessage('Seleziona un mese o verifica che il file contenga dati validi.');
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 3000);
+        return;
+    }
+    
+    console.log('Importazione costi:', importedCosts.length, 'elementi');
     
     try {
         const { mapImportedCostsToCostsData } = await import('../../lib/xls-parser');
         const importedCostsData = mapImportedCostsToCostsData(importedCosts, selectedMonth);
+        
+        console.log('Costi mappati:', importedCostsData);
         
         // Merge con i costi esistenti (se presenti)
         const mergedCosts: Partial<CostsData> = {
             ristorazione: [
                 ...(costs.ristorazione || []),
                 ...(importedCostsData.ristorazione || [])
-            ],
+            ].filter(item => item && (item.fornitore || item.importo > 0)),
             utenze: {
                 energia: {
                     fornitore: importedCostsData.utenze?.energia?.fornitore || costs.utenze?.energia?.fornitore || '',
@@ -332,27 +341,41 @@ const handleImportCosts = async (importedCosts: any[]) => {
                 sicurezza: (costs.personale?.sicurezza || 0) + (importedCostsData.personale?.sicurezza || 0),
             },
             altriCosti: {
-                ...costs.altriCosti,
+                ...(costs.altriCosti || {}),
             },
         };
         
         // Somma i valori duplicati in altriCosti
         if (importedCostsData.altriCosti) {
             Object.keys(importedCostsData.altriCosti).forEach(key => {
-                mergedCosts.altriCosti![key] = (costs.altriCosti?.[key] || 0) + (importedCostsData.altriCosti![key] || 0);
+                const value = importedCostsData.altriCosti![key];
+                if (value && value > 0) {
+                    mergedCosts.altriCosti![key] = (mergedCosts.altriCosti![key] || 0) + value;
+                }
             });
         }
         
+        console.log('Costi finali dopo merge:', mergedCosts);
+        
+        // Imposta i costi nello stato
         setCosts(mergedCosts);
         
-        setToastMessage(`Importati ${importedCosts.length} costi dal file Excel! Verifica e salva per completare.`);
+        // Scrolla alla sezione costi per mostrare i dati importati
+        const costiSection = document.querySelector('[data-section="costi"]') || 
+                            document.querySelector('form[onsubmit="handleSaveCosts"]');
+        if (costiSection) {
+            costiSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+        
+        setToastMessage(`✅ Importati ${importedCosts.length} costi! Verifica i dati nel form e clicca "Salva Costi Mese" per completare.`);
         setShowToast(true);
-        setTimeout(() => setShowToast(false), 4000);
+        setTimeout(() => setShowToast(false), 5000);
     } catch (error: any) {
         console.error("Errore nell'importazione:", error);
-        setToastMessage(`Errore nell'importazione: ${error.message}`);
+        console.error("Stack:", error.stack);
+        setToastMessage(`❌ Errore nell'importazione: ${error.message || error}`);
         setShowToast(true);
-        setTimeout(() => setShowToast(false), 3000);
+        setTimeout(() => setShowToast(false), 5000);
     }
 };
 

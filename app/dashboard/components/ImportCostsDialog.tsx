@@ -49,9 +49,14 @@ export default function ImportCostsDialog({
   };
 
   const handleConfirm = () => {
-    if (importedCosts.length > 0) {
+    if (importedCosts.length > 0 && selectedMonth) {
+      console.log('Conferma importazione:', importedCosts.length, 'costi');
       onImport(importedCosts);
       handleClose();
+    } else {
+      if (!selectedMonth) {
+        alert('Seleziona prima un mese nella sezione Costi prima di importare.');
+      }
     }
   };
 
