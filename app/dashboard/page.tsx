@@ -62,6 +62,7 @@ const [monthlyCosts, setMonthlyCosts] = useState<MonthlyCostsData[]>([]);
 const [selectedMonth, setSelectedMonth] = useState<string>('');
 const [revenues, setRevenues] = useState<RevenueData[]>([]);
 const [hotelData, setHotelData] = useState<HotelData | null>(null);
+const [importedCostsUncategorized, setImportedCostsUncategorized] = useState<any[]>([]);
 const [showCategorizeDialog, setShowCategorizeDialog] = useState(false);
 const [kpi, setKpi] = useState<KPIData | null>(null);
 const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
