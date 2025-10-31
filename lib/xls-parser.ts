@@ -135,30 +135,76 @@ function parseExcelData(data: any[]): ImportedCost[] {
   
   // Cerca colonne comuni (case insensitive)
   const findColumn = (patterns: string[]) => {
-    const found = keys.find(key => 
-      patterns.some(pattern => 
-        key.toLowerCase().includes(pattern.toLowerCase())
-      )
-    );
-    // Se non trova, prova anche con gli indici A, B, C, etc.
+    // Prima cerca nei nomi delle colonne (chiavi)
+    const found = keys.find(key => {
+      const keyLower = key.toLowerCase().trim();
+      // Rimuovi spazi e caratteri speciali per matching più flessibile
+      const keyNormalized = keyLower.replace(/[_\s-]/g, '');
+      return patterns.some(pattern => {
+        const patternLower = pattern.toLowerCase().trim();
+        const patternNormalized = patternLower.replace(/[_\s-]/g, '');
+        // Match esatto o contiene
+        return keyNormalized === patternNormalized || 
+               keyNormalized.includes(patternNormalized) ||
+               patternNormalized.includes(keyNormalized);
+      });
+    });
+    
+    // Se non trova nei nomi delle colonne, cerca nei valori della prima riga
+    // (potrebbe essere che la prima riga contenga gli header)
     if (!found) {
-      // Cerca nei valori della prima riga
-      for (let i = 0; i < Math.min(keys.length, 10); i++) {
+      for (let i = 0; i < Math.min(keys.length, 15); i++) {
         const key = keys[i];
-        const value = (firstRow[key] || '').toString().toLowerCase();
-        if (patterns.some(pattern => value.includes(pattern.toLowerCase()))) {
-          return key;
+        const value = (firstRow[key] || '').toString().trim().toLowerCase();
+        if (value) {
+          const valueNormalized = value.replace(/[_\s-]/g, '');
+          const foundPattern = patterns.find(pattern => {
+            const patternLower = pattern.toLowerCase().trim();
+            const patternNormalized = patternLower.replace(/[_\s-]/g, '');
+            return valueNormalized === patternNormalized ||
+                   valueNormalized.includes(patternNormalized) ||
+                   patternNormalized.includes(valueNormalized);
+          });
+          if (foundPattern) {
+            console.log(`Colonna trovata tramite valore header: "${key}" con valore "${value}" corrisponde a pattern "${foundPattern}"`);
+            return key;
+          }
         }
       }
     }
+    
+    if (found) {
+      console.log(`Colonna trovata: "${found}" per pattern: ${patterns[0]}`);
+    }
+    
     return found;
   };
   
-  const fornitoreCol = findColumn(['fornitore', 'ragione sociale', 'nome', 'cliente', 'supplier', 'vendor', 'beneficiario', 'denominazione']);
-  const importoCol = findColumn(['importo', 'totale', 'ammontare', 'amount', 'total', 'prezzo', 'price', 'euro', '€', 'valore']);
-  const descrizioneCol = findColumn(['descrizione', 'oggetto', 'causale', 'desc', 'description', 'note', 'dettaglio', 'causale pagamento']);
-  const dataCol = findColumn(['data', 'date', 'data fattura', 'fattura', 'fatt.', 'data documento']);
-  const categoriaCol = findColumn(['categoria', 'tipo', 'category', 'type', 'voce', 'tipo movimento']);
+  // Pattern italiani più comuni per file fatture
+  const fornitoreCol = findColumn([
+    'fornitore', 'ragione sociale', 'ragione_sociale', 'ragionesociale',
+    'nome', 'cliente', 'supplier', 'vendor', 'beneficiario', 'denominazione',
+    'beneficiario pagamento', 'anagrafica', 'azienda', 'società'
+  ]);
+  const importoCol = findColumn([
+    'imponibile', 'totale', 'importo', 'ammontare', 'amount', 'total',
+    'prezzo', 'price', 'euro', '€', 'valore', 'euro totale', 'eurototale',
+    'importo netto', 'netto', 'totale fattura', 'totalefattura',
+    'importo fattura', 'importofattura'
+  ]);
+  const descrizioneCol = findColumn([
+    'descrizione', 'oggetto', 'causale', 'desc', 'description', 'note',
+    'dettaglio', 'causale pagamento', 'causalepagamento', 'voce', 'descrizione pagamento'
+  ]);
+  const dataCol = findColumn([
+    'data', 'date', 'data fattura', 'datafattura', 'fattura', 'fatt.',
+    'data documento', 'datadocumento', 'data emissione', 'dataemissione',
+    'data scadenza', 'datascadenza'
+  ]);
+  const categoriaCol = findColumn([
+    'categoria', 'tipo', 'category', 'type', 'voce', 'tipo movimento',
+    'tipomovimento', 'categoria spesa', 'categoriaspesa'
+  ]);
   
   console.log('Colonne identificate:', {
     fornitore: fornitoreCol,
@@ -308,20 +354,50 @@ function parseExcelData(data: any[]): ImportedCost[] {
     }
   }
   
+  // Verifica se la prima riga è un header (contiene solo label, no numeri)
+  const firstRowIsHeader = (() => {
+    const rowValues = Object.values(data[0] || {});
+    const hasSignificantNumbers = rowValues.some(val => {
+      const str = val?.toString() || '';
+      const num = parseFloat(str.replace(/[^\d.,-]/g, '').replace(',', '.'));
+      return !isNaN(num) && Math.abs(num) > 1; // Numeri significativi (>1)
+    });
+    const hasHeaderKeywords = rowValues.some(v => {
+      const str = (v?.toString() || '').toLowerCase();
+      return str.includes('importo') || str.includes('fornitore') || 
+             str.includes('imponibile') || str.includes('totale') ||
+             str.includes('ragione') || str.includes('descrizione');
+    });
+    return hasHeaderKeywords && !hasSignificantNumbers;
+  })();
+  
+  if (firstRowIsHeader) {
+    console.log('✅ Prima riga identificata come header, verrà saltata');
+  }
+  
   // Processa ogni riga
   data.forEach((row, index) => {
     // Salta righe vuote o header
     if (!row || typeof row !== 'object') return;
     
+    // Se la prima riga è un header, saltala
+    if (index === 0 && firstRowIsHeader) {
+      return;
+    }
+    
     // Se la prima riga contiene solo header testuali senza numeri, saltala
-    if (index === 0) {
+    if (index === 0 && !firstRowIsHeader) {
       const rowValues = Object.values(row);
       const hasNumbers = rowValues.some(val => {
         const str = val?.toString() || '';
         return !isNaN(parseFloat(str.replace(/[^\d.,-]/g, '').replace(',', '.')));
       });
-      if (!hasNumbers && rowValues.some(v => v?.toString().toLowerCase().includes('importo') || 
-          v?.toString().toLowerCase().includes('fornitore'))) {
+      if (!hasNumbers && rowValues.some(v => {
+        const str = (v?.toString() || '').toLowerCase();
+        return str.includes('importo') || str.includes('fornitore') || 
+               str.includes('imponibile') || str.includes('totale');
+      })) {
+        console.log('Prima riga identificata come header (contiene keywords ma no numeri)');
         return; // È una riga header
       }
     }
