@@ -225,7 +225,8 @@ function parseExcelData(data: any[]): ImportedCost[] {
         }
       }
       
-      if (count > 0 && max >= 10) { // Filtra colonne con valori troppo piccoli
+      // Filtra colonne con valori troppo piccoli o troppo grandi (probabilmente errori)
+      if (count > 0 && max >= 10 && max < 1000000 && avg < 100000) {
         const avg = sum / count;
         numericColsWithValues.push({
           key,
@@ -234,6 +235,8 @@ function parseExcelData(data: any[]): ImportedCost[] {
           count
         });
         console.log(`Colonna "${key}": media=${avg.toFixed(2)}, max=${max.toFixed(2)}, count=${count}`);
+      } else if (count > 0) {
+        console.log(`Colonna "${key}" scartata: media=${(sum/count).toFixed(2)}, max=${max.toFixed(2)} (troppo alta/bassa)`);
       }
     });
     
@@ -249,10 +252,59 @@ function parseExcelData(data: any[]): ImportedCost[] {
     console.log(`✅ Colonna importo trovata tramite nome: "${finalImportoCol}"`);
   }
   
-  // Se non trova fornitore, cerca la prima colonna di testo
+  // Se non trova fornitore, cerca la prima colonna di testo (escludi date e numeri)
   let finalFornitoreCol = fornitoreCol;
   if (!finalFornitoreCol && keys.length > 0) {
-    finalFornitoreCol = keys[0]; // Prova con la prima colonna
+    // Cerca colonne con valori testuali (non date, non numeri)
+    for (const key of keys) {
+      // Salta colonne numeriche
+      const keyLower = key.toLowerCase();
+      if (keyLower.includes('importo') || keyLower.includes('totale') || 
+          keyLower.includes('prezzo') || keyLower.includes('quantità') ||
+          keyLower.includes('qty') || keyLower.includes('amount')) {
+        continue;
+      }
+      
+      // Verifica che contenga testo (non solo date)
+      let hasText = false;
+      let hasDateOnly = true;
+      for (let i = 1; i < Math.min(data.length, 10); i++) {
+        const val = data[i]?.[key];
+        if (val !== undefined && val !== null && val !== '') {
+          const str = val.toString().trim();
+          // Verifica se è una data (formato MM/DD/YY o simili)
+          const datePattern = /^\d{1,2}\/\d{1,2}\/\d{2,4}$/;
+          if (datePattern.test(str)) {
+            hasDateOnly = hasDateOnly && true;
+          } else if (str.length > 5 && !/^\d+[,.]?\d*$/.test(str)) {
+            // Ha testo significativo (non solo numeri)
+            hasText = true;
+            hasDateOnly = false;
+          }
+        }
+      }
+      
+      if (hasText || (!hasDateOnly && keys.length < 5)) {
+        finalFornitoreCol = key;
+        console.log(`Colonna fornitore identificata: "${key}"`);
+        break;
+      }
+    }
+    
+    // Se ancora non trovato, usa la prima colonna NON numerica
+    if (!finalFornitoreCol) {
+      for (const key of keys) {
+        const keyLower = key.toLowerCase();
+        if (!keyLower.includes('importo') && !keyLower.includes('totale') && 
+            !keyLower.includes('prezzo') && !keyLower.includes('quantità')) {
+          finalFornitoreCol = key;
+          break;
+        }
+      }
+      if (!finalFornitoreCol && keys.length > 0) {
+        finalFornitoreCol = keys[0];
+      }
+    }
   }
   
   // Processa ogni riga
@@ -357,7 +409,7 @@ function parseExcelData(data: any[]): ImportedCost[] {
         const val = row[key];
         if (val !== undefined && val !== null && val !== '') {
           const num = parseFloat(val.toString().replace(/[^\d.,-]/g, '').replace(',', '.'));
-          if (!isNaN(num) && Math.abs(num) > 1) {
+          if (!isNaN(num) && Math.abs(num) > 1 && Math.abs(num) < 1000000) { // Limite ragionevole
             importo = Math.abs(num);
             break;
           }
@@ -367,6 +419,34 @@ function parseExcelData(data: any[]): ImportedCost[] {
         console.log('Riga saltata - importo non trovato o troppo piccolo:', row);
         return;
       }
+    }
+    
+    // Validazione importo: se è troppo grande, probabilmente è un errore di parsing
+    // Filtra valori sopra 1 milione (probabilmente errore di formato)
+    if (importo > 1000000) {
+      console.warn(`⚠️ Riga ${index + 1}: Importo sospetto (€${importo.toFixed(2)}), potrebbe essere errore di formato. Saltando...`);
+      return; // Salta questa riga
+    }
+    
+    // Valida anche il fornitore: non deve essere una data
+    const datePattern = /^\d{1,2}\/\d{1,2}\/\d{2,4}$/;
+    if (datePattern.test(fornitore.trim())) {
+      console.warn(`⚠️ Riga ${index + 1}: Fornitore sembra essere una data (${fornitore}), cercando colonna corretta...`);
+      // Prova a trovare una colonna testuale migliore
+      for (const key of keys) {
+        const val = row[key];
+        if (val && typeof val === 'string' && val.length > 5 && !datePattern.test(val.trim()) &&
+            !key.toLowerCase().includes('data') && !key.toLowerCase().includes('date')) {
+          const testVal = val.trim();
+          // Verifica che non sia numerico
+          if (isNaN(parseFloat(testVal.replace(/[^\d.,-]/g, '').replace(',', '.')))) {
+            console.log(`  Usando colonna "${key}" come fornitore: "${testVal.substring(0, 30)}"`);
+            // Non cambiamo qui per non rompere il flusso, ma logghiamo
+            break;
+          }
+        }
+      }
+      // Continua comunque, ma logghiamo
     }
     
     // Determina categoria automatica se non presente
