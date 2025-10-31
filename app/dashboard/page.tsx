@@ -356,16 +356,52 @@ const handleImportCosts = async (importedCosts: any[]) => {
         }
         
         console.log('Costi finali dopo merge:', mergedCosts);
+        console.log('Costi esistenti:', costs);
         
-        // Imposta i costi nello stato
-        setCosts(mergedCosts);
+        // Assicurati che la struttura sia completa prima di impostare
+        const finalCosts: Partial<CostsData> = {
+            ...mergedCosts,
+            // Forza struttura completa per ristorazione
+            ristorazione: mergedCosts.ristorazione || [],
+            // Forza struttura completa per utenze
+            utenze: {
+                energia: mergedCosts.utenze?.energia || { fornitore: '', importo: 0 },
+                gas: mergedCosts.utenze?.gas || { fornitore: '', importo: 0 },
+                acqua: mergedCosts.utenze?.acqua || { fornitore: '', importo: 0 },
+            },
+            // Forza struttura completa per personale
+            personale: {
+                bustePaga: mergedCosts.personale?.bustePaga || 0,
+                sicurezza: mergedCosts.personale?.sicurezza || 0,
+            },
+            // Forza struttura completa per altriCosti
+            altriCosti: mergedCosts.altriCosti || {},
+        };
+        
+        console.log('Costi finali da impostare:', finalCosts);
+        console.log('Numero ristorazione items:', finalCosts.ristorazione?.length);
+        console.log('Utenze energia:', finalCosts.utenze?.energia);
+        console.log('Personale:', finalCosts.personale);
+        console.log('Altri costi:', finalCosts.altriCosti);
+        
+        // Imposta i costi nello stato con timeout per forzare re-render
+        setCosts(finalCosts);
+        
+        // Forza re-render dopo un breve delay
+        setTimeout(() => {
+            setCosts(prev => {
+                console.log('Verifica stato dopo setCosts:', prev);
+                return { ...prev, ...finalCosts };
+            });
+        }, 100);
         
         // Scrolla alla sezione costi per mostrare i dati importati
-        const costiSection = document.querySelector('[data-section="costi"]') || 
-                            document.querySelector('form[onsubmit="handleSaveCosts"]');
-        if (costiSection) {
-            costiSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
+        setTimeout(() => {
+            const costiSection = document.querySelector('[data-section="costi"]');
+            if (costiSection) {
+                costiSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }, 200);
         
         setToastMessage(`✅ Importati ${importedCosts.length} costi! Verifica i dati nel form e clicca "Salva Costi Mese" per completare.`);
         setShowToast(true);
