@@ -221,18 +221,67 @@ function parseExcelData(data: any[]): ImportedCost[] {
     // Estrai importo (rimuovi simboli e converti)
     let importo = 0;
     if (importoStr) {
-      const cleaned = importoStr.replace(/[^\d.,-]/g, '').replace(',', '.');
+      // Gestisci diversi formati numerici
+      let cleaned = importoStr.toString().trim();
+      // Rimuovi simboli di valuta ma mantieni segno negativo
+      cleaned = cleaned.replace(/[€$£]/g, '').trim();
+      // Gestisci formato italiano (1.234,56) e inglese (1,234.56)
+      if (cleaned.includes(',') && cleaned.includes('.')) {
+        // Determina quale è il separatore decimale
+        const lastComma = cleaned.lastIndexOf(',');
+        const lastDot = cleaned.lastIndexOf('.');
+        if (lastComma > lastDot) {
+          // Formato italiano: 1.234,56
+          cleaned = cleaned.replace(/\./g, '').replace(',', '.');
+        } else {
+          // Formato inglese: 1,234.56
+          cleaned = cleaned.replace(/,/g, '');
+        }
+      } else if (cleaned.includes(',')) {
+        // Potrebbe essere separatore decimale o migliaia
+        cleaned = cleaned.replace(',', '.');
+      }
+      // Rimuovi tutto tranne numeri, punto e meno
+      cleaned = cleaned.replace(/[^\d.-]/g, '');
       importo = parseFloat(cleaned) || 0;
     }
     
-    // Se ancora non ha importo, prova a cercare in tutte le colonne
-    if (importo === 0 && !finalImportoCol) {
-      for (const key of keys) {
+    // Se ancora non ha importo, cerca in tutte le colonne numeriche (escludi la prima che è solitamente testo)
+    if (importo === 0 || importo < 1) {
+      const numericKeys = keys.filter(key => {
+        // Salta colonne testuali evidenti
+        const keyLower = key.toLowerCase();
+        if (keyLower.includes('fornitore') || keyLower.includes('ragione') || keyLower.includes('descrizione') || 
+            keyLower.includes('oggetto') || keyLower.includes('causale')) {
+          return false;
+        }
+        return true;
+      });
+      
+      for (const key of numericKeys) {
         const val = row[key];
-        if (val) {
-          const num = parseFloat(val.toString().replace(/[^\d.,-]/g, '').replace(',', '.'));
-          if (!isNaN(num) && num > 0) {
-            importo = num;
+        if (val !== undefined && val !== null && val !== '') {
+          let str = val.toString().trim();
+          // Stesso trattamento del valore importo
+          str = str.replace(/[€$£]/g, '').trim();
+          if (str.includes(',') && str.includes('.')) {
+            const lastComma = str.lastIndexOf(',');
+            const lastDot = str.lastIndexOf('.');
+            if (lastComma > lastDot) {
+              str = str.replace(/\./g, '').replace(',', '.');
+            } else {
+              str = str.replace(/,/g, '');
+            }
+          } else if (str.includes(',')) {
+            str = str.replace(',', '.');
+          }
+          str = str.replace(/[^\d.-]/g, '');
+          const num = parseFloat(str);
+          if (!isNaN(num) && Math.abs(num) > 1) { // Ignora valori molto piccoli
+            importo = Math.abs(num);
+            if (!finalImportoCol) {
+              finalImportoCol = key; // Salva quale colonna ha funzionato
+            }
             break;
           }
         }
@@ -240,20 +289,23 @@ function parseExcelData(data: any[]): ImportedCost[] {
     }
     
     // Salta se non ci sono dati essenziali
-    if (importo === 0 && !fornitore) return;
-    if (importo === 0) {
-      // Prova anche valori negativi (uscite)
+    if (importo === 0 || importo < 1) {
+      // Ultimo tentativo: cerca in tutte le colonne tranne quelle testuali
       for (const key of keys) {
+        if (key === finalFornitoreCol || key === descrizioneCol) continue;
         const val = row[key];
-        if (val) {
+        if (val !== undefined && val !== null && val !== '') {
           const num = parseFloat(val.toString().replace(/[^\d.,-]/g, '').replace(',', '.'));
-          if (!isNaN(num) && num !== 0) {
+          if (!isNaN(num) && Math.abs(num) > 1) {
             importo = Math.abs(num);
             break;
           }
         }
       }
-      if (importo === 0) return;
+      if (importo === 0 || importo < 1) {
+        console.log('Riga saltata - importo non trovato o troppo piccolo:', row);
+        return;
+      }
     }
     
     // Determina categoria automatica se non presente

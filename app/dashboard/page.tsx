@@ -384,16 +384,30 @@ const handleImportCosts = async (importedCosts: any[]) => {
         console.log('Personale:', finalCosts.personale);
         console.log('Altri costi:', finalCosts.altriCosti);
         
-        // Imposta i costi nello stato con timeout per forzare re-render
-        setCosts(finalCosts);
+        // Forza update completo dello stato
+        // Prima resetta per forzare re-render
+        setCosts({});
         
-        // Forza re-render dopo un breve delay
+        // Poi imposta i nuovi valori con un piccolo delay
         setTimeout(() => {
-            setCosts(prev => {
-                console.log('Verifica stato dopo setCosts:', prev);
-                return { ...prev, ...finalCosts };
+            setCosts(finalCosts);
+            console.log('Stato costi impostato:', finalCosts);
+        }, 50);
+        
+        // Verifica che lo stato sia stato aggiornato
+        setTimeout(() => {
+            setCosts(current => {
+                console.log('Verifica stato finale:', current);
+                // Se lo stato è vuoto o non aggiornato, forza l'aggiornamento
+                if (!current || Object.keys(current).length === 0 || 
+                    (finalCosts.ristorazione && finalCosts.ristorazione.length > 0 && 
+                     (!current.ristorazione || current.ristorazione.length === 0))) {
+                    console.log('Forzando aggiornamento stato...');
+                    return finalCosts;
+                }
+                return current;
             });
-        }, 100);
+        }, 150);
         
         // Scrolla alla sezione costi per mostrare i dati importati
         setTimeout(() => {
