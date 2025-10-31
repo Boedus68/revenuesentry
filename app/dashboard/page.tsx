@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { onAuthStateChanged, signOut, User } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../../lib/firebase';
-import { CostsData, RevenueData, HotelData, KPIData, Recommendation, CostAnalysis } from '../../lib/types';
+import { CostsData, RevenueData, HotelData, KPIData, Recommendation, CostAnalysis, MonthlyCostsData } from '../../lib/types';
 import KPICard from './components/KPICard';
 import RecommendationCard from './components/RecommendationCard';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
@@ -16,6 +16,8 @@ const [user, setUser] = useState<User | null>(null);
 const [hotelName, setHotelName] = useState('Caricamento...');
 const [activeSection, setActiveSection] = useState('panoramica');
 const [costs, setCosts] = useState<Partial<CostsData>>({});
+const [monthlyCosts, setMonthlyCosts] = useState<MonthlyCostsData[]>([]);
+const [selectedMonth, setSelectedMonth] = useState<string>('');
 const [revenues, setRevenues] = useState<RevenueData[]>([]);
 const [hotelData, setHotelData] = useState<HotelData | null>(null);
 const [kpi, setKpi] = useState<KPIData | null>(null);
@@ -64,9 +66,28 @@ useEffect(() => {
                 if (userDocSnap.exists()) {
                     const userData = userDocSnap.data();
                     setHotelName(userData.hotelName || 'Mio Hotel');
-                    if (userData.costs) {
+                    
+                    // Carica costi mensili (nuova struttura)
+                    if (userData.monthlyCosts && Array.isArray(userData.monthlyCosts)) {
+                        setMonthlyCosts(userData.monthlyCosts);
+                        // Imposta il mese selezionato all'ultimo mese disponibile
+                        if (userData.monthlyCosts.length > 0) {
+                            const lastMonth = userData.monthlyCosts[userData.monthlyCosts.length - 1].mese;
+                            setSelectedMonth(lastMonth);
+                            setCosts(userData.monthlyCosts[userData.monthlyCosts.length - 1].costs);
+                        }
+                    } else if (userData.costs) {
+                        // Migrazione: converte i costi vecchi in formato mensile
+                        const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
+                        const migratedCosts: MonthlyCostsData[] = [{
+                            mese: currentMonth,
+                            costs: userData.costs
+                        }];
+                        setMonthlyCosts(migratedCosts);
+                        setSelectedMonth(currentMonth);
                         setCosts(userData.costs);
                     }
+                    
                     if (userData.revenues) {
                         setRevenues(userData.revenues);
                     }
@@ -75,7 +96,8 @@ useEffect(() => {
                     }
                     
                     // Calcola KPI e raccomandazioni
-                    await calculateAnalytics(userData.costs, userData.revenues, userData.hotelData);
+                    const allCosts = userData.monthlyCosts || userData.costs;
+                    await calculateAnalytics(allCosts, userData.revenues, userData.hotelData);
                 } else {
                     setHotelName('Mio Hotel');
                 }
@@ -99,11 +121,13 @@ useEffect(() => {
 
 // Funzione per calcolare analytics
 const calculateAnalytics = async (
-    currentCosts?: Partial<CostsData>,
+    currentCosts?: Partial<CostsData> | MonthlyCostsData[],
     currentRevenues?: RevenueData[],
     currentHotelData?: HotelData
 ) => {
-    if (!currentCosts || !currentRevenues || currentRevenues.length === 0) {
+    // Se non ci sono né costi né ricavi, non calcolare
+    const hasCosts = Array.isArray(currentCosts) ? currentCosts.length > 0 : (currentCosts && Object.keys(currentCosts).length > 0);
+    if ((!hasCosts && !currentRevenues) || (currentRevenues && currentRevenues.length === 0 && !hasCosts)) {
         return;
     }
 
@@ -189,7 +213,13 @@ const handleAltriCostiChange = (id: string, value: string) => {
 
 const handleSaveCosts = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
+    if (!user || !selectedMonth) {
+        setToastMessage('Seleziona un mese prima di salvare i costi.');
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 3000);
+        return;
+    }
+    
     setSaving(true);
     
     const cleanedCosts = JSON.parse(JSON.stringify(costs));
@@ -207,17 +237,36 @@ const handleSaveCosts = async (e: React.FormEvent) => {
         if (!userDocSnap.exists()) {
             await setDoc(userDocRef, {
                 hotelName: hotelName || 'Mio Hotel',
-                costs: {}
+                monthlyCosts: []
             });
         }
         
-        await setDoc(userDocRef, { costs: cleanedCosts }, { merge: true });
+        // Aggiorna o aggiungi i costi per il mese selezionato
+        const updatedMonthlyCosts = [...monthlyCosts];
+        const existingIndex = updatedMonthlyCosts.findIndex(mc => mc.mese === selectedMonth);
+        
+        const monthlyCostEntry: MonthlyCostsData = {
+            mese: selectedMonth,
+            costs: cleanedCosts
+        };
+        
+        if (existingIndex >= 0) {
+            updatedMonthlyCosts[existingIndex] = monthlyCostEntry;
+        } else {
+            updatedMonthlyCosts.push(monthlyCostEntry);
+        }
+        
+        // Ordina per mese
+        updatedMonthlyCosts.sort((a, b) => a.mese.localeCompare(b.mese));
+        
+        await setDoc(userDocRef, { monthlyCosts: updatedMonthlyCosts }, { merge: true });
+        setMonthlyCosts(updatedMonthlyCosts);
         setCosts(cleanedCosts);
         
-        // Ricalcola analytics
-        await calculateAnalytics(cleanedCosts, revenues, hotelData || undefined);
+        // Ricalcola analytics con tutti i costi mensili
+        await calculateAnalytics(updatedMonthlyCosts, revenues, hotelData || undefined);
         
-        setToastMessage('Dati salvati con successo!');
+        setToastMessage('Dati costi salvati con successo!');
         setShowToast(true);
         setTimeout(() => setShowToast(false), 3000);
     } catch (error) {
@@ -544,13 +593,51 @@ return (
                     </div>
                 )}
                 {activeSection === 'costi' && (
-                    <form onSubmit={handleSaveCosts}>
+                    <div>
                         <div className="flex justify-between items-center mb-6">
                             <h2 className="text-3xl font-bold text-white">Inserimento Costi Mensili</h2>
-                            <button type="submit" disabled={saving} className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-6 rounded-lg transition disabled:bg-gray-600">
-                                {saving ? 'Salvataggio...' : 'Salva Modifiche'}
-                            </button>
+                            <div className="flex gap-4 items-center">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-300 mb-2">Seleziona Mese</label>
+                                    <input
+                                        type="month"
+                                        value={selectedMonth}
+                                        onChange={(e) => {
+                                            const mese = e.target.value;
+                                            setSelectedMonth(mese);
+                                            // Carica i costi del mese selezionato se esistono
+                                            const monthCosts = monthlyCosts.find(mc => mc.mese === mese);
+                                            if (monthCosts) {
+                                                setCosts(monthCosts.costs);
+                                            } else {
+                                                setCosts({});
+                                            }
+                                        }}
+                                        className="bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white"
+                                    />
+                                </div>
+                                <button
+                                    onClick={() => {
+                                        const currentMonth = new Date().toISOString().slice(0, 7);
+                                        if (!monthlyCosts.find(mc => mc.mese === currentMonth)) {
+                                            setSelectedMonth(currentMonth);
+                                            setCosts({});
+                                        }
+                                    }}
+                                    className="bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-4 rounded-lg transition"
+                                >
+                                    Nuovo Mese
+                                </button>
+                            </div>
                         </div>
+
+                        {selectedMonth ? (
+                            <form onSubmit={handleSaveCosts}>
+                                <div className="flex justify-end mb-6">
+                                    <button type="submit" disabled={saving} className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-6 rounded-lg transition disabled:bg-gray-600">
+                                        {saving ? 'Salvataggio...' : 'Salva Costi Mese'}
+                                    </button>
+                                </div>
 
                         {/* Sezioni Form */}
                         <div className="bg-gray-800/50 border border-gray-700 rounded-2xl p-6 mb-6">
@@ -600,6 +687,52 @@ return (
                              </div>
                         </div>
                     </form>
+                        ) : (
+                            <div className="bg-gray-800/50 border border-gray-700 rounded-2xl p-8 text-center">
+                                <p className="text-gray-400 mb-4">Seleziona un mese per inserire i costi.</p>
+                                <button
+                                    onClick={() => {
+                                        const currentMonth = new Date().toISOString().slice(0, 7);
+                                        setSelectedMonth(currentMonth);
+                                        setCosts({});
+                                    }}
+                                    className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-6 rounded-lg transition"
+                                >
+                                    Inizia con il mese corrente
+                                </button>
+                            </div>
+                        )}
+
+                        {/* Lista dei mesi con costi inseriti */}
+                        {monthlyCosts.length > 0 && (
+                            <div className="mt-8">
+                                <h3 className="text-xl font-bold text-white mb-4">Mesi con costi inseriti</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    {monthlyCosts.slice().reverse().map((mc) => (
+                                        <button
+                                            key={mc.mese}
+                                            onClick={() => {
+                                                setSelectedMonth(mc.mese);
+                                                setCosts(mc.costs);
+                                            }}
+                                            className={`bg-gray-800/50 border-2 rounded-xl p-4 text-left transition ${
+                                                selectedMonth === mc.mese 
+                                                    ? 'border-blue-500 bg-blue-500/10' 
+                                                    : 'border-gray-700 hover:border-gray-600'
+                                            }`}
+                                        >
+                                            <div className="font-semibold text-white">
+                                                {new Date(mc.mese + '-01').toLocaleDateString('it-IT', { month: 'long', year: 'numeric' })}
+                                            </div>
+                                            <div className="text-sm text-gray-400 mt-1">
+                                                Totale: €{calculateTotalCostsForMonth(mc.costs).toLocaleString('it-IT')}
+                                            </div>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 )}
                 {activeSection === 'ricavi' && (
                     <div>

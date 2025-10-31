@@ -43,6 +43,12 @@ export interface RevenueData {
   ricaviServiziAggiuntivi?: number;
 }
 
+// Dati Costi (mensili)
+export interface MonthlyCostsData {
+  mese: string; // formato "YYYY-MM"
+  costs: Partial<CostsData>;
+}
+
 // KPI Calcolati
 export interface KPIData {
   revpar: number; // Revenue Per Available Room

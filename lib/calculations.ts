@@ -1,17 +1,53 @@
 // Servizi di calcolo per Revenue Management
 
-import { CostsData, RevenueData, KPIData, CostAnalysis, HotelData, CostItem } from './types';
+import { CostsData, RevenueData, KPIData, CostAnalysis, HotelData, CostItem, MonthlyCostsData } from './types';
 
 /**
  * Calcola KPI principali per l'hotel
  */
 export function calculateKPI(
-  costs: Partial<CostsData>,
+  costs: Partial<CostsData> | MonthlyCostsData[],
   revenues: RevenueData[],
   hotelData?: HotelData
 ): KPIData {
+  // Se costs è un array di MonthlyCostsData, somma tutti i costi
+  let totalCostsData: Partial<CostsData> = {};
+  if (Array.isArray(costs)) {
+    // Somma i costi di tutti i mesi
+    costs.forEach(monthlyCost => {
+      const monthCosts = monthlyCost.costs;
+      // Ristorazione: somma tutti gli array
+      if (monthCosts.ristorazione) {
+        if (!totalCostsData.ristorazione) totalCostsData.ristorazione = [];
+        totalCostsData.ristorazione = [...(totalCostsData.ristorazione || []), ...monthCosts.ristorazione];
+      }
+      // Utenze: somma i valori
+      if (monthCosts.utenze) {
+        if (!totalCostsData.utenze) totalCostsData.utenze = { energia: { fornitore: '', importo: 0 }, gas: { fornitore: '', importo: 0 }, acqua: { fornitore: '', importo: 0 } };
+        totalCostsData.utenze.energia.importo = (totalCostsData.utenze.energia.importo || 0) + (monthCosts.utenze.energia?.importo || 0);
+        totalCostsData.utenze.gas.importo = (totalCostsData.utenze.gas.importo || 0) + (monthCosts.utenze.gas?.importo || 0);
+        totalCostsData.utenze.acqua.importo = (totalCostsData.utenze.acqua.importo || 0) + (monthCosts.utenze.acqua?.importo || 0);
+      }
+      // Personale: somma i valori
+      if (monthCosts.personale) {
+        if (!totalCostsData.personale) totalCostsData.personale = { bustePaga: 0, sicurezza: 0 };
+        totalCostsData.personale.bustePaga = (totalCostsData.personale.bustePaga || 0) + (monthCosts.personale.bustePaga || 0);
+        totalCostsData.personale.sicurezza = (totalCostsData.personale.sicurezza || 0) + (monthCosts.personale.sicurezza || 0);
+      }
+      // Altri costi: somma i valori
+      if (monthCosts.altriCosti) {
+        if (!totalCostsData.altriCosti) totalCostsData.altriCosti = {};
+        Object.keys(monthCosts.altriCosti).forEach(key => {
+          totalCostsData.altriCosti![key] = (totalCostsData.altriCosti![key] || 0) + (monthCosts.altriCosti![key] || 0);
+        });
+      }
+    });
+  } else {
+    totalCostsData = costs;
+  }
+  
   // Calcola totali spese
-  const totaleSpese = calculateTotalCosts(costs);
+  const totaleSpese = calculateTotalCosts(totalCostsData);
 
   // Calcola ricavi totali (somma di tutti i mesi)
   const totaleRicavi = revenues.reduce((sum, revenue) => sum + (revenue.entrateTotali || 0), 0);
