@@ -418,7 +418,15 @@ export function mapImportedCostsToCostsData(costs: ImportedCost[], mese: string)
     categoria: c.categoria 
   })));
   
-  costs.forEach(cost => {
+  console.log('Inizio mapping costi...');
+  
+  costs.forEach((cost, index) => {
+    console.log(`Processando costo ${index + 1}/${costs.length}:`, {
+      fornitore: cost.fornitore,
+      importo: cost.importo,
+      categoria: cost.categoria
+    });
+    
     switch (cost.categoria) {
       case 'Ristorazione':
         if (!costsData.ristorazione) costsData.ristorazione = [];
@@ -426,32 +434,45 @@ export function mapImportedCostsToCostsData(costs: ImportedCost[], mese: string)
           fornitore: cost.fornitore,
           importo: cost.importo,
         });
+        console.log(`Aggiunto a ristorazione. Totale items: ${costsData.ristorazione.length}`);
         break;
         
       case 'Utenze - Energia':
         if (costsData.utenze) {
-          costsData.utenze.energia = {
-            fornitore: costsData.utenze.energia?.fornitore || cost.fornitore,
-            importo: (costsData.utenze.energia?.importo || 0) + cost.importo,
-          };
+          if (!costsData.utenze.energia || costsData.utenze.energia.importo === 0) {
+            costsData.utenze.energia = { fornitore: cost.fornitore, importo: 0 };
+          }
+          costsData.utenze.energia.importo += cost.importo;
+          if (!costsData.utenze.energia.fornitore || costsData.utenze.energia.fornitore === '') {
+            costsData.utenze.energia.fornitore = cost.fornitore;
+          }
+          console.log(`Aggiunto a utenze energia. Totale: ${costsData.utenze.energia.importo}`);
         }
         break;
         
       case 'Utenze - Gas':
         if (costsData.utenze) {
-          costsData.utenze.gas = {
-            fornitore: costsData.utenze.gas?.fornitore || cost.fornitore,
-            importo: (costsData.utenze.gas?.importo || 0) + cost.importo,
-          };
+          if (!costsData.utenze.gas || costsData.utenze.gas.importo === 0) {
+            costsData.utenze.gas = { fornitore: cost.fornitore, importo: 0 };
+          }
+          costsData.utenze.gas.importo += cost.importo;
+          if (!costsData.utenze.gas.fornitore || costsData.utenze.gas.fornitore === '') {
+            costsData.utenze.gas.fornitore = cost.fornitore;
+          }
+          console.log(`Aggiunto a utenze gas. Totale: ${costsData.utenze.gas.importo}`);
         }
         break;
         
       case 'Utenze - Acqua':
         if (costsData.utenze) {
-          costsData.utenze.acqua = {
-            fornitore: costsData.utenze.acqua?.fornitore || cost.fornitore,
-            importo: (costsData.utenze.acqua?.importo || 0) + cost.importo,
-          };
+          if (!costsData.utenze.acqua || costsData.utenze.acqua.importo === 0) {
+            costsData.utenze.acqua = { fornitore: cost.fornitore, importo: 0 };
+          }
+          costsData.utenze.acqua.importo += cost.importo;
+          if (!costsData.utenze.acqua.fornitore || costsData.utenze.acqua.fornitore === '') {
+            costsData.utenze.acqua.fornitore = cost.fornitore;
+          }
+          console.log(`Aggiunto a utenze acqua. Totale: ${costsData.utenze.acqua.importo}`);
         }
         break;
         
@@ -470,6 +491,7 @@ export function mapImportedCostsToCostsData(costs: ImportedCost[], mese: string)
       case 'Pulizie':
         if (!costsData.altriCosti) costsData.altriCosti = {};
         costsData.altriCosti.pulizie = (costsData.altriCosti.pulizie || 0) + cost.importo;
+        console.log(`Aggiunto a pulizie. Totale: ${costsData.altriCosti.pulizie}`);
         break;
         
       case 'Manutenzione':
