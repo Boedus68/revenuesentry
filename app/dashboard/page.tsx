@@ -201,6 +201,16 @@ const handleSaveCosts = async (e: React.FormEvent) => {
 
     try {
         const userDocRef = doc(db, "users", user.uid);
+        
+        // Verifica che il documento esista, altrimenti crealo
+        const userDocSnap = await getDoc(userDocRef);
+        if (!userDocSnap.exists()) {
+            await setDoc(userDocRef, {
+                hotelName: hotelName || 'Mio Hotel',
+                costs: {}
+            });
+        }
+        
         await setDoc(userDocRef, { costs: cleanedCosts }, { merge: true });
         setCosts(cleanedCosts);
         
