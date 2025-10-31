@@ -9,6 +9,7 @@ import { auth, db } from '../../lib/firebase';
 import { CostsData, RevenueData, HotelData, KPIData, Recommendation, CostAnalysis, MonthlyCostsData } from '../../lib/types';
 import KPICard from './components/KPICard';
 import RecommendationCard from './components/RecommendationCard';
+import ImportCostsDialog from './components/ImportCostsDialog';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
 // Helper per calcolare il totale costi di un mese
@@ -47,6 +48,7 @@ const [saving, setSaving] = useState(false);
 const [analyzing, setAnalyzing] = useState(false);
 const [showToast, setShowToast] = useState(false);
 const [toastMessage, setToastMessage] = useState('');
+const [showImportDialog, setShowImportDialog] = useState(false);
 const router = useRouter();
 
 // Lista di altri costi per generare il form dinamicamente
@@ -294,6 +296,63 @@ const handleSaveCosts = async (e: React.FormEvent) => {
         setTimeout(() => setShowToast(false), 3000);
     } finally {
         setSaving(false);
+    }
+};
+
+// Gestione importazione costi da Excel
+const handleImportCosts = async (importedCosts: any[]) => {
+    if (!selectedMonth || importedCosts.length === 0) return;
+    
+    try {
+        const { mapImportedCostsToCostsData } = await import('../../lib/xls-parser');
+        const importedCostsData = mapImportedCostsToCostsData(importedCosts, selectedMonth);
+        
+        // Merge con i costi esistenti (se presenti)
+        const mergedCosts: Partial<CostsData> = {
+            ristorazione: [
+                ...(costs.ristorazione || []),
+                ...(importedCostsData.ristorazione || [])
+            ],
+            utenze: {
+                energia: {
+                    fornitore: importedCostsData.utenze?.energia?.fornitore || costs.utenze?.energia?.fornitore || '',
+                    importo: (costs.utenze?.energia?.importo || 0) + (importedCostsData.utenze?.energia?.importo || 0),
+                },
+                gas: {
+                    fornitore: importedCostsData.utenze?.gas?.fornitore || costs.utenze?.gas?.fornitore || '',
+                    importo: (costs.utenze?.gas?.importo || 0) + (importedCostsData.utenze?.gas?.importo || 0),
+                },
+                acqua: {
+                    fornitore: importedCostsData.utenze?.acqua?.fornitore || costs.utenze?.acqua?.fornitore || '',
+                    importo: (costs.utenze?.acqua?.importo || 0) + (importedCostsData.utenze?.acqua?.importo || 0),
+                },
+            },
+            personale: {
+                bustePaga: (costs.personale?.bustePaga || 0) + (importedCostsData.personale?.bustePaga || 0),
+                sicurezza: (costs.personale?.sicurezza || 0) + (importedCostsData.personale?.sicurezza || 0),
+            },
+            altriCosti: {
+                ...costs.altriCosti,
+            },
+        };
+        
+        // Somma i valori duplicati in altriCosti
+        if (importedCostsData.altriCosti) {
+            Object.keys(importedCostsData.altriCosti).forEach(key => {
+                mergedCosts.altriCosti![key] = (costs.altriCosti?.[key] || 0) + (importedCostsData.altriCosti![key] || 0);
+            });
+        }
+        
+        setCosts(mergedCosts);
+        
+        setToastMessage(`Importati ${importedCosts.length} costi dal file Excel! Verifica e salva per completare.`);
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 4000);
+    } catch (error: any) {
+        console.error("Errore nell'importazione:", error);
+        setToastMessage(`Errore nell'importazione: ${error.message}`);
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 3000);
     }
 };
 
@@ -645,6 +704,17 @@ return (
                                     className="bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-4 rounded-lg transition"
                                 >
                                     Nuovo Mese
+                                </button>
+                                <button
+                                    onClick={() => setShowImportDialog(true)}
+                                    disabled={!selectedMonth}
+                                    className="bg-purple-600 hover:bg-purple-500 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded-lg transition flex items-center gap-2"
+                                    title={!selectedMonth ? "Seleziona prima un mese" : "Importa costi da file Excel"}
+                                >
+                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                                    </svg>
+                                    Importa da Excel
                                 </button>
                             </div>
                         </div>
@@ -1104,11 +1174,19 @@ return (
         {/* Toast */}
         {showToast && (
             <div className={`fixed bottom-8 right-8 py-3 px-6 rounded-lg shadow-lg z-50 ${
-                toastMessage.includes('successo') ? 'bg-green-500' : 'bg-red-500'
+                toastMessage.includes('successo') || toastMessage.includes('Importati') ? 'bg-green-500' : 'bg-red-500'
             } text-white`}>
                 {toastMessage || 'Dati salvati con successo!'}
             </div>
         )}
+
+        {/* Import Dialog */}
+        <ImportCostsDialog
+            isOpen={showImportDialog}
+            onClose={() => setShowImportDialog(false)}
+            onImport={handleImportCosts}
+            selectedMonth={selectedMonth}
+        />
     </div>
 );
 
