@@ -59,28 +59,42 @@ const altriCostiFields = useMemo(() => [
 ], []);
 
 useEffect(() => {
+    let isMounted = true;
+    
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+        if (!isMounted) return;
+        
         if (currentUser) {
             setUser(currentUser);
-            const userDocRef = doc(db, "users", currentUser.uid);
-            const userDocSnap = await getDoc(userDocRef);
+            try {
+                const userDocRef = doc(db, "users", currentUser.uid);
+                const userDocSnap = await getDoc(userDocRef);
 
-            if (userDocSnap.exists()) {
-                const userData = userDocSnap.data();
-                setHotelName(userData.hotelName || 'Mio Hotel');
-                if (userData.costs) {
-                    setCosts(userData.costs);
+                if (userDocSnap.exists()) {
+                    const userData = userDocSnap.data();
+                    setHotelName(userData.hotelName || 'Mio Hotel');
+                    if (userData.costs) {
+                        setCosts(userData.costs);
+                    }
+                } else {
+                    setHotelName('Mio Hotel');
                 }
-            } else {
-                setHotelName('Hotel non trovato');
+            } catch (error) {
+                console.error("Errore nel caricamento dati utente:", error);
+                setHotelName('Mio Hotel');
+            } finally {
+                setLoading(false);
             }
-            setLoading(false);
         } else {
+            setLoading(false);
             router.push('/login');
         }
     });
 
-    return () => unsubscribe();
+    return () => {
+        isMounted = false;
+        unsubscribe();
+    };
 }, [router]);
 
 const handleLogout = async () => {

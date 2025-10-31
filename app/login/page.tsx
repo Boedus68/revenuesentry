@@ -25,8 +25,11 @@ const handleLogin = async (e: React.FormEvent) => {
     }
 
     try {
-        await signInWithEmailAndPassword(auth, email, password);
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        // Aspetta che l'autenticazione sia completamente processata
+        await new Promise(resolve => setTimeout(resolve, 100));
         router.push('/dashboard');
+        router.refresh();
     } catch (err: any) {
         if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found') {
             setError('Email o password non corretti. Riprova.');
