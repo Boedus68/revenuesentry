@@ -20,20 +20,85 @@ export function parseXLSFile(file: File): Promise<ImportedCost[]> {
     reader.onload = (e) => {
       try {
         const data = e.target?.result;
-        const workbook = XLSX.read(data, { type: 'binary' });
+        const workbook = XLSX.read(data, { 
+          type: 'binary',
+          cellDates: true,
+          cellNF: false,
+          cellText: false
+        });
         
-        // Prova a leggere il primo foglio
-        const firstSheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[firstSheetName];
+        console.log('File Excel letto. Fogli:', workbook.SheetNames);
         
-        // Converti in JSON
-        const jsonData = XLSX.utils.sheet_to_json(worksheet, { raw: false });
+        // Prova a leggere tutti i fogli fino a trovare dati
+        let costs: ImportedCost[] = [];
         
-        // Parse i dati
-        const costs = parseExcelData(jsonData);
+        for (const sheetName of workbook.SheetNames) {
+          const worksheet = workbook.Sheets[sheetName];
+          
+          // Prova prima con header normalizzato
+          let jsonData = XLSX.utils.sheet_to_json(worksheet, { 
+            raw: false,
+            defval: '',
+            blankrows: false
+          });
+          
+          console.log(`Foglio "${sheetName}":`, jsonData.length, 'righe');
+          
+          if (jsonData.length === 0) {
+            // Prova senza header (array di array)
+            const arrayData = XLSX.utils.sheet_to_json(worksheet, { 
+              header: 1,
+              defval: '',
+              blankrows: false
+            });
+            
+            if (arrayData.length > 0) {
+              console.log('Formato array rilevato');
+              costs = parseExcelAsArray(arrayData);
+            }
+          } else {
+            costs = parseExcelData(jsonData);
+          }
+          
+          // Se trova costi, interrompi
+          if (costs.length > 0) {
+            console.log(`Trovati ${costs.length} costi nel foglio "${sheetName}"`);
+            break;
+          }
+        }
+        
+        if (costs.length === 0) {
+          // Ultimo tentativo: prova con tutte le opzioni di parsing
+          const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+          
+          // Prova con range dinamico
+          const range = XLSX.utils.decode_range(firstSheet['!ref'] || 'A1:Z100');
+          console.log('Range foglio:', range);
+          
+          // Prova diversi formati
+          const formats = [
+            { header: 1, raw: false },
+            { header: 0, raw: false },
+            { header: 'A', raw: false },
+          ];
+          
+          for (const format of formats) {
+            try {
+              const testData = XLSX.utils.sheet_to_json(firstSheet, format as any);
+              if (Array.isArray(testData) && testData.length > 0) {
+                costs = parseExcelData(testData);
+                if (costs.length > 0) break;
+              }
+            } catch (e) {
+              // Continua
+            }
+          }
+        }
+        
         resolve(costs);
-      } catch (error) {
-        reject(new Error(`Errore nel parsing del file: ${error}`));
+      } catch (error: any) {
+        console.error('Errore parsing:', error);
+        reject(new Error(`Errore nel parsing del file: ${error.message || error}`));
       }
     };
     
@@ -49,45 +114,147 @@ function parseExcelData(data: any[]): ImportedCost[] {
   const costs: ImportedCost[] = [];
   
   if (!data || data.length === 0) {
+    console.warn('Nessun dato trovato nel file Excel');
     return costs;
   }
+  
+  console.log('Dati Excel ricevuti:', data.length, 'righe');
+  console.log('Prima riga:', data[0]);
   
   // Trova le colonne chiave analizzando l'header
   const firstRow = data[0] || {};
   const keys = Object.keys(firstRow);
   
+  console.log('Colonne trovate:', keys);
+  
+  // Se non ci sono chiavi nominate, prova a usare gli indici (A, B, C, etc.)
+  if (keys.length === 0 && Array.isArray(data)) {
+    // Prova a leggere come array di array
+    return parseExcelAsArray(data);
+  }
+  
   // Cerca colonne comuni (case insensitive)
   const findColumn = (patterns: string[]) => {
-    return keys.find(key => 
+    const found = keys.find(key => 
       patterns.some(pattern => 
         key.toLowerCase().includes(pattern.toLowerCase())
       )
     );
+    // Se non trova, prova anche con gli indici A, B, C, etc.
+    if (!found) {
+      // Cerca nei valori della prima riga
+      for (let i = 0; i < Math.min(keys.length, 10); i++) {
+        const key = keys[i];
+        const value = (firstRow[key] || '').toString().toLowerCase();
+        if (patterns.some(pattern => value.includes(pattern.toLowerCase()))) {
+          return key;
+        }
+      }
+    }
+    return found;
   };
   
-  const fornitoreCol = findColumn(['fornitore', 'ragione sociale', 'nome', 'cliente', 'supplier', 'vendor']);
-  const importoCol = findColumn(['importo', 'totale', 'ammontare', 'amount', 'total', 'prezzo', 'price']);
-  const descrizioneCol = findColumn(['descrizione', 'oggetto', 'causale', 'desc', 'description', 'note', 'note']);
-  const dataCol = findColumn(['data', 'date', 'data fattura', 'fattura', 'fatt.']);
-  const categoriaCol = findColumn(['categoria', 'tipo', 'category', 'type', 'voce']);
+  const fornitoreCol = findColumn(['fornitore', 'ragione sociale', 'nome', 'cliente', 'supplier', 'vendor', 'beneficiario', 'denominazione']);
+  const importoCol = findColumn(['importo', 'totale', 'ammontare', 'amount', 'total', 'prezzo', 'price', 'euro', '€', 'valore']);
+  const descrizioneCol = findColumn(['descrizione', 'oggetto', 'causale', 'desc', 'description', 'note', 'dettaglio', 'causale pagamento']);
+  const dataCol = findColumn(['data', 'date', 'data fattura', 'fattura', 'fatt.', 'data documento']);
+  const categoriaCol = findColumn(['categoria', 'tipo', 'category', 'type', 'voce', 'tipo movimento']);
+  
+  console.log('Colonne identificate:', {
+    fornitore: fornitoreCol,
+    importo: importoCol,
+    descrizione: descrizioneCol,
+    data: dataCol,
+    categoria: categoriaCol
+  });
+  
+  // Se non trova importo, cerca la colonna numerica più grande
+  let finalImportoCol = importoCol;
+  if (!finalImportoCol) {
+    // Prova a trovare colonne con valori numerici
+    const numericCols = keys.filter(key => {
+      let hasNumeric = false;
+      for (let i = 1; i < Math.min(data.length, 5); i++) {
+        const val = data[i]?.[key];
+        if (val && !isNaN(parseFloat(val.toString().replace(/[^\d.,-]/g, '').replace(',', '.')))) {
+          hasNumeric = true;
+          break;
+        }
+      }
+      return hasNumeric;
+    });
+    if (numericCols.length > 0) {
+      finalImportoCol = numericCols[numericCols.length - 1]; // Prende l'ultima colonna numerica (solitamente l'importo)
+    }
+  }
+  
+  // Se non trova fornitore, cerca la prima colonna di testo
+  let finalFornitoreCol = fornitoreCol;
+  if (!finalFornitoreCol && keys.length > 0) {
+    finalFornitoreCol = keys[0]; // Prova con la prima colonna
+  }
   
   // Processa ogni riga
   data.forEach((row, index) => {
     // Salta righe vuote o header
     if (!row || typeof row !== 'object') return;
     
-    const fornitore = (row[fornitoreCol || ''] || '').toString().trim();
-    const importoStr = (row[importoCol || ''] || '').toString().trim();
+    // Se la prima riga contiene solo header testuali senza numeri, saltala
+    if (index === 0) {
+      const rowValues = Object.values(row);
+      const hasNumbers = rowValues.some(val => {
+        const str = val?.toString() || '';
+        return !isNaN(parseFloat(str.replace(/[^\d.,-]/g, '').replace(',', '.')));
+      });
+      if (!hasNumbers && rowValues.some(v => v?.toString().toLowerCase().includes('importo') || 
+          v?.toString().toLowerCase().includes('fornitore'))) {
+        return; // È una riga header
+      }
+    }
+    
+    const fornitore = (row[finalFornitoreCol || ''] || '').toString().trim();
+    const importoStr = (row[finalImportoCol || ''] || '').toString().trim();
     const descrizione = (row[descrizioneCol || ''] || '').toString().trim();
     const dataFattura = (row[dataCol || ''] || '').toString().trim();
     const categoria = (row[categoriaCol || ''] || '').toString().trim();
     
     // Estrai importo (rimuovi simboli e converti)
-    const importo = parseFloat(importoStr.replace(/[^\d.,-]/g, '').replace(',', '.')) || 0;
+    let importo = 0;
+    if (importoStr) {
+      const cleaned = importoStr.replace(/[^\d.,-]/g, '').replace(',', '.');
+      importo = parseFloat(cleaned) || 0;
+    }
+    
+    // Se ancora non ha importo, prova a cercare in tutte le colonne
+    if (importo === 0 && !finalImportoCol) {
+      for (const key of keys) {
+        const val = row[key];
+        if (val) {
+          const num = parseFloat(val.toString().replace(/[^\d.,-]/g, '').replace(',', '.'));
+          if (!isNaN(num) && num > 0) {
+            importo = num;
+            break;
+          }
+        }
+      }
+    }
     
     // Salta se non ci sono dati essenziali
-    if (!fornitore && importo === 0) return;
-    if (importo === 0) return;
+    if (importo === 0 && !fornitore) return;
+    if (importo === 0) {
+      // Prova anche valori negativi (uscite)
+      for (const key of keys) {
+        const val = row[key];
+        if (val) {
+          const num = parseFloat(val.toString().replace(/[^\d.,-]/g, '').replace(',', '.'));
+          if (!isNaN(num) && num !== 0) {
+            importo = Math.abs(num);
+            break;
+          }
+        }
+      }
+      if (importo === 0) return;
+    }
     
     // Determina categoria automatica se non presente
     let categoriaFinale = categoria || categorizeByDescription(fornitore, descrizione);
@@ -96,10 +263,61 @@ function parseExcelData(data: any[]): ImportedCost[] {
       fornitore: fornitore || `Fornitore ${index + 1}`,
       importo: Math.abs(importo), // Usa valore assoluto (le fatture possono essere negative)
       categoria: categoriaFinale,
-      descrizione,
+      descrizione: descrizione || fornitore,
       data: dataFattura,
     });
   });
+  
+  console.log('Costi estratti:', costs.length);
+  
+  return costs;
+}
+
+/**
+ * Parse Excel come array di array (formato alternativo)
+ */
+function parseExcelAsArray(data: any[]): ImportedCost[] {
+  const costs: ImportedCost[] = [];
+  
+  // Trova la riga header
+  let headerRow = 0;
+  for (let i = 0; i < Math.min(data.length, 5); i++) {
+    const row = data[i];
+    if (Array.isArray(row)) {
+      const rowStr = row.join(' ').toLowerCase();
+      if (rowStr.includes('importo') || rowStr.includes('fornitore') || rowStr.includes('totale')) {
+        headerRow = i;
+        break;
+      }
+    }
+  }
+  
+  // Se trova header, usa quella riga come riferimento
+  if (Array.isArray(data[headerRow])) {
+    const headers = data[headerRow] as string[];
+    
+    for (let i = headerRow + 1; i < data.length; i++) {
+      const row = data[i];
+      if (!Array.isArray(row)) continue;
+      
+      // Cerca colonne
+      const fornitoreIdx = headers.findIndex(h => h?.toLowerCase().includes('fornitore') || h?.toLowerCase().includes('ragione'));
+      const importoIdx = headers.findIndex(h => h?.toLowerCase().includes('importo') || h?.toLowerCase().includes('totale'));
+      
+      const fornitore = (row[fornitoreIdx] || '').toString().trim();
+      const importoStr = (row[importoIdx] || '').toString().trim();
+      const importo = parseFloat(importoStr.replace(/[^\d.,-]/g, '').replace(',', '.')) || 0;
+      
+      if (importo > 0) {
+        costs.push({
+          fornitore: fornitore || `Fornitore ${i}`,
+          importo: Math.abs(importo),
+          categoria: categorizeByDescription(fornitore, ''),
+          descrizione: '',
+        });
+      }
+    }
+  }
   
   return costs;
 }
