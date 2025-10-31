@@ -259,24 +259,54 @@ const handleSaveRevenues = async (revenueData: RevenueData) => {
 };
 
 // Gestione dati hotel
-const handleSaveHotelData = async (data: HotelData) => {
+const handleSaveHotelData = async (data: Partial<HotelData> | null) => {
     if (!user) return;
+    
+    // Valida e completa i dati
+    const hotelDataToSave: HotelData = {
+        hotelName: data?.hotelName || hotelName || 'Mio Hotel',
+        camereTotali: data?.camereTotali || hotelData?.camereTotali || 0,
+        stelle: data?.stelle !== undefined ? data.stelle : hotelData?.stelle,
+        categoria: data?.categoria || hotelData?.categoria,
+        localita: data?.localita || hotelData?.localita,
+        annoInizio: data?.annoInizio || hotelData?.annoInizio,
+    };
+    
+    // Non salvare se non ci sono almeno le informazioni essenziali
+    if (!hotelDataToSave.camereTotali || hotelDataToSave.camereTotali <= 0) {
+        setToastMessage('Inserisci il numero di camere prima di salvare.');
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 3000);
+        return;
+    }
     
     setSaving(true);
     try {
         const userDocRef = doc(db, "users", user.uid);
-        await setDoc(userDocRef, { hotelData: data }, { merge: true });
-        setHotelData(data);
+        // Pulisci i valori undefined prima di salvare
+        const cleanData: any = {};
+        Object.keys(hotelDataToSave).forEach(key => {
+            const value = (hotelDataToSave as any)[key];
+            if (value !== undefined && value !== null && value !== '') {
+                cleanData[key] = value;
+            }
+        });
         
-        // Ricalcola analytics
-        await calculateAnalytics(costs, revenues, data);
+        await setDoc(userDocRef, { hotelData: cleanData }, { merge: true });
+        setHotelData(hotelDataToSave);
+        
+        // Ricalcola analytics solo se abbiamo ricavi e costi
+        if (revenues.length > 0 || Object.keys(costs).length > 0) {
+            await calculateAnalytics(costs, revenues, hotelDataToSave);
+        }
         
         setToastMessage('Dati hotel salvati con successo!');
         setShowToast(true);
         setTimeout(() => setShowToast(false), 3000);
-    } catch (error) {
+    } catch (error: any) {
         console.error("Errore nel salvataggio dati hotel:", error);
-        setToastMessage("Errore nel salvataggio dati hotel.");
+        const errorMessage = error?.message || "Errore nel salvataggio dati hotel.";
+        setToastMessage(`Errore: ${errorMessage}`);
         setShowToast(true);
         setTimeout(() => setShowToast(false), 3000);
     } finally {
@@ -575,9 +605,17 @@ return (
                                         type="number"
                                         value={hotelData?.camereTotali || ''}
                                         onChange={(e) => {
-                                            const newData = { ...hotelData, camereTotali: parseInt(e.target.value) || 0 };
+                                            const camereTotali = parseInt(e.target.value) || 0;
+                                            const newData = { 
+                                                ...hotelData, 
+                                                camereTotali,
+                                                hotelName: hotelName || hotelData?.hotelName || 'Mio Hotel'
+                                            };
                                             setHotelData(newData as HotelData);
-                                            handleSaveHotelData(newData as HotelData);
+                                            // Salva solo se il valore è valido
+                                            if (camereTotali > 0) {
+                                                handleSaveHotelData(newData);
+                                            }
                                         }}
                                         className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white"
                                         placeholder="Es. 50"
@@ -588,9 +626,17 @@ return (
                                     <select
                                         value={hotelData?.categoria || ''}
                                         onChange={(e) => {
-                                            const newData = { ...hotelData, categoria: e.target.value as any };
+                                            const categoria = e.target.value || undefined;
+                                            const newData = { 
+                                                ...hotelData, 
+                                                categoria: categoria ? categoria as any : undefined,
+                                                hotelName: hotelName || hotelData?.hotelName || 'Mio Hotel',
+                                                camereTotali: hotelData?.camereTotali || 0
+                                            };
                                             setHotelData(newData as HotelData);
-                                            handleSaveHotelData(newData as HotelData);
+                                            if (hotelData?.camereTotali && hotelData.camereTotali > 0) {
+                                                handleSaveHotelData(newData);
+                                            }
                                         }}
                                         className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white"
                                     >
@@ -609,9 +655,17 @@ return (
                                         max="5"
                                         value={hotelData?.stelle || ''}
                                         onChange={(e) => {
-                                            const newData = { ...hotelData, stelle: parseInt(e.target.value) || undefined };
+                                            const stelle = parseInt(e.target.value) || undefined;
+                                            const newData = { 
+                                                ...hotelData, 
+                                                stelle,
+                                                hotelName: hotelName || hotelData?.hotelName || 'Mio Hotel',
+                                                camereTotali: hotelData?.camereTotali || 0
+                                            };
                                             setHotelData(newData as HotelData);
-                                            handleSaveHotelData(newData as HotelData);
+                                            if (hotelData?.camereTotali && hotelData.camereTotali > 0) {
+                                                handleSaveHotelData(newData);
+                                            }
                                         }}
                                         className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white"
                                         placeholder="Es. 4"
