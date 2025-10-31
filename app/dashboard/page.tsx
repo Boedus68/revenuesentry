@@ -378,8 +378,17 @@ const handleImportCosts = async (importedCosts: any[]) => {
     
     console.log('Importazione costi:', importedCosts.length, 'elementi');
     
-    // Salva i costi importati nello stato (senza categorizzarli)
-    setImportedCostsUncategorized(importedCosts);
+    // Applica automaticamente le categorie salvate per i fornitori conosciuti
+    const costsWithCategoria = importedCosts.map(cost => {
+        const savedCategoria = fornitoreCategoriaMap[cost.fornitore];
+        return {
+            ...cost,
+            categoria: savedCategoria || cost.categoria
+        };
+    });
+    
+    // Salva i costi importati nello stato (con categorie automatiche se disponibili)
+    setImportedCostsUncategorized(costsWithCategoria);
     
     // Calcola il totale importato
     const totaleImportato = importedCosts.reduce((sum, cost) => sum + (cost.importo || 0), 0);
@@ -392,13 +401,56 @@ const handleImportCosts = async (importedCosts: any[]) => {
     setTimeout(() => setShowToast(false), 5000);
 };
 
+// Stato per salvare le associazioni fornitore-categoria
+const [fornitoreCategoriaMap, setFornitoreCategoriaMap] = useState<Record<string, string>>({});
+
+// Carica le associazioni salvate all'avvio
+useEffect(() => {
+    if (user) {
+        // Carica da localStorage
+        const saved = localStorage.getItem(`fornitoreCategoriaMap_${user.uid}`);
+        if (saved) {
+            try {
+                setFornitoreCategoriaMap(JSON.parse(saved));
+            } catch (e) {
+                console.error('Errore nel caricamento associazioni fornitore-categoria:', e);
+            }
+        }
+    }
+}, [user]);
+
 // Gestione categorizzazione manuale dei costi importati
 const handleCategorizeCost = (costId: string, categoria: string) => {
-    setImportedCostsUncategorized(prev => 
-        prev.map(cost => 
-            cost.id === costId ? { ...cost, categoria } : cost
-        )
-    );
+    // Trova il costo per ottenere il fornitore
+    const costToUpdate = importedCostsUncategorized.find(c => c.id === costId);
+    if (!costToUpdate) return;
+    
+    const fornitore = costToUpdate.fornitore;
+    
+    // Se viene selezionata una categoria, salvala per questo fornitore
+    if (categoria) {
+        const newMap = { ...fornitoreCategoriaMap, [fornitore]: categoria };
+        setFornitoreCategoriaMap(newMap);
+        
+        // Salva in localStorage
+        if (user) {
+            localStorage.setItem(`fornitoreCategoriaMap_${user.uid}`, JSON.stringify(newMap));
+        }
+        
+        // Applica la categoria a tutti i costi con lo stesso fornitore
+        setImportedCostsUncategorized(prev => 
+            prev.map(cost => 
+                cost.fornitore === fornitore ? { ...cost, categoria } : cost
+            )
+        );
+    } else {
+        // Se viene rimossa la categoria, aggiorna solo questo costo
+        setImportedCostsUncategorized(prev => 
+            prev.map(cost => 
+                cost.id === costId ? { ...cost, categoria: undefined } : cost
+            )
+        );
+    }
 };
 
 // Applica le categorizzazioni ai costi quando si salva

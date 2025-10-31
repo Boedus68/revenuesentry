@@ -73,19 +73,34 @@ export default function CategorizeCostsDialog({
               >
                 <div className="flex items-center gap-4">
                   <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="font-semibold text-white">{cost.fornitore}</span>
-                      {cost.categoria && (
-                        <span className="px-2 py-1 bg-green-500/20 text-green-300 text-xs rounded">
-                          {cost.categoria}
-                        </span>
-                      )}
+                    <div className="grid grid-cols-3 gap-4 mb-2">
+                      <div>
+                        <div className="text-xs text-gray-400 mb-1">Fornitore</div>
+                        <div className="font-semibold text-white">{cost.fornitore}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-gray-400 mb-1">Importo</div>
+                        <div className="text-white font-semibold">
+                          €{cost.importo.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-gray-400 mb-1">Categoria</div>
+                        {cost.categoria ? (
+                          <span className="px-2 py-1 bg-green-500/20 text-green-300 text-xs rounded inline-block">
+                            {cost.categoria}
+                          </span>
+                        ) : (
+                          <span className="text-yellow-400 text-xs">Da categorizzare</span>
+                        )}
+                      </div>
                     </div>
-                    <div className="text-sm text-gray-400">
-                      €{cost.importo.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      {cost.descrizione && ` - ${cost.descrizione}`}
-                      {cost.data && ` - ${cost.data}`}
-                    </div>
+                    {(cost.descrizione || cost.data) && (
+                      <div className="text-sm text-gray-400 mt-2">
+                        {cost.descrizione && `${cost.descrizione}`}
+                        {cost.data && ` • Data: ${cost.data}`}
+                      </div>
+                    )}
                   </div>
                   <select
                     value={cost.categoria || ''}
