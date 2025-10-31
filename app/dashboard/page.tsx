@@ -10,6 +10,7 @@ import { CostsData, RevenueData, HotelData, KPIData, Recommendation, CostAnalysi
 import KPICard from './components/KPICard';
 import RecommendationCard from './components/RecommendationCard';
 import ImportCostsDialog from './components/ImportCostsDialog';
+import CategorizeCostsDialog from './components/CategorizeCostsDialog';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
 // Helper per calcolare il totale costi di un mese
@@ -1321,6 +1322,22 @@ return (
             onImport={handleImportCosts}
             selectedMonth={selectedMonth}
         />
+        
+        {showCategorizeDialog && importedCostsUncategorized.length > 0 && (
+            <CategorizeCostsDialog
+                costs={importedCostsUncategorized}
+                onCategorize={handleCategorizeCost}
+                onClose={() => {
+                    setShowCategorizeDialog(false);
+                }}
+                onConfirm={() => {
+                    setShowCategorizeDialog(false);
+                    setToastMessage('Categorie assegnate! Ora clicca "Salva Costi Mese" per salvare definitivamente.');
+                    setShowToast(true);
+                    setTimeout(() => setShowToast(false), 4000);
+                }}
+            />
+        )}
     </div>
 );
 
