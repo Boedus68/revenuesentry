@@ -273,17 +273,19 @@ function parseExcelData(data: any[]): ImportedCost[] {
       
       // Filtra colonne con valori troppo piccoli o troppo grandi (probabilmente errori)
       // Limite massimo: 100.000€ per evitare colonne con errori di formato
-      if (count > 0 && max >= 10 && max < 100000 && avg < 50000) {
+      if (count > 0) {
         const avg = sum / count;
-        numericColsWithValues.push({
-          key,
-          avg,
-          max,
-          count
-        });
-        console.log(`Colonna "${key}": media=${avg.toFixed(2)}, max=${max.toFixed(2)}, count=${count}`);
-      } else if (count > 0) {
-        console.log(`Colonna "${key}" scartata: media=${(sum/count).toFixed(2)}, max=${max.toFixed(2)} (troppo alta/bassa)`);
+        if (max >= 10 && max < 100000 && avg < 50000) {
+          numericColsWithValues.push({
+            key,
+            avg,
+            max,
+            count
+          });
+          console.log(`Colonna "${key}": media=${avg.toFixed(2)}, max=${max.toFixed(2)}, count=${count}`);
+        } else {
+          console.log(`Colonna "${key}" scartata: media=${avg.toFixed(2)}, max=${max.toFixed(2)} (troppo alta/bassa)`);
+        }
       }
     });
     
