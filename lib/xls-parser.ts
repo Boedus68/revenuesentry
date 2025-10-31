@@ -3,9 +3,10 @@ import * as XLSX from 'xlsx';
 import { CostsData, CostItem } from './types';
 
 export interface ImportedCost {
+  id: string; // ID univoco per ogni costo importato
   fornitore: string;
   importo: number;
-  categoria: string;
+  categoria?: string; // Categoria assegnata dall'utente (opzionale)
   data?: string;
   descrizione?: string;
 }

@@ -61,6 +61,7 @@ const [monthlyCosts, setMonthlyCosts] = useState<MonthlyCostsData[]>([]);
 const [selectedMonth, setSelectedMonth] = useState<string>('');
 const [revenues, setRevenues] = useState<RevenueData[]>([]);
 const [hotelData, setHotelData] = useState<HotelData | null>(null);
+const [showCategorizeDialog, setShowCategorizeDialog] = useState(false);
 const [kpi, setKpi] = useState<KPIData | null>(null);
 const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
 const [costAnalyses, setCostAnalyses] = useState<CostAnalysis[]>([]);
@@ -264,7 +265,46 @@ const handleSaveCosts = async (e: React.FormEvent) => {
     
     setSaving(true);
     
-    const cleanedCosts = JSON.parse(JSON.stringify(costs));
+    // Se ci sono costi importati non categorizzati, applica le categorizzazioni
+    let cleanedCosts = JSON.parse(JSON.stringify(costs));
+    
+    if (importedCostsUncategorized.length > 0) {
+        const categorizedCosts = applyCategorizedCosts(importedCostsUncategorized);
+        // Merge con i costi esistenti
+        cleanedCosts = {
+            ristorazione: [
+                ...(cleanedCosts.ristorazione || []),
+                ...(categorizedCosts.ristorazione || [])
+            ],
+            utenze: {
+                energia: {
+                    fornitore: categorizedCosts.utenze?.energia?.fornitore || cleanedCosts.utenze?.energia?.fornitore || '',
+                    importo: (cleanedCosts.utenze?.energia?.importo || 0) + (categorizedCosts.utenze?.energia?.importo || 0),
+                },
+                gas: {
+                    fornitore: categorizedCosts.utenze?.gas?.fornitore || cleanedCosts.utenze?.gas?.fornitore || '',
+                    importo: (cleanedCosts.utenze?.gas?.importo || 0) + (categorizedCosts.utenze?.gas?.importo || 0),
+                },
+                acqua: {
+                    fornitore: categorizedCosts.utenze?.acqua?.fornitore || cleanedCosts.utenze?.acqua?.fornitore || '',
+                    importo: (cleanedCosts.utenze?.acqua?.importo || 0) + (categorizedCosts.utenze?.acqua?.importo || 0),
+                },
+            },
+            personale: {
+                bustePaga: (cleanedCosts.personale?.bustePaga || 0) + (categorizedCosts.personale?.bustePaga || 0),
+                sicurezza: (cleanedCosts.personale?.sicurezza || 0) + (categorizedCosts.personale?.sicurezza || 0),
+            },
+            altriCosti: {
+                ...(cleanedCosts.altriCosti || {}),
+                ...(categorizedCosts.altriCosti || {}),
+            },
+        };
+        
+        // Pulisci i costi importati dopo l'applicazione
+        setImportedCostsUncategorized([]);
+        setShowCategorizeDialog(false);
+    }
+    
     if (cleanedCosts.ristorazione) {
         cleanedCosts.ristorazione = cleanedCosts.ristorazione.filter(
             (item: any) => item && (item.fornitore || (item.importo && item.importo > 0))
@@ -325,7 +365,7 @@ const handleSaveCosts = async (e: React.FormEvent) => {
     }
 };
 
-// Gestione importazione costi da Excel
+// Gestione importazione costi da Excel - ora salva solo come lista semplice
 const handleImportCosts = async (importedCosts: any[]) => {
     if (!selectedMonth || importedCosts.length === 0) {
         setToastMessage('Seleziona un mese o verifica che il file contenga dati validi.');
@@ -336,134 +376,106 @@ const handleImportCosts = async (importedCosts: any[]) => {
     
     console.log('Importazione costi:', importedCosts.length, 'elementi');
     
-    try {
-        const { mapImportedCostsToCostsData } = await import('../../lib/xls-parser');
-        const importedCostsData = mapImportedCostsToCostsData(importedCosts, selectedMonth);
+    // Salva i costi importati nello stato (senza categorizzarli)
+    setImportedCostsUncategorized(importedCosts);
+    
+    // Calcola il totale importato
+    const totaleImportato = importedCosts.reduce((sum, cost) => sum + (cost.importo || 0), 0);
+    
+    // Mostra il dialog di categorizzazione
+    setShowCategorizeDialog(true);
+    
+    setToastMessage(`✅ Importati ${importedCosts.length} costi per un totale di €${totaleImportato.toLocaleString('it-IT')}!`);
+    setShowToast(true);
+    setTimeout(() => setShowToast(false), 5000);
+};
+
+// Gestione categorizzazione manuale dei costi importati
+const handleCategorizeCost = (costId: string, categoria: string) => {
+    setImportedCostsUncategorized(prev => 
+        prev.map(cost => 
+            cost.id === costId ? { ...cost, categoria } : cost
+        )
+    );
+};
+
+// Applica le categorizzazioni ai costi quando si salva
+const applyCategorizedCosts = (categorizedCosts: any[]): Partial<CostsData> => {
+    const costsData: Partial<CostsData> = {
+        ristorazione: [],
+        utenze: {
+            energia: { fornitore: '', importo: 0 },
+            gas: { fornitore: '', importo: 0 },
+            acqua: { fornitore: '', importo: 0 },
+        },
+        personale: {
+            bustePaga: 0,
+            sicurezza: 0,
+        },
+        altriCosti: {},
+    };
+    
+    categorizedCosts.forEach(cost => {
+        if (!cost.categoria) return; // Salta costi non categorizzati
         
-        console.log('Costi mappati:', importedCostsData);
-        
-        // Merge con i costi esistenti (se presenti)
-        const mergedCosts: Partial<CostsData> = {
-            ristorazione: [
-                ...(costs.ristorazione || []),
-                ...(importedCostsData.ristorazione || [])
-            ].filter(item => item && (item.fornitore || item.importo > 0)),
-            utenze: {
-                energia: {
-                    fornitore: importedCostsData.utenze?.energia?.fornitore || costs.utenze?.energia?.fornitore || '',
-                    importo: (costs.utenze?.energia?.importo || 0) + (importedCostsData.utenze?.energia?.importo || 0),
-                },
-                gas: {
-                    fornitore: importedCostsData.utenze?.gas?.fornitore || costs.utenze?.gas?.fornitore || '',
-                    importo: (costs.utenze?.gas?.importo || 0) + (importedCostsData.utenze?.gas?.importo || 0),
-                },
-                acqua: {
-                    fornitore: importedCostsData.utenze?.acqua?.fornitore || costs.utenze?.acqua?.fornitore || '',
-                    importo: (costs.utenze?.acqua?.importo || 0) + (importedCostsData.utenze?.acqua?.importo || 0),
-                },
-            },
-            personale: {
-                bustePaga: (costs.personale?.bustePaga || 0) + (importedCostsData.personale?.bustePaga || 0),
-                sicurezza: (costs.personale?.sicurezza || 0) + (importedCostsData.personale?.sicurezza || 0),
-            },
-            altriCosti: {
-                ...(costs.altriCosti || {}),
-            },
-        };
-        
-        // Somma i valori duplicati in altriCosti
-        if (importedCostsData.altriCosti) {
-            Object.keys(importedCostsData.altriCosti).forEach(key => {
-                const value = importedCostsData.altriCosti![key];
-                if (value && value > 0) {
-                    mergedCosts.altriCosti![key] = (mergedCosts.altriCosti![key] || 0) + value;
+        switch (cost.categoria) {
+            case 'Ristorazione':
+                if (!costsData.ristorazione) costsData.ristorazione = [];
+                costsData.ristorazione.push({
+                    fornitore: cost.fornitore,
+                    importo: cost.importo,
+                });
+                break;
+                
+            case 'Utenze - Energia':
+                if (costsData.utenze) {
+                    costsData.utenze.energia = {
+                        fornitore: costsData.utenze.energia?.fornitore || cost.fornitore,
+                        importo: (costsData.utenze.energia?.importo || 0) + cost.importo,
+                    };
                 }
-            });
+                break;
+                
+            case 'Utenze - Gas':
+                if (costsData.utenze) {
+                    costsData.utenze.gas = {
+                        fornitore: costsData.utenze.gas?.fornitore || cost.fornitore,
+                        importo: (costsData.utenze.gas?.importo || 0) + cost.importo,
+                    };
+                }
+                break;
+                
+            case 'Utenze - Acqua':
+                if (costsData.utenze) {
+                    costsData.utenze.acqua = {
+                        fornitore: costsData.utenze.acqua?.fornitore || cost.fornitore,
+                        importo: (costsData.utenze.acqua?.importo || 0) + cost.importo,
+                    };
+                }
+                break;
+                
+            case 'Personale - Buste Paga':
+                if (costsData.personale) {
+                    costsData.personale.bustePaga += cost.importo;
+                }
+                break;
+                
+            case 'Personale - Sicurezza':
+                if (costsData.personale) {
+                    costsData.personale.sicurezza += cost.importo;
+                }
+                break;
+                
+            default:
+                // Altri costi
+                if (!costsData.altriCosti) costsData.altriCosti = {};
+                const key = cost.categoria.toLowerCase().replace(/\s+/g, '');
+                costsData.altriCosti[key] = (costsData.altriCosti[key] || 0) + cost.importo;
+                break;
         }
-        
-        console.log('Costi finali dopo merge:', mergedCosts);
-        console.log('Costi esistenti:', costs);
-        
-        // Assicurati che la struttura sia completa prima di impostare
-        const finalCosts: Partial<CostsData> = {
-            ...mergedCosts,
-            // Forza struttura completa per ristorazione
-            ristorazione: mergedCosts.ristorazione || [],
-            // Forza struttura completa per utenze
-            utenze: {
-                energia: mergedCosts.utenze?.energia || { fornitore: '', importo: 0 },
-                gas: mergedCosts.utenze?.gas || { fornitore: '', importo: 0 },
-                acqua: mergedCosts.utenze?.acqua || { fornitore: '', importo: 0 },
-            },
-            // Forza struttura completa per personale
-            personale: {
-                bustePaga: mergedCosts.personale?.bustePaga || 0,
-                sicurezza: mergedCosts.personale?.sicurezza || 0,
-            },
-            // Forza struttura completa per altriCosti
-            altriCosti: mergedCosts.altriCosti || {},
-        };
-        
-        console.log('Costi finali da impostare:', finalCosts);
-        console.log('Numero ristorazione items:', finalCosts.ristorazione?.length);
-        console.log('Utenze energia:', finalCosts.utenze?.energia);
-        console.log('Personale:', finalCosts.personale);
-        console.log('Altri costi:', finalCosts.altriCosti);
-        
-        // Imposta i costi nello stato in modo sincrono
-        setCosts(finalCosts);
-        console.log('Stato costi impostato immediatamente:', finalCosts);
-        
-        // Verifica dopo un breve delay che lo stato sia stato aggiornato
-        setTimeout(() => {
-            // Forza re-render se necessario
-            setCosts(prev => {
-                // Se prev è vuoto o diverso da finalCosts, usa finalCosts
-                if (!prev || Object.keys(prev).length === 0) {
-                    console.log('Stato vuoto rilevato, reimpostando...');
-                    return finalCosts;
-                }
-                // Verifica che ristorazione sia presente
-                if (finalCosts.ristorazione && finalCosts.ristorazione.length > 0) {
-                    if (!prev.ristorazione || prev.ristorazione.length !== finalCosts.ristorazione.length) {
-                        console.log('Ristorazione non corrisponde, reimpostando...');
-                        return finalCosts;
-                    }
-                }
-                // Verifica altri costi
-                const prevAltriCostiKeys = Object.keys(prev.altriCosti || {}).length;
-                const finalAltriCostiKeys = Object.keys(finalCosts.altriCosti || {}).length;
-                if (finalAltriCostiKeys > prevAltriCostiKeys) {
-                    console.log('Altri costi non corrispondono, reimpostando...');
-                    return finalCosts;
-                }
-                return prev;
-            });
-        }, 100);
-        
-        // Scrolla alla sezione costi per mostrare i dati importati
-        setTimeout(() => {
-            const costiSection = document.querySelector('[data-section="costi"]');
-            if (costiSection) {
-                costiSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }
-        }, 200);
-        
-        // Calcola il totale importato per mostrarlo nel messaggio
-        const totaleImportato = calculateTotalCostsForMonth(finalCosts);
-        
-        setToastMessage(`✅ Importati ${importedCosts.length} costi per un totale di €${totaleImportato.toLocaleString('it-IT')}! Verifica i dati nel form e clicca "Salva Costi Mese" per completare.`);
-        setShowToast(true);
-        setTimeout(() => setShowToast(false), 7000);
-        
-        console.log('Totale costi importati:', totaleImportato);
-    } catch (error: any) {
-        console.error("Errore nell'importazione:", error);
-        console.error("Stack:", error.stack);
-        setToastMessage(`❌ Errore nell'importazione: ${error.message || error}`);
-        setShowToast(true);
-        setTimeout(() => setShowToast(false), 5000);
-    }
+    });
+    
+    return costsData;
 };
 
 // Gestione ricavi
