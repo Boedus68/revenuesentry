@@ -226,7 +226,8 @@ function parseExcelData(data: any[]): ImportedCost[] {
       }
       
       // Filtra colonne con valori troppo piccoli o troppo grandi (probabilmente errori)
-      if (count > 0 && max >= 10 && max < 1000000 && avg < 100000) {
+      // Limite massimo: 100.000€ per evitare colonne con errori di formato
+      if (count > 0 && max >= 10 && max < 100000 && avg < 50000) {
         const avg = sum / count;
         numericColsWithValues.push({
           key,
@@ -422,9 +423,12 @@ function parseExcelData(data: any[]): ImportedCost[] {
     }
     
     // Validazione importo: se è troppo grande, probabilmente è un errore di parsing
-    // Filtra valori sopra 1 milione (probabilmente errore di formato)
-    if (importo > 1000000) {
-      console.warn(`⚠️ Riga ${index + 1}: Importo sospetto (€${importo.toFixed(2)}), potrebbe essere errore di formato. Saltando...`);
+    // Filtra valori sopra 100.000€ (probabilmente errore di formato)
+    // Nota: alcuni hotel possono avere costi molto alti, ma valori sopra 100k sono sospetti
+    if (importo > 100000) {
+      console.warn(`⚠️ Riga ${index + 1}: Importo molto alto (€${importo.toFixed(2)}), potrebbe essere errore di formato. Saltando...`);
+      console.warn(`   Valore originale dalla colonna "${finalImportoCol}": "${importoStr}"`);
+      console.warn(`   Righe intera:`, row);
       return; // Salta questa riga
     }
     
