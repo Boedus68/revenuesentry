@@ -239,6 +239,16 @@ const handleSaveRevenues = async (revenueData: RevenueData) => {
     setSaving(true);
     try {
         const userDocRef = doc(db, "users", user.uid);
+        
+        // Verifica che il documento esista, altrimenti crealo
+        const userDocSnap = await getDoc(userDocRef);
+        if (!userDocSnap.exists()) {
+            await setDoc(userDocRef, {
+                hotelName: hotelName || 'Mio Hotel',
+                revenues: []
+            });
+        }
+        
         await setDoc(userDocRef, { revenues: updatedRevenues }, { merge: true });
         setRevenues(updatedRevenues);
         
@@ -283,6 +293,17 @@ const handleSaveHotelData = async (data: Partial<HotelData> | null) => {
     setSaving(true);
     try {
         const userDocRef = doc(db, "users", user.uid);
+        
+        // Verifica che il documento esista, altrimenti crealo con i dati base
+        const userDocSnap = await getDoc(userDocRef);
+        if (!userDocSnap.exists()) {
+            // Crea il documento con i dati base
+            await setDoc(userDocRef, {
+                hotelName: hotelName || 'Mio Hotel',
+                hotelData: {}
+            });
+        }
+        
         // Pulisci i valori undefined prima di salvare
         const cleanData: any = {};
         Object.keys(hotelDataToSave).forEach(key => {
