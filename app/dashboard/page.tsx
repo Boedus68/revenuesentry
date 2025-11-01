@@ -1665,53 +1665,89 @@ return (
                                    <h3 className="text-xl font-semibold text-white mb-4">Riepilogo Costi per Categoria</h3>
                                    <div className="space-y-4">
                                        {(() => {
-                                           // Calcola costi totali per categoria
+                                           // Calcola costi totali per categoria (usando le categorie originali dell'utente)
                                            const costiPerCategoria: Record<string, number> = {};
                                            const totaleGenerale = kpi.totaleSpese;
                                            
-                                           // Ristorazione
-                                           const ristorazioneTotale = Array.isArray(monthlyCosts) && monthlyCosts.length > 0
-                                               ? monthlyCosts.reduce((sum, mc) => {
-                                                   return sum + (mc.costs.ristorazione?.reduce((s, item) => s + (item.importo || 0), 0) || 0);
-                                               }, 0)
-                                               : (costs.ristorazione?.reduce((sum, item) => sum + (item.importo || 0), 0) || 0);
+                                           // Funzione helper per aggiungere un costo a una categoria
+                                           const aggiungiCategoria = (categoria: string, importo: number) => {
+                                               if (importo > 0) {
+                                                   costiPerCategoria[categoria] = (costiPerCategoria[categoria] || 0) + importo;
+                                               }
+                                           };
                                            
-                                           // Utenze
-                                           const utenzeTotale = Array.isArray(monthlyCosts) && monthlyCosts.length > 0
-                                               ? monthlyCosts.reduce((sum, mc) => {
-                                                   const ut = mc.costs.utenze;
-                                                   return sum + (ut?.energia?.importo || 0) + (ut?.gas?.importo || 0) + (ut?.acqua?.importo || 0);
-                                               }, 0)
-                                               : ((costs.utenze?.energia?.importo || 0) + (costs.utenze?.gas?.importo || 0) + (costs.utenze?.acqua?.importo || 0));
+                                           // Processa costi mensili o singoli costi
+                                           const costiDaProcessare = Array.isArray(monthlyCosts) && monthlyCosts.length > 0
+                                               ? monthlyCosts.map(mc => mc.costs)
+                                               : [costs];
                                            
-                                           // Personale
-                                           const personaleTotale = Array.isArray(monthlyCosts) && monthlyCosts.length > 0
-                                               ? monthlyCosts.reduce((sum, mc) => {
-                                                   const pers = mc.costs.personale;
-                                                   return sum + (pers?.bustePaga || 0) + (pers?.sicurezza || 0);
-                                               }, 0)
-                                               : ((costs.personale?.bustePaga || 0) + (costs.personale?.sicurezza || 0));
-                                           
-                                           // Marketing
-                                           const marketingTotale = Array.isArray(monthlyCosts) && monthlyCosts.length > 0
-                                               ? monthlyCosts.reduce((sum, mc) => {
-                                                   const mark = mc.costs.marketing;
-                                                   return sum + (mark?.costiMarketing || 0) + (mark?.commissioniOTA || 0);
-                                               }, 0)
-                                               : ((costs.marketing?.costiMarketing || 0) + (costs.marketing?.commissioniOTA || 0));
-                                           
-                                           // Altri Costi
-                                           const altriCostiTotale = Array.isArray(monthlyCosts) && monthlyCosts.length > 0
-                                               ? monthlyCosts.reduce((sum, mc) => {
-                                                   return sum + (mc.costs.altriCosti ? Object.values(mc.costs.altriCosti).reduce((s, v) => s + (v || 0), 0) : 0);
-                                               }, 0)
-                                               : (costs.altriCosti ? Object.values(costs.altriCosti).reduce((sum, val) => sum + (val || 0), 0) : 0);
-                                           
-                                           costiPerCategoria['Ristorazione'] = ristorazioneTotale;
-                                           costiPerCategoria['Utenze'] = utenzeTotale;
-                                           costiPerCategoria['Personale'] = personaleTotale;
-                                           costiPerCategoria['Marketing'] = marketingTotale;
-                                           costiPerCategoria['Altri Costi'] = altriCostiTotale;
+                                           costiDaProcessare.forEach((costData) => {
+                                               // Ristorazione
+                                               if (costData.ristorazione && Array.isArray(costData.ristorazione)) {
+                                                   const totale = costData.ristorazione.reduce((sum, item) => sum + (item.importo || 0), 0);
+                                                   aggiungiCategoria('Ristorazione', totale);
+                                               }
+                                               
+                                               // Utenze - Energia
+                                               if (costData.utenze?.energia?.importo) {
+                                                   aggiungiCategoria('Utenze - Energia', costData.utenze.energia.importo);
+                                               }
+                                               
+                                               // Utenze - Gas
+                                               if (costData.utenze?.gas?.importo) {
+                                                   aggiungiCategoria('Utenze - Gas', costData.utenze.gas.importo);
+                                               }
+                                               
+                                               // Utenze - Acqua
+                                               if (costData.utenze?.acqua?.importo) {
+                                                   aggiungiCategoria('Utenze - Acqua', costData.utenze.acqua.importo);
+                                               }
+                                               
+                                               // Personale - Buste Paga
+                                               if (costData.personale?.bustePaga) {
+                                                   aggiungiCategoria('Personale - Buste Paga', costData.personale.bustePaga);
+                                               }
+                                               
+                                               // Personale - Sicurezza
+                                               if (costData.personale?.sicurezza) {
+                                                   aggiungiCategoria('Personale - Sicurezza', costData.personale.sicurezza);
+                                               }
+                                               
+                                               // Marketing - Costi Marketing
+                                               if (costData.marketing?.costiMarketing) {
+                                                   aggiungiCategoria('Marketing', costData.marketing.costiMarketing);
+                                               }
+                                               
+                                               // Marketing - Commissioni OTA
+                                               if (costData.marketing?.commissioniOTA) {
+                                                   aggiungiCategoria('Commissioni OTA', costData.marketing.commissioniOTA);
+                                               }
+                                               
+                                               // Altri Costi - mappali alle categorie originali in base alle chiavi
+                                               if (costData.altriCosti) {
+                                                   const mappingAltriCosti: Record<string, string> = {
+                                                       pulizie: 'Pulizie',
+                                                       manElettricista: 'Manutenzione - Elettricista',
+                                                       manIdraulico: 'Manutenzione - Idraulico',
+                                                       manCaldaia: 'Manutenzione - Caldaia/Aria Condizionata',
+                                                       manPiscina: 'Manutenzione - Piscina',
+                                                       ascensore: 'Manutenzione - Ascensore',
+                                                       ppc: 'Marketing - PPC',
+                                                       marketing: 'Marketing',
+                                                       telefono: 'Telefono/Internet',
+                                                       commercialista: 'Commercialista/Consulente',
+                                                       tari: 'Tasse',
+                                                       gestionale: 'Gestionale',
+                                                   };
+                                                   
+                                                   Object.entries(costData.altriCosti).forEach(([key, valore]) => {
+                                                       if (valore && valore > 0) {
+                                                           const categoriaNome = mappingAltriCosti[key] || key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1').trim();
+                                                           aggiungiCategoria(categoriaNome, valore);
+                                                       }
+                                                   });
+                                               }
+                                           });
                                            
                                            // Mostra tutte le categorie, anche quelle con valore 0
                                            // Ordina prima per valore (decrescente), poi mostra quelle con 0 alla fine
