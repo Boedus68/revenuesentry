@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateRecommendations, generateAlerts } from '../../../../lib/ai-recommendations';
 import { analyzeCosts, calculateKPI, getBenchmarkValues } from '../../../../lib/calculations';
-import { CostsData, RevenueData, HotelData, MonthlyCostsData, CostAnalysis, KPIData } from '../../../../lib/types';
+import { CostsData, RevenueData, HotelData, MonthlyCostsData, CostAnalysis, KPIData, Recommendation } from '../../../../lib/types';
 
 export async function POST(request: NextRequest) {
   try {
@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Genera raccomandazioni
-    let recommendations = [];
+    let recommendations: Recommendation[] = [];
     if (hasCosts || (hasRevenues && kpi)) {
       recommendations = generateRecommendations(
         costs as Partial<CostsData> || {},
