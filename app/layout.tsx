@@ -5,8 +5,13 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-title: "RevenueSentry - Hotel Revenue Management",
-description: "Prendi il controllo dei ricavi del tuo hotel in modo scientifico e professionale.",
+  title: "RevenueSentry - Hotel Revenue Management",
+  description: "Prendi il controllo dei ricavi del tuo hotel in modo scientifico e professionale.",
+  icons: {
+    icon: '/favicon.ico',
+    shortcut: '/favicon.ico',
+    apple: '/favicon.ico',
+  },
 };
 
 export default function RootLayout({

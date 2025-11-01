@@ -1,0 +1,15 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background circle -->
+  <circle cx="16" cy="16" r="16" fill="#3B82F6"/>
+  
+  <!-- Chart bars representing revenue growth -->
+  <rect x="8" y="18" width="2" height="6" fill="white" opacity="0.9"/>
+  <rect x="11" y="14" width="2" height="10" fill="white" opacity="0.9"/>
+  <rect x="14" y="12" width="2" height="12" fill="white" opacity="0.9"/>
+  <rect x="17" y="10" width="2" height="14" fill="white" opacity="0.9"/>
+  <rect x="20" y="8" width="2" height="16" fill="white" opacity="0.9"/>
+  
+  <!-- Euro symbol in the foreground -->
+  <text x="16" y="22" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="white" text-anchor="middle" opacity="0.95">€</text>
+</svg>
+
