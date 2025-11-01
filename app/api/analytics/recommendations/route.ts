@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
     if (hasCosts || hasRevenues) {
       try {
         kpi = calculateKPI(
-          costs as Partial<CostsData> | undefined,
+          (costs as Partial<CostsData> | MonthlyCostsData[]) || {},
           revenues as RevenueData[] || [],
           hotelData as HotelData | undefined
         );
