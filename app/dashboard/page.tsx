@@ -80,6 +80,7 @@ const [analyzing, setAnalyzing] = useState(false);
 const [showToast, setShowToast] = useState(false);
 const [toastMessage, setToastMessage] = useState('');
 const [showImportDialog, setShowImportDialog] = useState(false);
+const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 const router = useRouter();
 
 // Lista di altri costi per generare il form dinamicamente
@@ -724,7 +725,10 @@ if (loading) {
 
 const NavLink = ({ id, text, icon }: { id: string, text: string, icon: JSX.Element }) => (
     <button
-        onClick={() => setActiveSection(id)}
+        onClick={() => {
+            setActiveSection(id);
+            setIsMobileMenuOpen(false); // Chiudi il menu mobile quando si clicca su un link
+        }}
         className={`flex items-center w-full px-4 py-2 text-base font-semibold rounded-lg transition ${
             activeSection === id
                 ? 'bg-blue-500/20 text-blue-300'
@@ -738,8 +742,18 @@ const NavLink = ({ id, text, icon }: { id: string, text: string, icon: JSX.Eleme
 
 return (
     <div className="h-screen flex text-gray-200">
+        {/* Overlay per mobile menu */}
+        {isMobileMenuOpen && (
+            <div 
+                className="fixed inset-0 bg-black/60 z-40 md:hidden"
+                onClick={() => setIsMobileMenuOpen(false)}
+            />
+        )}
+
         {/* Sidebar */}
-        <aside className="w-64 bg-gray-800/50 border-r border-gray-700 flex-shrink-0 flex flex-col">
+        <aside className={`fixed md:static inset-y-0 left-0 w-64 bg-gray-800/95 md:bg-gray-800/50 border-r border-gray-700 flex-shrink-0 flex flex-col z-50 transform transition-transform duration-300 ease-in-out ${
+            isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+        }`}>
             <div className="h-16 flex items-center justify-center border-b border-gray-700">
                 <Link href="/" className="text-2xl font-bold text-white">
                     Revenue<span className="text-blue-400">Sentry</span>
@@ -765,8 +779,31 @@ return (
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 flex flex-col">
-            <header className="h-16 bg-gray-800/30 border-b border-gray-700 flex items-center justify-between px-6 flex-shrink-0">
+        <main className="flex-1 flex flex-col md:ml-0">
+            <header className="h-16 bg-gray-800/30 border-b border-gray-700 flex items-center justify-between px-4 md:px-6 flex-shrink-0">
+                {/* Hamburger menu button per mobile */}
+                <button
+                    onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                    className="md:hidden p-2 rounded-lg hover:bg-gray-700/50 text-gray-400 hover:text-white transition"
+                    aria-label="Toggle menu"
+                >
+                    {isMobileMenuOpen ? (
+                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    ) : (
+                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                        </svg>
+                    )}
+                </button>
+
+                {/* Logo per mobile - solo se menu chiuso */}
+                {!isMobileMenuOpen && (
+                    <Link href="/" className="md:hidden text-xl font-bold text-white">
+                        Revenue<span className="text-blue-400">Sentry</span>
+                    </Link>
+                )}
                 <h1 className="text-xl font-semibold text-white">{hotelName}</h1>
                 <button onClick={handleLogout} className="bg-red-600/80 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-lg text-sm transition">
                     Logout
