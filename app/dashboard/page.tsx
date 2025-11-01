@@ -754,10 +754,20 @@ return (
         <aside className={`fixed md:static inset-y-0 left-0 w-64 bg-gray-800/95 md:bg-gray-800/50 border-r border-gray-700 flex-shrink-0 flex flex-col z-50 transform transition-transform duration-300 ease-in-out ${
             isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         }`}>
-            <div className="h-16 flex items-center justify-center border-b border-gray-700">
-                <Link href="/" className="text-2xl font-bold text-white">
+            <div className="h-16 flex items-center justify-between px-4 border-b border-gray-700">
+                <Link href="/" className="text-xl md:text-2xl font-bold text-white">
                     Revenue<span className="text-blue-400">Sentry</span>
                 </Link>
+                {/* Bottone close per mobile */}
+                <button
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="md:hidden p-2 rounded-lg hover:bg-gray-700/50 text-gray-400 hover:text-white transition"
+                    aria-label="Close menu"
+                >
+                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
             </div>
             <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
                 <NavLink id="panoramica" text="Panoramica" icon={<svg className="h-6 w-6 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>} />
