@@ -27,9 +27,8 @@ export interface HotelData {
   camereTotali: number;
   stelle?: number;
   localita?: string;
-  categoria?: 'lussuoso' | 'business' | 'economico' | 'boutique';
   annoInizio?: number; // anno in cui è iniziato il monitoraggio
-  tipoHotel?: 'annuale' | 'stagionale'; // tipo di hotel
+  tipoHotel?: 'annuale' | 'stagionale'; // carattere dell'hotel (annuale o stagionale)
   giorniApertura?: number; // numero di giorni di apertura (solo per hotel stagionali)
 }
 

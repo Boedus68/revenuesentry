@@ -637,7 +637,6 @@ const handleSaveHotelData = async (data: Partial<HotelData> | null) => {
         hotelName: data?.hotelName || hotelName || 'Mio Hotel',
         camereTotali: data?.camereTotali || hotelData?.camereTotali || 0,
         stelle: data?.stelle !== undefined ? data.stelle : hotelData?.stelle,
-        categoria: data?.categoria || hotelData?.categoria,
         localita: data?.localita || hotelData?.localita,
         annoInizio: data?.annoInizio || hotelData?.annoInizio,
         tipoHotel: data?.tipoHotel || hotelData?.tipoHotel,
@@ -838,7 +837,7 @@ return (
                                                 return `Su ${giorniMostrati} giorni di apertura${giorniTotali > 0 ? ' (da dati mensili)' : ''}`;
                                             })()}
                                             icon={<svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>}
-                                            color="orange"
+                                            color="yellow"
                                         />
                                         <KPICard
                                             title="Ricavi Giornalieri Medi"
@@ -1218,32 +1217,6 @@ return (
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-300 mb-2">Categoria</label>
-                                    <select
-                                        value={hotelData?.categoria || ''}
-                                        onChange={(e) => {
-                                            const categoria = e.target.value || undefined;
-                                            const newData = { 
-                                                ...hotelData, 
-                                                categoria: categoria ? categoria as any : undefined,
-                                                hotelName: hotelName || hotelData?.hotelName || 'Mio Hotel',
-                                                camereTotali: hotelData?.camereTotali || 0
-                                            };
-                                            setHotelData(newData as HotelData);
-                                            if (hotelData?.camereTotali && hotelData.camereTotali > 0) {
-                                                handleSaveHotelData(newData);
-                                            }
-                                        }}
-                                        className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white"
-                                    >
-                                        <option value="">Seleziona...</option>
-                                        <option value="lussuoso">Lussuoso</option>
-                                        <option value="business">Business</option>
-                                        <option value="economico">Economico</option>
-                                        <option value="boutique">Boutique</option>
-                                    </select>
-                                </div>
-                                <div>
                                     <label className="block text-sm font-medium text-gray-300 mb-2">Stelle</label>
                                     <input
                                         type="number"
@@ -1268,7 +1241,7 @@ return (
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-300 mb-2">Tipo Hotel</label>
+                                    <label className="block text-sm font-medium text-gray-300 mb-2">Carattere Hotel</label>
                                     <select
                                         value={hotelData?.tipoHotel || ''}
                                         onChange={(e) => {

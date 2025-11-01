@@ -313,30 +313,15 @@ export function analyzeCosts(
  * Questi sono valori indicativi e potrebbero essere personalizzati
  */
 export function getBenchmarkValues(hotelData?: HotelData): Record<string, number> {
-  // Benchmark in base a categoria e stelle
+  // Benchmark base per hotel medio
   const baseBenchmark = {
     ristorazione: 15000, // €/mese per hotel medio
     utenze: 5000,
     personale: 35000,
   };
 
-  // Adjust based on hotel category
-  if (hotelData?.categoria === 'lussuoso') {
-    return {
-      ristorazione: baseBenchmark.ristorazione * 1.5,
-      utenze: baseBenchmark.utenze * 1.2,
-      personale: baseBenchmark.personale * 1.3,
-    };
-  }
-
-  if (hotelData?.categoria === 'economico') {
-    return {
-      ristorazione: baseBenchmark.ristorazione * 0.7,
-      utenze: baseBenchmark.utenze * 0.8,
-      personale: baseBenchmark.personale * 0.8,
-    };
-  }
-
+  // Per hotel stagionali, i benchmark possono essere adeguati ai giorni di apertura
+  // ma per ora manteniamo i valori base standard
   return baseBenchmark;
 }
 
