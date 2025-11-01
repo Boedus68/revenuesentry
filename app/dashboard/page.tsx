@@ -640,11 +640,21 @@ const handleSaveHotelData = async (data: Partial<HotelData> | null) => {
         categoria: data?.categoria || hotelData?.categoria,
         localita: data?.localita || hotelData?.localita,
         annoInizio: data?.annoInizio || hotelData?.annoInizio,
+        tipoHotel: data?.tipoHotel || hotelData?.tipoHotel,
+        giorniApertura: data?.giorniApertura !== undefined ? data.giorniApertura : hotelData?.giorniApertura,
     };
     
     // Non salvare se non ci sono almeno le informazioni essenziali
     if (!hotelDataToSave.camereTotali || hotelDataToSave.camereTotali <= 0) {
         setToastMessage('Inserisci il numero di camere prima di salvare.');
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 3000);
+        return;
+    }
+    
+    // Validazione per hotel stagionali: richiedi i giorni di apertura
+    if (hotelDataToSave.tipoHotel === 'stagionale' && (!hotelDataToSave.giorniApertura || hotelDataToSave.giorniApertura <= 0 || hotelDataToSave.giorniApertura > 365)) {
+        setToastMessage('Per hotel stagionali è necessario inserire un numero valido di giorni di apertura (1-365).');
         setShowToast(true);
         setTimeout(() => setShowToast(false), 3000);
         return;
@@ -777,7 +787,7 @@ return (
                         {kpi ? (
                             <>
                                 {/* KPI Cards */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                                <div className={`grid grid-cols-1 md:grid-cols-2 ${hotelData?.tipoHotel === 'stagionale' && kpi.costiGiornalieriMedi ? 'lg:grid-cols-5' : 'lg:grid-cols-4'} gap-6 mb-8`}>
                                     <KPICard
                                         title="RevPAR"
                                         value={`€${kpi.revpar.toFixed(2)}`}
@@ -806,7 +816,43 @@ return (
                                         icon={<svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
                                         color="purple"
                                     />
+                                    {kpi.roi !== undefined && (
+                                        <KPICard
+                                            title="ROI"
+                                            value={`${kpi.roi.toFixed(1)}%`}
+                                            subtitle="Return on Investment"
+                                            icon={<svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>}
+                                            color={kpi.roi >= 20 ? 'green' : kpi.roi >= 10 ? 'yellow' : 'red'}
+                                        />
+                                    )}
                                 </div>
+                                {/* Metriche stagionali aggiuntive */}
+                                {hotelData?.tipoHotel === 'stagionale' && kpi.costiGiornalieriMedi && kpi.ricaviGiornalieriMedi && (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                                        <KPICard
+                                            title="Costi Giornalieri Medi"
+                                            value={`€${kpi.costiGiornalieriMedi.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                                            subtitle={(() => {
+                                                const giorniTotali = revenues.reduce((sum, r) => sum + (r.giorniAperturaMese || 0), 0);
+                                                const giorniMostrati = giorniTotali > 0 ? giorniTotali : (hotelData.giorniApertura || 0);
+                                                return `Su ${giorniMostrati} giorni di apertura${giorniTotali > 0 ? ' (da dati mensili)' : ''}`;
+                                            })()}
+                                            icon={<svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>}
+                                            color="orange"
+                                        />
+                                        <KPICard
+                                            title="Ricavi Giornalieri Medi"
+                                            value={`€${kpi.ricaviGiornalieriMedi.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                                            subtitle={(() => {
+                                                const giorniTotali = revenues.reduce((sum, r) => sum + (r.giorniAperturaMese || 0), 0);
+                                                const giorniMostrati = giorniTotali > 0 ? giorniTotali : (hotelData.giorniApertura || 0);
+                                                return `Su ${giorniMostrati} giorni di apertura${giorniTotali > 0 ? ' (da dati mensili)' : ''}`;
+                                            })()}
+                                            icon={<svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
+                                            color="green"
+                                        />
+                                    </div>
+                                )}
 
                                 {/* Grafici */}
                                 {revenues.length > 0 && (
@@ -1221,6 +1267,60 @@ return (
                                         placeholder="Es. 4"
                                     />
                                 </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-300 mb-2">Tipo Hotel</label>
+                                    <select
+                                        value={hotelData?.tipoHotel || ''}
+                                        onChange={(e) => {
+                                            const tipoHotel = e.target.value || undefined;
+                                            const newData = { 
+                                                ...hotelData, 
+                                                tipoHotel: tipoHotel ? tipoHotel as 'annuale' | 'stagionale' : undefined,
+                                                hotelName: hotelName || hotelData?.hotelName || 'Mio Hotel',
+                                                camereTotali: hotelData?.camereTotali || 0,
+                                                // Reset giorniApertura se si passa da stagionale ad annuale
+                                                giorniApertura: tipoHotel === 'stagionale' ? hotelData?.giorniApertura : undefined
+                                            };
+                                            setHotelData(newData as HotelData);
+                                            if (hotelData?.camereTotali && hotelData.camereTotali > 0) {
+                                                handleSaveHotelData(newData);
+                                            }
+                                        }}
+                                        className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white"
+                                    >
+                                        <option value="">Seleziona...</option>
+                                        <option value="annuale">Annuale</option>
+                                        <option value="stagionale">Stagionale</option>
+                                    </select>
+                                </div>
+                                {hotelData?.tipoHotel === 'stagionale' && (
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-300 mb-2">Giorni di Apertura</label>
+                                        <input
+                                            type="number"
+                                            min="1"
+                                            max="365"
+                                            value={hotelData?.giorniApertura || ''}
+                                            onChange={(e) => {
+                                                const giorniApertura = parseInt(e.target.value) || undefined;
+                                                const newData = { 
+                                                    ...hotelData, 
+                                                    giorniApertura,
+                                                    hotelName: hotelName || hotelData?.hotelName || 'Mio Hotel',
+                                                    camereTotali: hotelData?.camereTotali || 0,
+                                                    tipoHotel: 'stagionale' as const
+                                                };
+                                                setHotelData(newData as HotelData);
+                                                if (hotelData?.camereTotali && hotelData.camereTotali > 0) {
+                                                    handleSaveHotelData(newData);
+                                                }
+                                            }}
+                                            className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white"
+                                            placeholder="Es. 120"
+                                        />
+                                        <p className="text-xs text-gray-400 mt-1">Numero di giorni di apertura durante l'anno</p>
+                                    </div>
+                                )}
                             </div>
                         </div>
 
@@ -1307,6 +1407,31 @@ return (
                                                     className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white"
                                                 />
                                             </div>
+                                            {(hotelData?.tipoHotel === 'stagionale' || revenue.giorniAperturaMese) && (
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                                                        Giorni di Apertura del Mese
+                                                        {hotelData?.tipoHotel === 'stagionale' && (
+                                                            <span className="text-xs text-blue-400 ml-1">*</span>
+                                                        )}
+                                                    </label>
+                                                    <input
+                                                        type="number"
+                                                        min="1"
+                                                        max="31"
+                                                        value={revenue.giorniAperturaMese || ''}
+                                                        onChange={(e) => {
+                                                            const updated = [...revenues];
+                                                            updated[revenues.length - 1 - idx] = { ...revenue, giorniAperturaMese: parseInt(e.target.value) || undefined };
+                                                            setRevenues(updated);
+                                                            handleSaveRevenues(updated[revenues.length - 1 - idx]);
+                                                        }}
+                                                        className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white"
+                                                        placeholder="Es. 28"
+                                                    />
+                                                    <p className="text-xs text-gray-400 mt-1">Giorni di apertura effettivi in questo mese</p>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 ))}

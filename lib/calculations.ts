@@ -75,6 +75,49 @@ export function calculateKPI(
   // Profit per room = GOP / Total Rooms
   const profitPerRoom = gop / camereTotali;
 
+  // Calcoli specifici per hotel stagionali
+  const isStagionale = hotelData?.tipoHotel === 'stagionale';
+  
+  // Calcola i giorni totali di apertura: preferisci la somma dei giorni mensili se disponibile
+  let giorniAperturaTotali = 365; // default per hotel annuali
+  const giorniAperturaMensiliTotali = revenues.reduce((sum, revenue) => 
+    sum + (revenue.giorniAperturaMese || 0), 0
+  );
+  
+  if (isStagionale) {
+    // Se abbiamo i giorni di apertura mensili, usiamo quelli (più precisi)
+    if (giorniAperturaMensiliTotali > 0) {
+      giorniAperturaTotali = giorniAperturaMensiliTotali;
+    } else {
+      // Altrimenti usiamo il valore annuale dall'hotel data
+      giorniAperturaTotali = hotelData?.giorniApertura || 365;
+    }
+  }
+  
+  // Calcola costi e ricavi giornalieri medi
+  const costiGiornalieriMedi = isStagionale && giorniAperturaTotali > 0 
+    ? totaleSpese / giorniAperturaTotali 
+    : totaleSpese / 365;
+  const ricaviGiornalieriMedi = isStagionale && giorniAperturaTotali > 0
+    ? totaleRicavi / giorniAperturaTotali
+    : totaleRicavi / 365;
+
+  // ROI (Return on Investment) = (GOP / Total Costs) × 100
+  // Se l'hotel è stagionale, normalizziamo rispetto ai giorni di apertura
+  let roi: number | undefined;
+  if (totaleSpese > 0) {
+    if (isStagionale && giorniAperturaTotali > 0) {
+      // Per hotel stagionali: normalizziamo i costi e i ricavi ai giorni effettivi
+      // ROI stagionale = (Ricavi giornalieri medi - Costi giornalieri medi) / Costi giornalieri medi * 100
+      roi = costiGiornalieriMedi > 0 
+        ? ((ricaviGiornalieriMedi - costiGiornalieriMedi) / costiGiornalieriMedi) * 100
+        : 0;
+    } else {
+      // Per hotel annuali: ROI standard
+      roi = (gop / totaleSpese) * 100;
+    }
+  }
+
   return {
     revpar: Math.round(revpar * 100) / 100,
     adr: Math.round(adr * 100) / 100,
@@ -85,6 +128,9 @@ export function calculateKPI(
     profitPerRoom: Math.round(profitPerRoom * 100) / 100,
     totaleSpese: Math.round(totaleSpese * 100) / 100,
     totaleRicavi: Math.round(totaleRicavi * 100) / 100,
+    roi: roi !== undefined ? Math.round(roi * 100) / 100 : undefined,
+    costiGiornalieriMedi: isStagionale ? Math.round(costiGiornalieriMedi * 100) / 100 : undefined,
+    ricaviGiornalieriMedi: isStagionale ? Math.round(ricaviGiornalieriMedi * 100) / 100 : undefined,
   };
 }
 

@@ -29,6 +29,8 @@ export interface HotelData {
   localita?: string;
   categoria?: 'lussuoso' | 'business' | 'economico' | 'boutique';
   annoInizio?: number; // anno in cui è iniziato il monitoraggio
+  tipoHotel?: 'annuale' | 'stagionale'; // tipo di hotel
+  giorniApertura?: number; // numero di giorni di apertura (solo per hotel stagionali)
 }
 
 // Dati Ricavi (mensili)
@@ -41,6 +43,7 @@ export interface RevenueData {
   nottiTotali: number;
   ricaviRistorazione?: number;
   ricaviServiziAggiuntivi?: number;
+  giorniAperturaMese?: number; // giorni di apertura per questo mese (utile per hotel stagionali)
 }
 
 // Dati Costi (mensili)
@@ -60,6 +63,9 @@ export interface KPIData {
   profitPerRoom: number;
   totaleSpese: number;
   totaleRicavi: number;
+  roi?: number; // Return on Investment (%)
+  costiGiornalieriMedi?: number; // Costi medi giornalieri (per hotel stagionali)
+  ricaviGiornalieriMedi?: number; // Ricavi medi giornalieri (per hotel stagionali)
 }
 
 // Analisi e Benchmark
