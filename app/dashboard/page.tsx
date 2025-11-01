@@ -1707,29 +1707,43 @@ return (
                                            costiPerCategoria['Marketing'] = marketingTotale;
                                            costiPerCategoria['Altri Costi'] = altriCostiTotale;
                                            
-                                           const categorie = Object.entries(costiPerCategoria)
+                                           // Mostra tutte le categorie, anche quelle con valore 0
+                                           // Ordina prima per valore (decrescente), poi mostra quelle con 0 alla fine
+                                           const categorieConValore = Object.entries(costiPerCategoria)
                                                .filter(([_, valore]) => valore > 0)
                                                .sort(([_, a], [__, b]) => b - a);
+                                           const categorieSenzaValore = Object.entries(costiPerCategoria)
+                                               .filter(([_, valore]) => valore === 0)
+                                               .sort(([a], [b]) => a.localeCompare(b));
+                                           const tutteCategorie = [...categorieConValore, ...categorieSenzaValore];
                                            
                                            return (
                                                <div className="space-y-3">
-                                                   {categorie.map(([categoria, valore]) => {
+                                                   {tutteCategorie.map(([categoria, valore]) => {
                                                        const percentuale = totaleGenerale > 0 ? (valore / totaleGenerale) * 100 : 0;
+                                                       const haValore = valore > 0;
                                                        return (
-                                                           <div key={categoria} className="bg-gray-900/50 rounded-lg p-4">
+                                                           <div key={categoria} className={`bg-gray-900/50 rounded-lg p-4 ${!haValore ? 'opacity-60' : ''}`}>
                                                                <div className="flex justify-between items-center mb-2">
-                                                                   <span className="text-white font-medium">{categoria}</span>
-                                                                   <span className="text-xl font-bold text-white">€{valore.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                                                   <span className={`font-medium ${haValore ? 'text-white' : 'text-gray-500'}`}>
+                                                                       {categoria}
+                                                                       {!haValore && <span className="text-xs ml-2 text-gray-600">(nessun costo inserito)</span>}
+                                                                   </span>
+                                                                   <span className={`text-xl font-bold ${haValore ? 'text-white' : 'text-gray-600'}`}>
+                                                                       €{valore.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                                   </span>
                                                                </div>
-                                                               <div className="flex items-center gap-2">
-                                                                   <div className="flex-1 bg-gray-700 rounded-full h-2 overflow-hidden">
-                                                                       <div 
-                                                                           className="h-full bg-blue-500 transition-all duration-300"
-                                                                           style={{ width: `${percentuale}%` }}
-                                                                       ></div>
+                                                               {haValore && (
+                                                                   <div className="flex items-center gap-2">
+                                                                       <div className="flex-1 bg-gray-700 rounded-full h-2 overflow-hidden">
+                                                                           <div 
+                                                                               className="h-full bg-blue-500 transition-all duration-300"
+                                                                               style={{ width: `${percentuale}%` }}
+                                                                           ></div>
+                                                                       </div>
+                                                                       <span className="text-sm text-gray-400 w-16 text-right">{percentuale.toFixed(1)}%</span>
                                                                    </div>
-                                                                   <span className="text-sm text-gray-400 w-16 text-right">{percentuale.toFixed(1)}%</span>
-                                                               </div>
+                                                               )}
                                                            </div>
                                                        );
                                                    })}
