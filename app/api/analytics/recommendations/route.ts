@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateRecommendations, generateAlerts } from '../../../../lib/ai-recommendations';
 import { analyzeCosts, calculateKPI, getBenchmarkValues } from '../../../../lib/calculations';
-import { CostsData, RevenueData, HotelData, MonthlyCostsData, CostAnalysis, KPIData, Recommendation } from '../../../../lib/types';
+import { CostsData, RevenueData, HotelData, MonthlyCostsData, CostAnalysis, KPIData, Recommendation, Alert } from '../../../../lib/types';
 
 export async function POST(request: NextRequest) {
   try {
@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Genera alert solo se abbiamo KPI
-    let alerts = [];
+    let alerts: Alert[] = [];
     if (kpi) {
       alerts = generateAlerts(costAnalyses, kpi);
     }
