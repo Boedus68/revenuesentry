@@ -229,7 +229,7 @@ export function generateRecommendations(
           `CAC: €${kpi.cac.toFixed(2)}`,
           `ADR: €${kpi.adr.toFixed(2)}`,
           `Rapporto CAC/ADR: ${(rapportoCacAdr * 100).toFixed(1)}% (target: <15%)`,
-          `Costi marketing totali: €${((kpi.cac || 0) * (revenues.reduce((s, r) => s + (r.numeroPrenotazioni || 0), 0)))).toLocaleString('it-IT')}`,
+          `Costi marketing totali: €${((kpi.cac || 0) * revenues.reduce((s, r) => s + (r.numeroPrenotazioni || 0), 0)).toLocaleString('it-IT')}`,
         ],
       });
     } else if (rapportoCacAdr < 0.08) {
