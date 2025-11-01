@@ -1,6 +1,6 @@
 // Sistema di Raccomandazioni IA per Ottimizzazione Costi e Profitti
 
-import { CostsData, RevenueData, KPIData, CostAnalysis, Recommendation, HotelData } from './types';
+import { CostsData, RevenueData, KPIData, CostAnalysis, Recommendation, HotelData, Alert } from './types';
 import { calculateTotalCosts, analyzeCosts, getBenchmarkValues } from './calculations';
 
 /**
@@ -229,20 +229,21 @@ export function generateRecommendations(
 export function generateAlerts(
   costAnalyses: CostAnalysis[],
   kpi: KPIData
-): Array<{ tipo: 'anomalia' | 'soglia' | 'trend'; messaggio: string; severita: 'critica' | 'alta' | 'media' | 'bassa' }> {
-  const alerts: Array<{
-    tipo: 'anomalia' | 'soglia' | 'trend';
-    messaggio: string;
-    severita: 'critica' | 'alta' | 'media' | 'bassa';
-  }> = [];
+): Alert[] {
+  const alerts: Alert[] = [];
+  const now = new Date().toISOString();
 
   // Alert per anomalie critiche
   costAnalyses.forEach((analysis) => {
     if (analysis.anomalia && analysis.variazionePercentuale && Math.abs(analysis.variazionePercentuale) > 30) {
       alerts.push({
+        id: `alert-anomalia-${analysis.categoria.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`,
         tipo: 'anomalia',
+        categoria: analysis.categoria,
         messaggio: `${analysis.categoria}: variazione del ${Math.round(analysis.variazionePercentuale)}%`,
         severita: 'critica',
+        data: now,
+        risolto: false,
       });
     }
   });
@@ -250,18 +251,26 @@ export function generateAlerts(
   // Alert per GOP negativo
   if (kpi.gop < 0) {
     alerts.push({
+      id: `alert-gop-negativo-${Date.now()}`,
       tipo: 'soglia',
+      categoria: 'Redditività',
       messaggio: 'GOP negativo: hotel in perdita',
       severita: 'critica',
+      data: now,
+      risolto: false,
     });
   }
 
   // Alert per margine critico
   if (kpi.gopMargin < 5) {
     alerts.push({
+      id: `alert-margine-critico-${Date.now()}`,
       tipo: 'soglia',
+      categoria: 'Redditività',
       messaggio: `Margine GOP critico: ${kpi.gopMargin.toFixed(1)}%`,
       severita: 'alta',
+      data: now,
+      risolto: false,
     });
   }
 
