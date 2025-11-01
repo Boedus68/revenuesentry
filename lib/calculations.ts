@@ -49,8 +49,16 @@ export function calculateKPI(
   // Calcola totali spese
   const totaleSpese = calculateTotalCosts(totalCostsData);
 
-  // Calcola ricavi totali (somma di tutti i mesi)
-  const totaleRicavi = revenues.reduce((sum, revenue) => sum + (revenue.entrateTotali || 0), 0);
+  // Calcola ricavi totali camere (somma di tutti i mesi)
+  const totaleRicaviCamere = revenues.reduce((sum, revenue) => sum + (revenue.entrateTotali || 0), 0);
+  
+  // Calcola ricavi totali hotel (camere + F&B + servizi aggiuntivi)
+  const totaleRicaviHotel = revenues.reduce((sum, revenue) => {
+    return sum + (revenue.entrateTotali || 0) + (revenue.ricaviRistorazione || 0) + (revenue.ricaviServiziAggiuntivi || 0);
+  }, 0);
+  
+  // Usa totaleRicaviHotel per i calcoli KPI generali
+  const totaleRicavi = totaleRicaviHotel;
 
   // KPI base (usiamo l'ultimo mese per occupazione e ADR per i calcoli KPI specifici)
   const ultimoMese = revenues[revenues.length - 1];
@@ -58,13 +66,32 @@ export function calculateKPI(
   const occupazione = ultimoMese?.occupazione || 0;
   const adr = ultimoMese?.prezzoMedioCamera || 0;
 
-  // RevPAR = ADR × Occupancy Rate
+  // RevPAR = ADR × Occupancy Rate (o Ricavi Camere / Camere Disponibili)
   const revpar = (adr * occupazione) / 100;
+  
+  // TRevPAR = Total Revenue Per Available Room (ricavi totali hotel / camere disponibili)
+  // Camere disponibili = camereTotali × giorni nel periodo considerato
+  // Per semplicità, usiamo la media mensile moltiplicata per il numero di mesi
+  const numeroMesi = revenues.length || 1;
+  const camereDisponibiliTotali = camereTotali * (numeroMesi * 30); // approssimazione: 30 giorni per mese
+  const trevpar = camereDisponibiliTotali > 0 ? totaleRicaviHotel / camereDisponibiliTotali : 0;
 
   // CPPR = Total Costs / Total Room Nights
   // Calcola le notti totali da tutti i mesi
   const nottiTotali = revenues.reduce((sum, revenue) => sum + (revenue.nottiTotali || 0), 0);
+  
+  // Calcola camere vendute totali
+  const camereVenduteTotali = revenues.reduce((sum, revenue) => sum + (revenue.camereVendute || 0), 0);
+  
+  // CPPR = Total Costs / Total Room Nights
   const cppr = nottiTotali > 0 ? totaleSpese / nottiTotali : 0;
+  
+  // CPOR = Costi Reparto Camere / Camere Vendute
+  // Stima costi reparto camere: considera parte di personale, utenze proporzionali, altri costi operativi
+  // Per semplicità, assumiamo che ~40% dei costi totali siano relativi al reparto camere
+  // (stima conservativa: include pulizia, lavanderia, amenities, parte di utenze e personale)
+  const costiRepartoCamere = totaleSpese * 0.4;
+  const cpor = camereVenduteTotali > 0 ? costiRepartoCamere / camereVenduteTotali : 0;
 
   // GOP (Gross Operating Profit) = Revenue - Operating Costs
   const gop = totaleRicavi - totaleSpese;
@@ -74,6 +101,9 @@ export function calculateKPI(
 
   // Profit per room = GOP / Total Rooms
   const profitPerRoom = gop / camereTotali;
+  
+  // GOPPAR = Gross Operating Profit Per Available Room
+  const goppar = camereDisponibiliTotali > 0 ? gop / camereDisponibiliTotali : 0;
 
   // Calcoli specifici per hotel stagionali
   const isStagionale = hotelData?.tipoHotel === 'stagionale';
@@ -117,18 +147,45 @@ export function calculateKPI(
       roi = (gop / totaleSpese) * 100;
     }
   }
+  
+  // CAC = Costo Acquisto Clienti = (Costi Marketing + Commissioni OTA) / Numero Prenotazioni
+  const costiMarketingTotali = Array.isArray(costs) 
+    ? costs.reduce((sum, mc) => sum + (mc.costs.marketing?.costiMarketing || 0) + (mc.costs.marketing?.commissioniOTA || 0), 0)
+    : (totalCostsData.marketing?.costiMarketing || 0) + (totalCostsData.marketing?.commissioniOTA || 0);
+  
+  const numeroPrenotazioniTotali = revenues.reduce((sum, revenue) => sum + (revenue.numeroPrenotazioni || 0), 0);
+  const cac = numeroPrenotazioniTotali > 0 ? costiMarketingTotali / numeroPrenotazioniTotali : undefined;
+  
+  // ALOS = Average Length of Stay
+  // Se non fornito esplicitamente, calcolalo da notti totali / numero prenotazioni
+  let alos: number | undefined;
+  if (numeroPrenotazioniTotali > 0) {
+    // Prova prima a calcolare dalla media dei valori forniti
+    const alosValues = revenues.filter(r => r.permanenzaMedia).map(r => r.permanenzaMedia!);
+    if (alosValues.length > 0) {
+      alos = alosValues.reduce((sum, val) => sum + val, 0) / alosValues.length;
+    } else {
+      // Calcola da notti totali / numero prenotazioni
+      alos = nottiTotali / numeroPrenotazioniTotali;
+    }
+  }
 
   return {
     revpar: Math.round(revpar * 100) / 100,
     adr: Math.round(adr * 100) / 100,
     occupazione: Math.round(occupazione * 100) / 100,
+    trevpar: Math.round(trevpar * 100) / 100,
     gop: Math.round(gop * 100) / 100,
     gopMargin: Math.round(gopMargin * 100) / 100,
+    goppar: Math.round(goppar * 100) / 100,
     cppr: Math.round(cppr * 100) / 100,
+    cpor: Math.round(cpor * 100) / 100,
     profitPerRoom: Math.round(profitPerRoom * 100) / 100,
     totaleSpese: Math.round(totaleSpese * 100) / 100,
     totaleRicavi: Math.round(totaleRicavi * 100) / 100,
     roi: roi !== undefined ? Math.round(roi * 100) / 100 : undefined,
+    cac: cac !== undefined ? Math.round(cac * 100) / 100 : undefined,
+    alos: alos !== undefined ? Math.round(alos * 100) / 100 : undefined,
     costiGiornalieriMedi: isStagionale ? Math.round(costiGiornalieriMedi * 100) / 100 : undefined,
     ricaviGiornalieriMedi: isStagionale ? Math.round(ricaviGiornalieriMedi * 100) / 100 : undefined,
   };
@@ -156,6 +213,12 @@ export function calculateTotalCosts(costs: Partial<CostsData>): number {
   if (costs.personale) {
     totale += (costs.personale.bustePaga || 0);
     totale += (costs.personale.sicurezza || 0);
+  }
+
+  // Marketing
+  if (costs.marketing) {
+    totale += (costs.marketing.costiMarketing || 0);
+    totale += (costs.marketing.commissioniOTA || 0);
   }
 
   // Altri costi

@@ -785,8 +785,8 @@ return (
 
                         {kpi ? (
                             <>
-                                {/* KPI Cards */}
-                                <div className={`grid grid-cols-1 md:grid-cols-2 ${hotelData?.tipoHotel === 'stagionale' && kpi.costiGiornalieriMedi ? 'lg:grid-cols-5' : 'lg:grid-cols-4'} gap-6 mb-8`}>
+                                {/* KPI Cards - Revenue Management */}
+                                <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6`}>
                                     <KPICard
                                         title="RevPAR"
                                         value={`€${kpi.revpar.toFixed(2)}`}
@@ -795,11 +795,11 @@ return (
                                         color="blue"
                                     />
                                     <KPICard
-                                        title="GOP Margin"
-                                        value={`${kpi.gopMargin.toFixed(1)}%`}
-                                        subtitle={`GOP: €${kpi.gop.toLocaleString('it-IT')}`}
+                                        title="TRevPAR"
+                                        value={`€${kpi.trevpar?.toFixed(2) || '0.00'}`}
+                                        subtitle="Total Revenue Per Available Room"
                                         icon={<svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>}
-                                        color={kpi.gopMargin >= 25 ? 'green' : kpi.gopMargin >= 15 ? 'yellow' : 'red'}
+                                        color="purple"
                                     />
                                     <KPICard
                                         title="Occupazione"
@@ -808,12 +808,41 @@ return (
                                         icon={<svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>}
                                         color={kpi.occupazione >= 70 ? 'green' : kpi.occupazione >= 50 ? 'yellow' : 'red'}
                                     />
+                                    {kpi.alos !== undefined && (
+                                        <KPICard
+                                            title="ALOS"
+                                            value={`${kpi.alos.toFixed(1)}`}
+                                            subtitle="Average Length of Stay (giorni)"
+                                            icon={<svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
+                                            color="blue"
+                                        />
+                                    )}
+                                </div>
+                                
+                                {/* KPI Cards - Redditività USALI */}
+                                <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-${kpi.roi !== undefined && kpi.cac !== undefined ? '5' : kpi.roi !== undefined || kpi.cac !== undefined ? '4' : '3'} gap-6 mb-6`}>
                                     <KPICard
-                                        title="Totale Ricavi"
-                                        value={`€${kpi.totaleRicavi.toLocaleString('it-IT')}`}
-                                        subtitle={`Spese: €${kpi.totaleSpese.toLocaleString('it-IT')}`}
-                                        icon={<svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
-                                        color="purple"
+                                        title="GOP"
+                                        value={`€${kpi.gop.toLocaleString('it-IT')}`}
+                                        subtitle={`GOP Margin: ${kpi.gopMargin.toFixed(1)}%`}
+                                        icon={<svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>}
+                                        color={kpi.gopMargin >= 25 ? 'green' : kpi.gopMargin >= 15 ? 'yellow' : 'red'}
+                                    />
+                                    {kpi.goppar !== undefined && (
+                                        <KPICard
+                                            title="GOPPAR"
+                                            value={`€${kpi.goppar.toFixed(2)}`}
+                                            subtitle="Gross Operating Profit Per Available Room"
+                                            icon={<svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>}
+                                            color={kpi.goppar >= 50 ? 'green' : kpi.goppar >= 30 ? 'yellow' : 'red'}
+                                        />
+                                    )}
+                                    <KPICard
+                                        title="CPOR"
+                                        value={`€${kpi.cpor?.toFixed(2) || '0.00'}`}
+                                        subtitle="Cost Per Occupied Room"
+                                        icon={<svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>}
+                                        color="yellow"
                                     />
                                     {kpi.roi !== undefined && (
                                         <KPICard
@@ -822,6 +851,15 @@ return (
                                             subtitle="Return on Investment"
                                             icon={<svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>}
                                             color={kpi.roi >= 20 ? 'green' : kpi.roi >= 10 ? 'yellow' : 'red'}
+                                        />
+                                    )}
+                                    {kpi.cac !== undefined && (
+                                        <KPICard
+                                            title="CAC"
+                                            value={`€${kpi.cac.toFixed(2)}`}
+                                            subtitle="Costo Acquisto Clienti"
+                                            icon={<svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>}
+                                            color={kpi.cac < 20 ? 'green' : kpi.cac < 40 ? 'yellow' : 'red'}
                                         />
                                     )}
                                 </div>
@@ -1106,6 +1144,31 @@ return (
                                 <div className="space-y-4">
                                      <input type="number" step="0.01" value={costs.personale?.bustePaga || ''} onChange={(e) => handleInputChange('personale', 'bustePaga', '', e.target.value)} placeholder="Costo Totale Buste Paga €" className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"/>
                                      <input type="number" step="0.01" value={costs.personale?.sicurezza || ''} onChange={(e) => handleInputChange('personale', 'sicurezza', '', e.target.value)} placeholder="Aggiornamento Sicurezza Dipendenti €" className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"/>
+                                </div>
+                            </div>
+                            <div className="bg-gray-800/50 border border-gray-700 rounded-2xl p-6">
+                                <h3 className="text-xl font-semibold text-white mb-4">Marketing</h3>
+                                <div className="space-y-4">
+                                     <input type="number" step="0.01" value={costs.marketing?.costiMarketing || ''} onChange={(e) => {
+                                        const val = parseFloat(e.target.value) || 0;
+                                        setCosts(prev => ({
+                                            ...prev,
+                                            marketing: {
+                                                ...prev.marketing,
+                                                costiMarketing: val
+                                            }
+                                        }));
+                                     }} placeholder="Costi Marketing Totali €" className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"/>
+                                     <input type="number" step="0.01" value={costs.marketing?.commissioniOTA || ''} onChange={(e) => {
+                                        const val = parseFloat(e.target.value) || 0;
+                                        setCosts(prev => ({
+                                            ...prev,
+                                            marketing: {
+                                                ...prev.marketing,
+                                                commissioniOTA: val
+                                            }
+                                        }));
+                                     }} placeholder="Commissioni OTA (Booking, Expedia, etc.) €" className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"/>
                                 </div>
                             </div>
                             <div className="bg-gray-800/50 border border-gray-700 rounded-2xl p-6 lg:col-span-2">
@@ -1405,6 +1468,39 @@ return (
                                                     <p className="text-xs text-gray-400 mt-1">Giorni di apertura effettivi in questo mese</p>
                                                 </div>
                                             )}
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-300 mb-2">Numero Prenotazioni</label>
+                                                <input
+                                                    type="number"
+                                                    value={revenue.numeroPrenotazioni || ''}
+                                                    onChange={(e) => {
+                                                        const updated = [...revenues];
+                                                        updated[revenues.length - 1 - idx] = { ...revenue, numeroPrenotazioni: parseInt(e.target.value) || undefined };
+                                                        setRevenues(updated);
+                                                        handleSaveRevenues(updated[revenues.length - 1 - idx]);
+                                                    }}
+                                                    className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white"
+                                                    placeholder="Es. 150"
+                                                />
+                                                <p className="text-xs text-gray-400 mt-1">Numero totale di prenotazioni ricevute (per calcolo CAC)</p>
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-300 mb-2">Permanenza Media (ALOS)</label>
+                                                <input
+                                                    type="number"
+                                                    step="0.1"
+                                                    value={revenue.permanenzaMedia || ''}
+                                                    onChange={(e) => {
+                                                        const updated = [...revenues];
+                                                        updated[revenues.length - 1 - idx] = { ...revenue, permanenzaMedia: parseFloat(e.target.value) || undefined };
+                                                        setRevenues(updated);
+                                                        handleSaveRevenues(updated[revenues.length - 1 - idx]);
+                                                    }}
+                                                    className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white"
+                                                    placeholder="Es. 3.5"
+                                                />
+                                                <p className="text-xs text-gray-400 mt-1">Durata media del soggiorno in giorni (se vuoto, calcolato automaticamente)</p>
+                                            </div>
                                         </div>
                                     </div>
                                 ))}
