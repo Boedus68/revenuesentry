@@ -66,6 +66,28 @@ export function calculateKPI(
   // Usa totaleRicaviHotel per i calcoli KPI generali
   const totaleRicavi = totaleRicaviHotel;
 
+  // Calcoli specifici per hotel stagionali - CALCOLIAMO PRIMA I GIORNI DI APERTURA
+  const isStagionale = hotelData?.tipoHotel === 'stagionale';
+  
+  // Calcola i giorni totali di apertura: preferisci la somma dei giorni mensili se disponibile
+  let giorniAperturaTotali = 365; // default per hotel annuali
+  const giorniAperturaMensiliTotali = revenues.reduce((sum, revenue) => 
+    sum + (revenue.giorniAperturaMese || 0), 0
+  );
+  
+  if (isStagionale) {
+    // Se abbiamo i giorni di apertura mensili, usiamo quelli (più precisi)
+    if (giorniAperturaMensiliTotali > 0) {
+      giorniAperturaTotali = giorniAperturaMensiliTotali;
+    } else {
+      // Altrimenti usiamo il valore annuale dall'hotel data
+      giorniAperturaTotali = hotelData?.giorniApertura || 365;
+    }
+  } else if (giorniAperturaMensiliTotali > 0) {
+    // Anche per hotel annuali, se abbiamo giorni mensili, usiamoli (più precisi)
+    giorniAperturaTotali = giorniAperturaMensiliTotali;
+  }
+
   // KPI base (usiamo l'ultimo mese per occupazione e ADR per i calcoli KPI specifici)
   const ultimoMese = revenues[revenues.length - 1];
   const camereTotali = hotelData?.camereTotali || 1;
@@ -76,10 +98,8 @@ export function calculateKPI(
   const revpar = (adr * occupazione) / 100;
   
   // TRevPAR = Total Revenue Per Available Room (ricavi totali hotel / camere disponibili)
-  // Camere disponibili = camereTotali × giorni nel periodo considerato
-  // Per semplicità, usiamo la media mensile moltiplicata per il numero di mesi
-  const numeroMesi = revenues.length || 1;
-  const camereDisponibiliTotali = camereTotali * (numeroMesi * 30); // approssimazione: 30 giorni per mese
+  // Camere disponibili = camereTotali × giorni di apertura reali
+  const camereDisponibiliTotali = camereTotali * giorniAperturaTotali;
   const trevpar = camereDisponibiliTotali > 0 ? totaleRicaviHotel / camereDisponibiliTotali : 0;
 
   // CPPR = Total Costs / Total Room Nights
@@ -109,26 +129,8 @@ export function calculateKPI(
   const profitPerRoom = gop / camereTotali;
   
   // GOPPAR = Gross Operating Profit Per Available Room
+  // Usa i giorni di apertura reali già calcolati sopra
   const goppar = camereDisponibiliTotali > 0 ? gop / camereDisponibiliTotali : 0;
-
-  // Calcoli specifici per hotel stagionali
-  const isStagionale = hotelData?.tipoHotel === 'stagionale';
-  
-  // Calcola i giorni totali di apertura: preferisci la somma dei giorni mensili se disponibile
-  let giorniAperturaTotali = 365; // default per hotel annuali
-  const giorniAperturaMensiliTotali = revenues.reduce((sum, revenue) => 
-    sum + (revenue.giorniAperturaMese || 0), 0
-  );
-  
-  if (isStagionale) {
-    // Se abbiamo i giorni di apertura mensili, usiamo quelli (più precisi)
-    if (giorniAperturaMensiliTotali > 0) {
-      giorniAperturaTotali = giorniAperturaMensiliTotali;
-    } else {
-      // Altrimenti usiamo il valore annuale dall'hotel data
-      giorniAperturaTotali = hotelData?.giorniApertura || 365;
-    }
-  }
   
   // Calcola costi e ricavi giornalieri medi
   const costiGiornalieriMedi = isStagionale && giorniAperturaTotali > 0 
