@@ -749,7 +749,7 @@ return (
                 <NavLink id="panoramica" text="Panoramica" icon={<svg className="h-6 w-6 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>} />
                 <NavLink id="ricavi" text="Ricavi" icon={<svg className="h-6 w-6 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>} />
                 <NavLink id="costi" text="Costi" icon={<svg className="h-6 w-6 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 17v-2a4 4 0 00-4-4H3V9h2a4 4 0 004-4V3l4 4-4 4zM15 17v-2a4 4 0 014-4h2V9h-2a4 4 0 01-4-4V3l-4 4 4 4z"/></svg>} />
-                <NavLink id="raccomandazioni" text="Raccomandazioni IA" icon={<svg className="h-6 w-6 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>} />
+                <NavLink id="raccomandazioni" text="Consigli AI" icon={<svg className="h-6 w-6 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>} />
                 <NavLink id="report" text="Report" icon={<svg className="h-6 w-6 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" /><path strokeLinecap="round" strokeLinejoin="round" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" /></svg>} />
             </nav>
             {alerts.length > 0 && (
@@ -984,12 +984,94 @@ return (
                                             <ResponsiveContainer width="100%" height={300}>
                                                 <PieChart>
                                                     <Pie
-                                                        data={[
-                                                            { name: 'Ristorazione', value: (costs.ristorazione || []).reduce((sum, item) => sum + (item.importo || 0), 0) },
-                                                            { name: 'Utenze', value: ((costs.utenze?.energia?.importo || 0) + (costs.utenze?.gas?.importo || 0) + (costs.utenze?.acqua?.importo || 0)) },
-                                                            { name: 'Personale', value: ((costs.personale?.bustePaga || 0) + (costs.personale?.sicurezza || 0)) },
-                                                            { name: 'Altri', value: Object.values(costs.altriCosti || {}).reduce((sum, val) => sum + (val || 0), 0) },
-                                                        ].filter(item => item.value > 0)}
+                                                        data={(() => {
+                                                            // Usa le stesse categorie dettagliate del report
+                                                            const costiPerCategoria: Record<string, number> = {};
+                                                            
+                                                            // Funzione helper per aggiungere un costo a una categoria
+                                                            const aggiungiCategoria = (categoria: string, importo: number) => {
+                                                                if (importo > 0) {
+                                                                    costiPerCategoria[categoria] = (costiPerCategoria[categoria] || 0) + importo;
+                                                                }
+                                                            };
+                                                            
+                                                            // Processa costi mensili o singoli costi
+                                                            const costiDaProcessare = Array.isArray(monthlyCosts) && monthlyCosts.length > 0
+                                                                ? monthlyCosts.map(mc => mc.costs)
+                                                                : [costs];
+                                                            
+                                                            costiDaProcessare.forEach((costData) => {
+                                                                // Ristorazione
+                                                                if (costData.ristorazione && Array.isArray(costData.ristorazione)) {
+                                                                    const totale = costData.ristorazione.reduce((sum, item) => sum + (item.importo || 0), 0);
+                                                                    aggiungiCategoria('Ristorazione', totale);
+                                                                }
+                                                                
+                                                                // Utenze - Energia
+                                                                if (costData.utenze?.energia?.importo) {
+                                                                    aggiungiCategoria('Utenze - Energia', costData.utenze.energia.importo);
+                                                                }
+                                                                
+                                                                // Utenze - Gas
+                                                                if (costData.utenze?.gas?.importo) {
+                                                                    aggiungiCategoria('Utenze - Gas', costData.utenze.gas.importo);
+                                                                }
+                                                                
+                                                                // Utenze - Acqua
+                                                                if (costData.utenze?.acqua?.importo) {
+                                                                    aggiungiCategoria('Utenze - Acqua', costData.utenze.acqua.importo);
+                                                                }
+                                                                
+                                                                // Personale - Buste Paga
+                                                                if (costData.personale?.bustePaga) {
+                                                                    aggiungiCategoria('Personale - Buste Paga', costData.personale.bustePaga);
+                                                                }
+                                                                
+                                                                // Personale - Sicurezza
+                                                                if (costData.personale?.sicurezza) {
+                                                                    aggiungiCategoria('Personale - Sicurezza', costData.personale.sicurezza);
+                                                                }
+                                                                
+                                                                // Marketing - Costi Marketing
+                                                                if (costData.marketing?.costiMarketing) {
+                                                                    aggiungiCategoria('Marketing', costData.marketing.costiMarketing);
+                                                                }
+                                                                
+                                                                // Marketing - Commissioni OTA
+                                                                if (costData.marketing?.commissioniOTA) {
+                                                                    aggiungiCategoria('Commissioni OTA', costData.marketing.commissioniOTA);
+                                                                }
+                                                                
+                                                                // Altri Costi - mappali alle categorie originali in base alle chiavi
+                                                                if (costData.altriCosti) {
+                                                                    const mappingAltriCosti: Record<string, string> = {
+                                                                        pulizie: 'Pulizie',
+                                                                        manElettricista: 'Manutenzione - Elettricista',
+                                                                        manIdraulico: 'Manutenzione - Idraulico',
+                                                                        manCaldaia: 'Manutenzione - Caldaia/Aria Condizionata',
+                                                                        manPiscina: 'Manutenzione - Piscina',
+                                                                        ascensore: 'Manutenzione - Ascensore',
+                                                                        ppc: 'Marketing - PPC',
+                                                                        marketing: 'Marketing',
+                                                                        telefono: 'Telefono/Internet',
+                                                                        commercialista: 'Commercialista/Consulente',
+                                                                        tari: 'Tasse',
+                                                                        gestionale: 'Gestionale',
+                                                                    };
+                                                                    
+                                                                    Object.entries(costData.altriCosti).forEach(([key, valore]) => {
+                                                                        if (valore && valore > 0) {
+                                                                            const categoriaNome = mappingAltriCosti[key] || key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1').trim();
+                                                                            aggiungiCategoria(categoriaNome, valore);
+                                                                        }
+                                                                    });
+                                                                }
+                                                            });
+                                                            
+                                                            return Object.entries(costiPerCategoria)
+                                                                .map(([name, value]) => ({ name, value }))
+                                                                .sort((a, b) => b.value - a.value);
+                                                        })()}
                                                         cx="50%"
                                                         cy="50%"
                                                         labelLine={false}
@@ -1533,7 +1615,7 @@ return (
                 {activeSection === 'raccomandazioni' && (
                     <div>
                         <div className="flex justify-between items-center mb-6">
-                            <h2 className="text-3xl font-bold text-white">Raccomandazioni IA</h2>
+                            <h2 className="text-3xl font-bold text-white">Consigli AI</h2>
                             <div className="flex items-center gap-4">
                                 <button
                                     onClick={() => {
