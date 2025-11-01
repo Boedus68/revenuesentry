@@ -1639,29 +1639,198 @@ return (
                                    </div>
                                </div>
 
+                               {/* Riepilogo Costi per Categoria */}
+                               <div className="bg-gray-800/50 border border-gray-700 rounded-2xl p-6">
+                                   <h3 className="text-xl font-semibold text-white mb-4">Riepilogo Costi per Categoria</h3>
+                                   <div className="space-y-4">
+                                       {(() => {
+                                           // Calcola costi totali per categoria
+                                           const costiPerCategoria: Record<string, number> = {};
+                                           const totaleGenerale = kpi.totaleSpese;
+                                           
+                                           // Ristorazione
+                                           const ristorazioneTotale = Array.isArray(monthlyCosts) && monthlyCosts.length > 0
+                                               ? monthlyCosts.reduce((sum, mc) => {
+                                                   return sum + (mc.costs.ristorazione?.reduce((s, item) => s + (item.importo || 0), 0) || 0);
+                                               }, 0)
+                                               : (costs.ristorazione?.reduce((sum, item) => sum + (item.importo || 0), 0) || 0);
+                                           
+                                           // Utenze
+                                           const utenzeTotale = Array.isArray(monthlyCosts) && monthlyCosts.length > 0
+                                               ? monthlyCosts.reduce((sum, mc) => {
+                                                   const ut = mc.costs.utenze;
+                                                   return sum + (ut?.energia?.importo || 0) + (ut?.gas?.importo || 0) + (ut?.acqua?.importo || 0);
+                                               }, 0)
+                                               : ((costs.utenze?.energia?.importo || 0) + (costs.utenze?.gas?.importo || 0) + (costs.utenze?.acqua?.importo || 0));
+                                           
+                                           // Personale
+                                           const personaleTotale = Array.isArray(monthlyCosts) && monthlyCosts.length > 0
+                                               ? monthlyCosts.reduce((sum, mc) => {
+                                                   const pers = mc.costs.personale;
+                                                   return sum + (pers?.bustePaga || 0) + (pers?.sicurezza || 0);
+                                               }, 0)
+                                               : ((costs.personale?.bustePaga || 0) + (costs.personale?.sicurezza || 0));
+                                           
+                                           // Marketing
+                                           const marketingTotale = Array.isArray(monthlyCosts) && monthlyCosts.length > 0
+                                               ? monthlyCosts.reduce((sum, mc) => {
+                                                   const mark = mc.costs.marketing;
+                                                   return sum + (mark?.costiMarketing || 0) + (mark?.commissioniOTA || 0);
+                                               }, 0)
+                                               : ((costs.marketing?.costiMarketing || 0) + (costs.marketing?.commissioniOTA || 0));
+                                           
+                                           // Altri Costi
+                                           const altriCostiTotale = Array.isArray(monthlyCosts) && monthlyCosts.length > 0
+                                               ? monthlyCosts.reduce((sum, mc) => {
+                                                   return sum + (mc.costs.altriCosti ? Object.values(mc.costs.altriCosti).reduce((s, v) => s + (v || 0), 0) : 0);
+                                               }, 0)
+                                               : (costs.altriCosti ? Object.values(costs.altriCosti).reduce((sum, val) => sum + (val || 0), 0) : 0);
+                                           
+                                           costiPerCategoria['Ristorazione'] = ristorazioneTotale;
+                                           costiPerCategoria['Utenze'] = utenzeTotale;
+                                           costiPerCategoria['Personale'] = personaleTotale;
+                                           costiPerCategoria['Marketing'] = marketingTotale;
+                                           costiPerCategoria['Altri Costi'] = altriCostiTotale;
+                                           
+                                           const categorie = Object.entries(costiPerCategoria)
+                                               .filter(([_, valore]) => valore > 0)
+                                               .sort(([_, a], [__, b]) => b - a);
+                                           
+                                           return (
+                                               <div className="space-y-3">
+                                                   {categorie.map(([categoria, valore]) => {
+                                                       const percentuale = totaleGenerale > 0 ? (valore / totaleGenerale) * 100 : 0;
+                                                       return (
+                                                           <div key={categoria} className="bg-gray-900/50 rounded-lg p-4">
+                                                               <div className="flex justify-between items-center mb-2">
+                                                                   <span className="text-white font-medium">{categoria}</span>
+                                                                   <span className="text-xl font-bold text-white">€{valore.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                                               </div>
+                                                               <div className="flex items-center gap-2">
+                                                                   <div className="flex-1 bg-gray-700 rounded-full h-2 overflow-hidden">
+                                                                       <div 
+                                                                           className="h-full bg-blue-500 transition-all duration-300"
+                                                                           style={{ width: `${percentuale}%` }}
+                                                                       ></div>
+                                                                   </div>
+                                                                   <span className="text-sm text-gray-400 w-16 text-right">{percentuale.toFixed(1)}%</span>
+                                                               </div>
+                                                           </div>
+                                                       );
+                                                   })}
+                                                   <div className="pt-4 border-t border-gray-700 mt-4">
+                                                       <div className="flex justify-between items-center">
+                                                           <span className="text-lg font-semibold text-white">Totale Generale</span>
+                                                           <span className="text-2xl font-bold text-green-400">€{totaleGenerale.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                                       </div>
+                                                   </div>
+                                               </div>
+                                           );
+                                       })()}
+                                   </div>
+                               </div>
+
                                {/* Export Button */}
                                <div className="bg-gray-800/50 border border-gray-700 rounded-2xl p-6">
-                                   <button
-                                       onClick={() => {
-                                           const report = {
-                                               hotel: hotelName,
-                                               periodo: revenues[revenues.length - 1]?.mese || '',
-                                               kpi,
-                                               revenues: revenues[revenues.length - 1],
-                                               costs,
-                                           };
-                                           const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
-                                           const url = URL.createObjectURL(blob);
-                                           const a = document.createElement('a');
-                                           a.href = url;
-                                           a.download = `report-${hotelName}-${new Date().toISOString().split('T')[0]}.json`;
-                                           a.click();
-                                           URL.revokeObjectURL(url);
-                                       }}
-                                       className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-6 rounded-lg transition"
-                                   >
-                                       Esporta Report (JSON)
-                                   </button>
+                                   <div className="flex gap-4">
+                                       <button
+                                           onClick={() => {
+                                               const report = {
+                                                   hotel: hotelName,
+                                                   periodo: revenues[revenues.length - 1]?.mese || '',
+                                                   kpi,
+                                                   revenues: revenues[revenues.length - 1],
+                                                   costs,
+                                               };
+                                               const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
+                                               const url = URL.createObjectURL(blob);
+                                               const a = document.createElement('a');
+                                               a.href = url;
+                                               a.download = `report-${hotelName}-${new Date().toISOString().split('T')[0]}.json`;
+                                               a.click();
+                                               URL.revokeObjectURL(url);
+                                           }}
+                                           className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-6 rounded-lg transition"
+                                       >
+                                           Esporta Report (JSON)
+                                       </button>
+                                       <button
+                                           onClick={() => {
+                                               // Calcola costi per categoria
+                                               const ristorazioneTotale = Array.isArray(monthlyCosts) && monthlyCosts.length > 0
+                                                   ? monthlyCosts.reduce((sum, mc) => sum + (mc.costs.ristorazione?.reduce((s, item) => s + (item.importo || 0), 0) || 0), 0)
+                                                   : (costs.ristorazione?.reduce((sum, item) => sum + (item.importo || 0), 0) || 0);
+                                               
+                                               const utenzeTotale = Array.isArray(monthlyCosts) && monthlyCosts.length > 0
+                                                   ? monthlyCosts.reduce((sum, mc) => {
+                                                       const ut = mc.costs.utenze;
+                                                       return sum + (ut?.energia?.importo || 0) + (ut?.gas?.importo || 0) + (ut?.acqua?.importo || 0);
+                                                   }, 0)
+                                                   : ((costs.utenze?.energia?.importo || 0) + (costs.utenze?.gas?.importo || 0) + (costs.utenze?.acqua?.importo || 0));
+                                               
+                                               const personaleTotale = Array.isArray(monthlyCosts) && monthlyCosts.length > 0
+                                                   ? monthlyCosts.reduce((sum, mc) => {
+                                                       const pers = mc.costs.personale;
+                                                       return sum + (pers?.bustePaga || 0) + (pers?.sicurezza || 0);
+                                                   }, 0)
+                                                   : ((costs.personale?.bustePaga || 0) + (costs.personale?.sicurezza || 0));
+                                               
+                                               const marketingTotale = Array.isArray(monthlyCosts) && monthlyCosts.length > 0
+                                                   ? monthlyCosts.reduce((sum, mc) => {
+                                                       const mark = mc.costs.marketing;
+                                                       return sum + (mark?.costiMarketing || 0) + (mark?.commissioniOTA || 0);
+                                                   }, 0)
+                                                   : ((costs.marketing?.costiMarketing || 0) + (costs.marketing?.commissioniOTA || 0));
+                                               
+                                               const altriCostiTotale = Array.isArray(monthlyCosts) && monthlyCosts.length > 0
+                                                   ? monthlyCosts.reduce((sum, mc) => sum + (mc.costs.altriCosti ? Object.values(mc.costs.altriCosti).reduce((s, v) => s + (v || 0), 0) : 0), 0)
+                                                   : (costs.altriCosti ? Object.values(costs.altriCosti).reduce((sum, val) => sum + (val || 0), 0) : 0);
+                                               
+                                               const totaleGenerale = kpi.totaleSpese;
+                                               const percentualeRistorazione = totaleGenerale > 0 ? (ristorazioneTotale / totaleGenerale * 100).toFixed(1) : '0.0';
+                                               const percentualeUtenze = totaleGenerale > 0 ? (utenzeTotale / totaleGenerale * 100).toFixed(1) : '0.0';
+                                               const percentualePersonale = totaleGenerale > 0 ? (personaleTotale / totaleGenerale * 100).toFixed(1) : '0.0';
+                                               const percentualeMarketing = totaleGenerale > 0 ? (marketingTotale / totaleGenerale * 100).toFixed(1) : '0.0';
+                                               const percentualeAltri = totaleGenerale > 0 ? (altriCostiTotale / totaleGenerale * 100).toFixed(1) : '0.0';
+                                               
+                                               // Genera report testuale
+                                               let reportText = `╔═══════════════════════════════════════════════════════╗\n`;
+                                               reportText += `║    REPORT COSTI PER CATEGORIA - ${hotelName.padEnd(20)}║\n`;
+                                               reportText += `╚═══════════════════════════════════════════════════════╝\n\n`;
+                                               reportText += `Periodo analizzato: ${revenues[revenues.length - 1]?.mese || 'N/A'}\n`;
+                                               reportText += `Data generazione: ${new Date().toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}\n\n`;
+                                               
+                                               reportText += `RIEPILOGO COSTI PER CATEGORIA\n`;
+                                               reportText += `${'═'.repeat(60)}\n\n`;
+                                               
+                                               const categorie = [
+                                                   { nome: 'Ristorazione', valore: ristorazioneTotale, percentuale: percentualeRistorazione },
+                                                   { nome: 'Utenze', valore: utenzeTotale, percentuale: percentualeUtenze },
+                                                   { nome: 'Personale', valore: personaleTotale, percentuale: percentualePersonale },
+                                                   { nome: 'Marketing', valore: marketingTotale, percentuale: percentualeMarketing },
+                                                   { nome: 'Altri Costi', valore: altriCostiTotale, percentuale: percentualeAltri },
+                                               ].filter(cat => cat.valore > 0).sort((a, b) => b.valore - a.valore);
+                                               
+                                               categorie.forEach((cat) => {
+                                                   reportText += `${cat.nome.padEnd(20)} €${cat.valore.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).padStart(15)} (${cat.percentuale}%)\n`;
+                                               });
+                                               
+                                               reportText += `${'-'.repeat(60)}\n`;
+                                               reportText += `TOTALE GENERALE${' '.repeat(27)} €${totaleGenerale.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).padStart(15)}\n\n`;
+                                               
+                                               const blob = new Blob([reportText], { type: 'text/plain;charset=utf-8' });
+                                               const url = URL.createObjectURL(blob);
+                                               const a = document.createElement('a');
+                                               a.href = url;
+                                               a.download = `report-costi-${hotelName.replace(/\s+/g, '-')}-${new Date().toISOString().split('T')[0]}.txt`;
+                                               a.click();
+                                               URL.revokeObjectURL(url);
+                                           }}
+                                           className="bg-green-600 hover:bg-green-500 text-white font-bold py-3 px-6 rounded-lg transition"
+                                       >
+                                           Esporta Riepilogo Costi (TXT)
+                                       </button>
+                                   </div>
                                </div>
                            </div>
                        ) : (

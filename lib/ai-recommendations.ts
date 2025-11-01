@@ -189,6 +189,31 @@ export function generateRecommendations(
     }
   }
 
+  // Se non ci sono raccomandazioni specifiche, genera raccomandazioni generali
+  if (recommendations.length === 0 && costs && Object.keys(costs).length > 0) {
+    const totaleSpese = calculateTotalCosts(costs);
+    
+    // Raccomandazione generale per monitoraggio
+    recommendations.push({
+      id: 'monitoraggio-continuo',
+      categoria: 'Gestione',
+      titolo: 'Monitoraggio continuo dei costi',
+      descrizione: 'Continua a monitorare regolarmente i tuoi costi per identificare trend e opportunità di ottimizzazione.',
+      impattoStimato: Math.round(totaleSpese * 0.03), // potenziale risparmio del 3%
+      difficolta: 'facile',
+      priorita: 'media',
+      azioni: [
+        'Analizza mensilmente le variazioni dei costi',
+        'Confronta con i benchmark di settore',
+        'Identifica fornitori con miglior rapporto qualità/prezzo',
+        'Documenta tutte le spese per analisi future',
+      ],
+      evidenze: [
+        `Spese totali monitorate: €${totaleSpese.toLocaleString('it-IT')}`,
+      ],
+    });
+  }
+
   // Ordina per priorità e impatto
   return recommendations.sort((a, b) => {
     const prioritaOrder = { critica: 4, alta: 3, media: 2, bassa: 1 };
