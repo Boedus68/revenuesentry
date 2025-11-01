@@ -34,6 +34,12 @@ export function calculateKPI(
         totalCostsData.personale.bustePaga = (totalCostsData.personale.bustePaga || 0) + (monthCosts.personale.bustePaga || 0);
         totalCostsData.personale.sicurezza = (totalCostsData.personale.sicurezza || 0) + (monthCosts.personale.sicurezza || 0);
       }
+      // Marketing: somma i valori
+      if (monthCosts.marketing) {
+        if (!totalCostsData.marketing) totalCostsData.marketing = { costiMarketing: 0, commissioniOTA: 0 };
+        totalCostsData.marketing.costiMarketing = (totalCostsData.marketing.costiMarketing || 0) + (monthCosts.marketing.costiMarketing || 0);
+        totalCostsData.marketing.commissioniOTA = (totalCostsData.marketing.commissioniOTA || 0) + (monthCosts.marketing.commissioniOTA || 0);
+      }
       // Altri costi: somma i valori
       if (monthCosts.altriCosti) {
         if (!totalCostsData.altriCosti) totalCostsData.altriCosti = {};

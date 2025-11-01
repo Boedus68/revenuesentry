@@ -41,6 +41,12 @@ const calculateTotalCostsForMonth = (costs: Partial<CostsData>): number => {
         totale += (costs.personale.sicurezza || 0);
     }
     
+    // Marketing
+    if (costs.marketing) {
+        totale += (costs.marketing.costiMarketing || 0);
+        totale += (costs.marketing.commissioniOTA || 0);
+    }
+    
     // Altri costi
     if (costs.altriCosti && typeof costs.altriCosti === 'object') {
         const altriCostiTot = Object.values(costs.altriCosti).reduce((sum: number, val: any) => {
@@ -812,7 +818,7 @@ return (
                                         description="Il Tasso di Occupazione indica la percentuale di camere vendute rispetto al totale disponibile nel periodo. Si calcola dividendo le camere vendute per le camere disponibili e moltiplicando per 100. Un tasso di occupazione elevato (sopra il 70%) è generalmente positivo, ma deve essere bilanciato con un ADR adeguato per massimizzare il RevPAR. L'ADR (Average Daily Rate) mostrato nel sottotitolo è il prezzo medio pagato per camera venduta."
                                     />
                                     {kpi.alos !== undefined && (
-                                        <KPICard
+                                    <KPICard
                                             title="ALOS"
                                             value={`${kpi.alos.toFixed(1)}`}
                                             subtitle="Average Length of Stay (giorni)"
@@ -895,11 +901,11 @@ return (
                                                 const giorniMostrati = giorniTotali > 0 ? giorniTotali : (hotelData.giorniApertura || 0);
                                                 return `Su ${giorniMostrati} giorni di apertura${giorniTotali > 0 ? ' (da dati mensili)' : ''}`;
                                             })()}
-                                            icon={<svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
+                                        icon={<svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
                                             color="green"
                                             description="I Ricavi Giornalieri Medi indicano il ricavo medio giornaliero generato dall'hotel durante il periodo di apertura. Per hotel stagionali, questo è calcolato dividendo i ricavi totali per il numero effettivo di giorni di apertura. Confrontando questo valore con i costi giornalieri medi, puoi valutare la redditività giornaliera e identificare i periodi più e meno redditizi. Questa metrica è particolarmente utile per hotel stagionali che devono ottimizzare la performance durante periodi limitati di apertura."
-                                        />
-                                    </div>
+                                    />
+                                </div>
                                 )}
 
                                 {/* Grafici */}
@@ -1341,32 +1347,32 @@ return (
                                     </select>
                                 </div>
                                 {hotelData?.tipoHotel === 'stagionale' && (
-                                    <div>
+                                <div>
                                         <label className="block text-sm font-medium text-gray-300 mb-2">Giorni di Apertura</label>
-                                        <input
-                                            type="number"
-                                            min="1"
+                                    <input
+                                        type="number"
+                                        min="1"
                                             max="365"
                                             value={hotelData?.giorniApertura || ''}
-                                            onChange={(e) => {
+                                        onChange={(e) => {
                                                 const giorniApertura = parseInt(e.target.value) || undefined;
-                                                const newData = { 
-                                                    ...hotelData, 
+                                            const newData = { 
+                                                ...hotelData, 
                                                     giorniApertura,
-                                                    hotelName: hotelName || hotelData?.hotelName || 'Mio Hotel',
+                                                hotelName: hotelName || hotelData?.hotelName || 'Mio Hotel',
                                                     camereTotali: hotelData?.camereTotali || 0,
                                                     tipoHotel: 'stagionale' as const
-                                                };
-                                                setHotelData(newData as HotelData);
-                                                if (hotelData?.camereTotali && hotelData.camereTotali > 0) {
-                                                    handleSaveHotelData(newData);
-                                                }
-                                            }}
-                                            className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white"
+                                            };
+                                            setHotelData(newData as HotelData);
+                                            if (hotelData?.camereTotali && hotelData.camereTotali > 0) {
+                                                handleSaveHotelData(newData);
+                                            }
+                                        }}
+                                        className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white"
                                             placeholder="Es. 120"
-                                        />
+                                    />
                                         <p className="text-xs text-gray-400 mt-1">Numero di giorni di apertura durante l'anno</p>
-                                    </div>
+                                </div>
                                 )}
                             </div>
                         </div>
@@ -1542,15 +1548,15 @@ return (
                                     </svg>
                                     {analyzing ? 'Analisi in corso...' : 'Ricalcola Raccomandazioni'}
                                 </button>
-                                {analyzing && (
-                                    <div className="flex items-center gap-2 text-gray-400">
-                                        <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
-                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                        </svg>
-                                        <span>Analisi in corso...</span>
-                                    </div>
-                                )}
+                            {analyzing && (
+                                <div className="flex items-center gap-2 text-gray-400">
+                                    <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    <span>Analisi in corso...</span>
+                                </div>
+                            )}
                             </div>
                         </div>
 
@@ -1762,27 +1768,27 @@ return (
                                {/* Export Button */}
                                <div className="bg-gray-800/50 border border-gray-700 rounded-2xl p-6">
                                    <div className="flex gap-4">
-                                       <button
-                                           onClick={() => {
-                                               const report = {
-                                                   hotel: hotelName,
-                                                   periodo: revenues[revenues.length - 1]?.mese || '',
-                                                   kpi,
-                                                   revenues: revenues[revenues.length - 1],
-                                                   costs,
-                                               };
-                                               const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
-                                               const url = URL.createObjectURL(blob);
-                                               const a = document.createElement('a');
-                                               a.href = url;
-                                               a.download = `report-${hotelName}-${new Date().toISOString().split('T')[0]}.json`;
-                                               a.click();
-                                               URL.revokeObjectURL(url);
-                                           }}
-                                           className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-6 rounded-lg transition"
-                                       >
-                                           Esporta Report (JSON)
-                                       </button>
+                                   <button
+                                       onClick={() => {
+                                           const report = {
+                                               hotel: hotelName,
+                                               periodo: revenues[revenues.length - 1]?.mese || '',
+                                               kpi,
+                                               revenues: revenues[revenues.length - 1],
+                                               costs,
+                                           };
+                                           const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
+                                           const url = URL.createObjectURL(blob);
+                                           const a = document.createElement('a');
+                                           a.href = url;
+                                           a.download = `report-${hotelName}-${new Date().toISOString().split('T')[0]}.json`;
+                                           a.click();
+                                           URL.revokeObjectURL(url);
+                                       }}
+                                       className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-6 rounded-lg transition"
+                                   >
+                                       Esporta Report (JSON)
+                                   </button>
                                        <button
                                            onClick={() => {
                                                // Calcola costi per categoria
