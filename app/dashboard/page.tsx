@@ -793,6 +793,7 @@ return (
                                         subtitle="Revenue Per Available Room"
                                         icon={<svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>}
                                         color="blue"
+                                        description="Il RevPAR (Revenue Per Available Room) è il KPI più importante del revenue management. Indica quanto ricavo generi per ogni camera disponibile, indipendentemente dal fatto che sia occupata o meno. Si calcola moltiplicando l'ADR per il tasso di occupazione, oppure dividendo i ricavi totali delle camere per il numero di camere disponibili nel periodo. Un RevPAR alto indica un'efficiente gestione sia dei prezzi che dell'occupazione."
                                     />
                                     <KPICard
                                         title="TRevPAR"
@@ -800,6 +801,7 @@ return (
                                         subtitle="Total Revenue Per Available Room"
                                         icon={<svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>}
                                         color="purple"
+                                        description="Il TRevPAR (Total Revenue Per Available Room) misura i ricavi totali generati dall'hotel (camere + ristorazione + servizi aggiuntivi) divisi per il numero di camere disponibili. A differenza del RevPAR che considera solo i ricavi delle camere, il TRevPAR fornisce una visione olistica della capacità dell'hotel di generare ricavi da tutti i suoi servizi. È particolarmente utile per valutare la performance complessiva dell'hotel."
                                     />
                                     <KPICard
                                         title="Occupazione"
@@ -807,6 +809,7 @@ return (
                                         subtitle={`ADR: €${kpi.adr.toFixed(2)}`}
                                         icon={<svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>}
                                         color={kpi.occupazione >= 70 ? 'green' : kpi.occupazione >= 50 ? 'yellow' : 'red'}
+                                        description="Il Tasso di Occupazione indica la percentuale di camere vendute rispetto al totale disponibile nel periodo. Si calcola dividendo le camere vendute per le camere disponibili e moltiplicando per 100. Un tasso di occupazione elevato (sopra il 70%) è generalmente positivo, ma deve essere bilanciato con un ADR adeguato per massimizzare il RevPAR. L'ADR (Average Daily Rate) mostrato nel sottotitolo è il prezzo medio pagato per camera venduta."
                                     />
                                     {kpi.alos !== undefined && (
                                         <KPICard
@@ -815,6 +818,7 @@ return (
                                             subtitle="Average Length of Stay (giorni)"
                                             icon={<svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
                                             color="blue"
+                                            description="L'ALOS (Average Length of Stay) rappresenta la durata media del soggiorno degli ospiti in giorni. Si calcola dividendo il numero totale di notti vendute per il numero totale di prenotazioni. Un ALOS più lungo può indicare una maggiore soddisfazione degli ospiti e ridurre i costi di acquisizione clienti, ma può anche limitare la flessibilità nella gestione dei prezzi. È importante monitorare questo indicatore per ottimizzare le strategie di pricing."
                                         />
                                     )}
                                 </div>
@@ -827,6 +831,7 @@ return (
                                         subtitle={`GOP Margin: ${kpi.gopMargin.toFixed(1)}%`}
                                         icon={<svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>}
                                         color={kpi.gopMargin >= 25 ? 'green' : kpi.gopMargin >= 15 ? 'yellow' : 'red'}
+                                        description="Il GOP (Gross Operating Profit) è il profitto operativo lordo, calcolato come differenza tra i ricavi totali operativi e i costi operativi diretti. È uno degli indicatori più importanti secondo lo standard USALI perché misura la redditività operativa dell'hotel prima dei costi fissi (affitto, tasse, ammortamenti). Il GOP Margin indica la percentuale di profitto rispetto ai ricavi. Un margine sopra il 25% è considerato eccellente, mentre sotto il 15% richiede attenzione."
                                     />
                                     {kpi.goppar !== undefined && (
                                         <KPICard
@@ -835,6 +840,7 @@ return (
                                             subtitle="Gross Operating Profit Per Available Room"
                                             icon={<svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>}
                                             color={kpi.goppar >= 50 ? 'green' : kpi.goppar >= 30 ? 'yellow' : 'red'}
+                                            description="Il GOPPAR (Gross Operating Profit Per Available Room) è l'indicatore principe della redditività secondo lo standard USALI. Misura quanto profitto operativo stai generando per ogni camera disponibile nella struttura. Si calcola dividendo il GOP per il numero totale di camere disponibili nel periodo. Questo KPI permette di confrontare la performance tra hotel di dimensioni diverse e di valutare l'efficienza operativa complessiva. Valori sopra €50 indicano performance eccellenti."
                                         />
                                     )}
                                     <KPICard
@@ -843,6 +849,7 @@ return (
                                         subtitle="Cost Per Occupied Room"
                                         icon={<svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>}
                                         color="yellow"
+                                        description="Il CPOR (Cost Per Occupied Room) indica quanto costa 'servire' una camera occupata. Include i costi diretti del reparto camere come pulizia, lavanderia, amenities, e una parte proporzionale di utenze e personale. Si calcola dividendo i costi totali del reparto camere per il numero di camere vendute. Questo indicatore è cruciale per il controllo dei costi variabili e aiuta a identificare opportunità di ottimizzazione. Un CPOR basso rispetto all'ADR indica una migliore redditività per camera."
                                     />
                                     {kpi.roi !== undefined && (
                                         <KPICard
@@ -851,6 +858,7 @@ return (
                                             subtitle="Return on Investment"
                                             icon={<svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>}
                                             color={kpi.roi >= 20 ? 'green' : kpi.roi >= 10 ? 'yellow' : 'red'}
+                                            description="Il ROI (Return on Investment) misura il ritorno sull'investimento, esprimendo la redditività come percentuale dei costi totali. Si calcola dividendo il GOP per i costi totali e moltiplicando per 100. Per hotel stagionali, il calcolo viene normalizzato rispetto ai giorni di apertura effettivi per una valutazione più precisa. Un ROI sopra il 20% indica un investimento molto redditizio, mentre valori sotto il 10% suggeriscono la necessità di ottimizzare costi o ricavi."
                                         />
                                     )}
                                     {kpi.cac !== undefined && (
@@ -860,6 +868,7 @@ return (
                                             subtitle="Costo Acquisto Clienti"
                                             icon={<svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>}
                                             color={kpi.cac < 20 ? 'green' : kpi.cac < 40 ? 'yellow' : 'red'}
+                                            description="Il CAC (Costo Acquisto Clienti) misura quanto spendi per acquisire una singola prenotazione. Si calcola sommando i costi di marketing e le commissioni OTA (Booking.com, Expedia, etc.) e dividendo per il numero totale di prenotazioni ricevute. Un CAC basso indica una strategia di marketing efficiente e una migliore redditività per prenotazione. Valori sotto €20 sono considerati eccellenti, mentre sopra €40 richiedono una revisione della strategia di acquisizione clienti."
                                         />
                                     )}
                                 </div>
@@ -876,6 +885,7 @@ return (
                                             })()}
                                             icon={<svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>}
                                             color="yellow"
+                                            description="I Costi Giornalieri Medi rappresentano il costo medio giornaliero sostenuto dall'hotel durante il periodo di apertura. Per hotel stagionali, questo indicatore è calcolato dividendo i costi totali per il numero effettivo di giorni di apertura (forniti mensilmente o annualmente). Questo permette di normalizzare i costi e comparare la performance tra hotel stagionali con periodi di apertura diversi. È fondamentale per la pianificazione finanziaria e il controllo dei costi operativi."
                                         />
                                         <KPICard
                                             title="Ricavi Giornalieri Medi"
@@ -887,6 +897,7 @@ return (
                                             })()}
                                             icon={<svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
                                             color="green"
+                                            description="I Ricavi Giornalieri Medi indicano il ricavo medio giornaliero generato dall'hotel durante il periodo di apertura. Per hotel stagionali, questo è calcolato dividendo i ricavi totali per il numero effettivo di giorni di apertura. Confrontando questo valore con i costi giornalieri medi, puoi valutare la redditività giornaliera e identificare i periodi più e meno redditizi. Questa metrica è particolarmente utile per hotel stagionali che devono ottimizzare la performance durante periodi limitati di apertura."
                                         />
                                     </div>
                                 )}
