@@ -1,26 +1,56 @@
 // Utilities per verifica e gestione admin
 
 import { db } from './firebase';
+import { adminDb } from './firebase-admin';
 import { doc, getDoc } from 'firebase/firestore';
 
 /**
  * Verifica se un utente è admin lato server
+ * Usa Firebase Admin SDK se disponibile (bypassa regole Firestore), altrimenti usa client SDK
  */
 export async function isAdmin(uid: string): Promise<boolean> {
   try {
     if (!uid) return false;
     
+    // Prova prima con Admin SDK (bypassa regole Firestore)
+    if (adminDb) {
+      try {
+        console.log('[Admin Verify] Usa Firebase Admin SDK per verificare ruolo admin');
+        const userDoc = await adminDb.collection('users').doc(uid).get();
+        
+        if (!userDoc.exists) {
+          console.log('[Admin Verify] Documento utente non trovato');
+          return false;
+        }
+        
+        const userData = userDoc.data();
+        const isAdmin = userData?.role === 'admin';
+        console.log('[Admin Verify] Ruolo utente:', userData?.role, '-> Admin:', isAdmin);
+        return isAdmin;
+      } catch (adminError: any) {
+        console.error('[Admin Verify] Errore con Admin SDK:', adminError);
+        // Fallback al client SDK
+      }
+    }
+    
+    // Fallback: usa client SDK (rispetta regole Firestore, potrebbe fallire se non autenticato)
+    console.log('[Admin Verify] Usa Firebase Client SDK (fallback)');
     const userDocRef = doc(db, 'users', uid);
     const userDocSnap = await getDoc(userDocRef);
     
     if (!userDocSnap.exists()) {
+      console.log('[Admin Verify] Documento utente non trovato (client SDK)');
       return false;
     }
     
     const userData = userDocSnap.data();
-    return userData?.role === 'admin';
-  } catch (error) {
-    console.error('Errore verifica admin:', error);
+    const isAdmin = userData?.role === 'admin';
+    console.log('[Admin Verify] Ruolo utente:', userData?.role, '-> Admin:', isAdmin);
+    return isAdmin;
+  } catch (error: any) {
+    console.error('[Admin Verify] Errore verifica admin:', error);
+    console.error('[Admin Verify] Error code:', error.code);
+    console.error('[Admin Verify] Error message:', error.message);
     return false;
   }
 }
