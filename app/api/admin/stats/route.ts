@@ -19,10 +19,23 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized: UID mancante' }, { status: 401 });
     }
 
+    console.log('[API Admin Stats] UID ricevuto:', adminUid);
+    console.log('[API Admin Stats] Inizio verifica admin...');
+    
     const isAdmin = await verifyAdminFromUID(adminUid);
+    console.log('[API Admin Stats] Risultato verifica admin:', isAdmin);
+    
     if (!isAdmin) {
       console.error('[API Admin Stats] Verifica admin fallita per uid:', adminUid);
-      return NextResponse.json({ error: 'Unauthorized: Non sei un admin' }, { status: 403 });
+      console.error('[API Admin Stats] Controlla che:');
+      console.error('[API Admin Stats] 1. Il documento users/' + adminUid + ' esista in Firestore');
+      console.error('[API Admin Stats] 2. Il campo "role" sia impostato su "admin"');
+      console.error('[API Admin Stats] 3. Firebase Admin SDK sia inizializzato correttamente');
+      return NextResponse.json({ 
+        error: 'Unauthorized: Non sei un admin',
+        details: `UID: ${adminUid}`,
+        hint: 'Verifica che il documento users/' + adminUid + ' abbia role: "admin" in Firestore'
+      }, { status: 403 });
     }
 
     // Log azione admin (non bloccare se fallisce)

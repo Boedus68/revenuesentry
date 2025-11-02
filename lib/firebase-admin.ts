@@ -7,6 +7,17 @@ import { getFirestore } from 'firebase-admin/firestore';
 // Inizializza Firebase Admin solo se non è già inizializzato
 let adminDb: ReturnType<typeof getFirestore> | null = null;
 
+// Log quando il modulo viene caricato
+console.log('[Firebase Admin] Modulo caricato. Verifica configurazione...');
+console.log('[Firebase Admin] FIREBASE_SERVICE_ACCOUNT_KEY presente:', !!process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
+if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
+  const keyLength = process.env.FIREBASE_SERVICE_ACCOUNT_KEY.length;
+  console.log('[Firebase Admin] Lunghezza chiave:', keyLength, 'caratteri');
+  // Mostra solo i primi e ultimi caratteri per sicurezza
+  const preview = process.env.FIREBASE_SERVICE_ACCOUNT_KEY.substring(0, 20) + '...' + process.env.FIREBASE_SERVICE_ACCOUNT_KEY.substring(keyLength - 20);
+  console.log('[Firebase Admin] Preview chiave:', preview);
+}
+
 try {
   if (getApps().length === 0) {
     const serviceAccountKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
@@ -15,14 +26,16 @@ try {
       try {
         // Prova a parsare come JSON
         const serviceAccount = JSON.parse(serviceAccountKey);
+        console.log('[Firebase Admin] JSON parsato correttamente');
         console.log('[Firebase Admin] Inizializzazione con Service Account Key');
         initializeApp({
           credential: cert(serviceAccount as any),
           projectId: 'revenuesentry',
         });
-        console.log('[Firebase Admin] Inizializzato correttamente con Service Account');
+        console.log('[Firebase Admin] ✅ Inizializzato correttamente con Service Account');
       } catch (parseError: any) {
-        console.error('[Firebase Admin] Errore parsing Service Account Key:', parseError.message);
+        console.error('[Firebase Admin] ❌ Errore parsing Service Account Key:', parseError.message);
+        console.error('[Firebase Admin] Stack:', parseError.stack);
         console.warn('[Firebase Admin] Verifica che FIREBASE_SERVICE_ACCOUNT_KEY sia un JSON valido');
       }
     } else {
@@ -33,13 +46,15 @@ try {
         initializeApp({
           projectId: 'revenuesentry',
         });
-        console.log('[Firebase Admin] Inizializzato con Application Default Credentials');
+        console.log('[Firebase Admin] ✅ Inizializzato con Application Default Credentials');
       } catch (error: any) {
-        console.warn('[Firebase Admin] Inizializzazione fallita:', error.message);
+        console.warn('[Firebase Admin] ❌ Inizializzazione fallita:', error.message);
         console.warn('[Firebase Admin] Le API admin useranno il fallback client SDK.');
         console.warn('[Firebase Admin] Per funzionamento completo, configura FIREBASE_SERVICE_ACCOUNT_KEY nel file .env.local');
       }
     }
+  } else {
+    console.log('[Firebase Admin] App già inizializzata, riutilizzo istanza esistente');
   }
   
   // Inizializza Firestore anche se l'app non è stata inizializzata (potrebbe essere già inizializzata)
