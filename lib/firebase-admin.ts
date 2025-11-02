@@ -8,15 +8,29 @@ import { getFirestore } from 'firebase-admin/firestore';
 let adminDb: ReturnType<typeof getFirestore> | null = null;
 
 // Log quando il modulo viene caricato
+console.log('[Firebase Admin] ========================================');
 console.log('[Firebase Admin] Modulo caricato. Verifica configurazione...');
 console.log('[Firebase Admin] FIREBASE_SERVICE_ACCOUNT_KEY presente:', !!process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
+console.log('[Firebase Admin] NODE_ENV:', process.env.NODE_ENV);
 if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
   const keyLength = process.env.FIREBASE_SERVICE_ACCOUNT_KEY.length;
-  console.log('[Firebase Admin] Lunghezza chiave:', keyLength, 'caratteri');
+  console.log('[Firebase Admin] ✅ Lunghezza chiave:', keyLength, 'caratteri');
   // Mostra solo i primi e ultimi caratteri per sicurezza
-  const preview = process.env.FIREBASE_SERVICE_ACCOUNT_KEY.substring(0, 20) + '...' + process.env.FIREBASE_SERVICE_ACCOUNT_KEY.substring(keyLength - 20);
-  console.log('[Firebase Admin] Preview chiave:', preview);
+  if (keyLength > 40) {
+    const preview = process.env.FIREBASE_SERVICE_ACCOUNT_KEY.substring(0, 20) + '...' + process.env.FIREBASE_SERVICE_ACCOUNT_KEY.substring(keyLength - 20);
+    console.log('[Firebase Admin] Preview chiave:', preview);
+  }
+  // Verifica se inizia con { (JSON valido)
+  const startsWithBrace = process.env.FIREBASE_SERVICE_ACCOUNT_KEY.trim().startsWith('{');
+  console.log('[Firebase Admin] Inizia con { (JSON valido):', startsWithBrace);
+} else {
+  console.log('[Firebase Admin] ❌ FIREBASE_SERVICE_ACCOUNT_KEY NON TROVATA');
+  console.log('[Firebase Admin] Verifica che:');
+  console.log('[Firebase Admin] 1. Il file .env.local esista nella root del progetto');
+  console.log('[Firebase Admin] 2. Contenga la riga: FIREBASE_SERVICE_ACCOUNT_KEY=...');
+  console.log('[Firebase Admin] 3. Il server sia stato riavviato dopo aver aggiunto la variabile');
 }
+console.log('[Firebase Admin] ========================================');
 
 try {
   if (getApps().length === 0) {
