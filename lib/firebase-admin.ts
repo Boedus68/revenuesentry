@@ -36,21 +36,50 @@ try {
   if (getApps().length === 0) {
     const serviceAccountKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
     
+    // Alternativa: prova a leggere da file JSON diretto (per sviluppo locale)
+    let serviceAccount: any = null;
+    
     if (serviceAccountKey) {
       try {
         // Prova a parsare come JSON
-        const serviceAccount = JSON.parse(serviceAccountKey);
-        console.log('[Firebase Admin] JSON parsato correttamente');
+        serviceAccount = JSON.parse(serviceAccountKey);
+        console.log('[Firebase Admin] JSON parsato correttamente da variabile d\'ambiente');
         console.log('[Firebase Admin] Inizializzazione con Service Account Key');
+      } catch (parseError: any) {
+        console.error('[Firebase Admin] ❌ Errore parsing Service Account Key:', parseError.message);
+        console.warn('[Firebase Admin] Verifica che FIREBASE_SERVICE_ACCOUNT_KEY sia un JSON valido');
+      }
+    }
+    
+    // Se non c'è la variabile, prova a leggere da file (solo sviluppo, NON in produzione)
+    if (!serviceAccount && process.env.NODE_ENV !== 'production') {
+      try {
+        const fs = require('fs');
+        const path = require('path');
+        const serviceAccountPath = path.join(process.cwd(), 'service-account-key.json');
+        if (fs.existsSync(serviceAccountPath)) {
+          console.log('[Firebase Admin] Tentativo lettura da file service-account-key.json');
+          const fileContent = fs.readFileSync(serviceAccountPath, 'utf8');
+          serviceAccount = JSON.parse(fileContent);
+          console.log('[Firebase Admin] ✅ Service Account caricato da file');
+        }
+      } catch (fileError: any) {
+        // Ignora errore se il file non esiste
+        if (fileError.code !== 'ENOENT') {
+          console.warn('[Firebase Admin] Errore lettura file service-account-key.json:', fileError.message);
+        }
+      }
+    }
+    
+    if (serviceAccount) {
+      try {
         initializeApp({
           credential: cert(serviceAccount as any),
           projectId: 'revenuesentry',
         });
         console.log('[Firebase Admin] ✅ Inizializzato correttamente con Service Account');
-      } catch (parseError: any) {
-        console.error('[Firebase Admin] ❌ Errore parsing Service Account Key:', parseError.message);
-        console.error('[Firebase Admin] Stack:', parseError.stack);
-        console.warn('[Firebase Admin] Verifica che FIREBASE_SERVICE_ACCOUNT_KEY sia un JSON valido');
+      } catch (initError: any) {
+        console.error('[Firebase Admin] ❌ Errore inizializzazione app:', initError.message);
       }
     } else {
       // Fallback: usa Application Default Credentials se disponibili
