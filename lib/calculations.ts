@@ -93,28 +93,30 @@ export function calculateKPI(
   const camereTotali = hotelData?.camereTotali || 1;
   const postiLettoTotali = hotelData?.postiLettoTotali || camereTotali; // usa posti letto se disponibili, altrimenti assume 1 posto letto per camera
   
-  // Calcola occupazione correttamente usando giorni di apertura invece di giorni del mese
+  // Calcola occupazione correttamente: OCCUPAZIONE CAMERE (non posti letto)
+  // Occupazione = (Camere Vendute / (Camere Totali × Giorni Apertura)) × 100
+  // OPPURE: Occupazione = (Notti Totali / (Camere Totali × Giorni Apertura)) × 100
   let occupazione = ultimoMese?.occupazione || 0;
   
-  // Se l'occupazione non è fornita o vogliamo ricalcolarla, usiamo i dati disponibili
-  // Occupazione = (Presenze / (Posti Letto Totali × Giorni Apertura)) × 100
-  if (ultimoMese) {
+  if (ultimoMese && camereTotali > 0) {
     const giorniAperturaMese = ultimoMese.giorniAperturaMese || (isStagionale ? Math.floor(giorniAperturaTotali / revenues.length) : 30);
-    const presenze = ultimoMese.nottiTotali || 0;
+    const camereDisponibiliMese = camereTotali * giorniAperturaMese;
     
-    // Calcola occupazione corretta usando giorni di apertura e posti letto
-    if (presenze > 0 && postiLettoTotali > 0 && giorniAperturaMese > 0) {
-      const occupazioneCalcolata = (presenze / (postiLettoTotali * giorniAperturaMese)) * 100;
-      
-      // Se l'occupazione fornita è molto diversa da quella calcolata, potrebbe essere errata
-      // Usa quella calcolata se la differenza è significativa (>5 punti percentuali)
-      if (!ultimoMese.occupazione || Math.abs(occupazioneCalcolata - (ultimoMese.occupazione || 0)) > 5) {
+    if (camereDisponibiliMese > 0) {
+      // Metodo 1: Usa Camere Vendute (più accurato)
+      if (ultimoMese.camereVendute && ultimoMese.camereVendute > 0) {
+        const occupazioneCalcolata = (ultimoMese.camereVendute / camereDisponibiliMese) * 100;
         occupazione = occupazioneCalcolata;
       }
-    } else if (ultimoMese.camereVendute && giorniAperturaMese > 0) {
-      // Alternativa: usa camere vendute se disponibili
-      const camereDisponibiliMese = camereTotali * giorniAperturaMese;
-      occupazione = camereDisponibiliMese > 0 ? (ultimoMese.camereVendute / camereDisponibiliMese) * 100 : occupazione;
+      // Metodo 2: Alternativa usando Notti Totali (se camere vendute non disponibili)
+      else if (ultimoMese.nottiTotali && ultimoMese.nottiTotali > 0) {
+        // Notti totali / (Camere × Giorni) = occupazione media
+        const occupazioneCalcolata = (ultimoMese.nottiTotali / camereDisponibiliMese) * 100;
+        occupazione = occupazioneCalcolata;
+      }
+      
+      // Limita occupazione a max 100% (non può superare il 100%)
+      if (occupazione > 100) occupazione = 100;
     }
   }
   
@@ -219,24 +221,34 @@ export function calculateKPI(
   }
   
   // CAC = Costo Acquisto Clienti = (Costi Marketing + Commissioni OTA) / Numero Prenotazioni
+  // Stima prenotazioni da camere vendute (approssimazione: ogni prenotazione = 1 camera venduta in media)
   const costiMarketingTotali = Array.isArray(costs) 
     ? costs.reduce((sum, mc) => sum + (mc.costs.marketing?.costiMarketing || 0) + (mc.costs.marketing?.commissioniOTA || 0), 0)
     : (totalCostsData.marketing?.costiMarketing || 0) + (totalCostsData.marketing?.commissioniOTA || 0);
   
-  const numeroPrenotazioniTotali = revenues.reduce((sum, revenue) => sum + (revenue.numeroPrenotazioni || 0), 0);
-  const cac = numeroPrenotazioniTotali > 0 ? costiMarketingTotali / numeroPrenotazioniTotali : undefined;
+  // Stima numero prenotazioni: usa camere vendute come proxy (non perfetto ma approssimativo)
+  // Oppure usa notti totali / ALOS stimato
+  let cac: number | undefined;
+  if (costiMarketingTotali > 0) {
+    // Metodo alternativo: stima prenotazioni da camere vendute (ogni prenotazione potrebbe occupare ~1 camera)
+    const stimaPrenotazioni = camereVenduteTotali > 0 ? camereVenduteTotali : Math.floor(nottiTotali / 2);
+    if (stimaPrenotazioni > 0) {
+      cac = costiMarketingTotali / stimaPrenotazioni;
+    }
+  }
   
-  // ALOS = Average Length of Stay
-  // Se non fornito esplicitamente, calcolalo da notti totali / numero prenotazioni
+  // ALOS = Average Length of Stay - CALCOLATO AUTOMATICAMENTE
+  // ALOS = Notti Totali / Camere Vendute (stima accurata della permanenza media)
   let alos: number | undefined;
-  if (numeroPrenotazioniTotali > 0) {
-    // Prova prima a calcolare dalla media dei valori forniti
-    const alosValues = revenues.filter(r => r.permanenzaMedia).map(r => r.permanenzaMedia!);
-    if (alosValues.length > 0) {
-      alos = alosValues.reduce((sum, val) => sum + val, 0) / alosValues.length;
-    } else {
-      // Calcola da notti totali / numero prenotazioni
-      alos = nottiTotali / numeroPrenotazioniTotali;
+  if (camereVenduteTotali > 0 && nottiTotali > 0) {
+    // Calcola ALOS come media delle notti per camera venduta
+    alos = nottiTotali / camereVenduteTotali;
+  } else if (nottiTotali > 0 && camereTotali > 0) {
+    // Alternativa: stima da notti totali e camere totali (meno accurato)
+    // Assumendo un'occupazione media, possiamo stimare
+    const stimaCamereVendute = Math.round(nottiTotali / (isStagionale ? Math.max(giorniAperturaTotali / revenues.length, 1) : 30));
+    if (stimaCamereVendute > 0) {
+      alos = nottiTotali / stimaCamereVendute;
     }
   }
 

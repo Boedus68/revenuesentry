@@ -1674,7 +1674,7 @@ return (
                                             <div>
                                                 <label className="block text-sm font-medium text-gray-300 mb-2">
                                                     Occupazione (%)
-                                                    {hotelData?.postiLettoTotali && revenue.giorniAperturaMese && revenue.nottiTotali && (
+                                                    {hotelData?.camereTotali && revenue.giorniAperturaMese && (revenue.camereVendute || revenue.nottiTotali) && (
                                                         <span className="text-xs text-green-400 ml-2">(calcolata automaticamente)</span>
                                                     )}
                                                 </label>
@@ -1690,12 +1690,14 @@ return (
                                                         handleSaveRevenues(updated[revenues.length - 1 - idx]);
                                                     }}
                                                     className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white"
-                                                    readOnly={!!(hotelData?.postiLettoTotali && revenue.giorniAperturaMese && revenue.nottiTotali)}
+                                                    readOnly={!!(hotelData?.camereTotali && revenue.giorniAperturaMese && (revenue.camereVendute || revenue.nottiTotali))}
                                                 />
                                                 <p className="text-xs text-gray-400 mt-1">
-                                                    {hotelData?.postiLettoTotali && revenue.giorniAperturaMese && revenue.nottiTotali 
-                                                        ? `Calcolata automaticamente: ${revenue.nottiTotali} presenze / (${hotelData.postiLettoTotali} posti letto × ${revenue.giorniAperturaMese} giorni apertura) × 100`
-                                                        : 'Inserisci manualmente oppure calcola automaticamente inserendo: Posti Letto Totali, Giorni Apertura del Mese e Notti Totali'}
+                                                    {hotelData?.camereTotali && revenue.giorniAperturaMese && (revenue.camereVendute || revenue.nottiTotali)
+                                                        ? revenue.camereVendute 
+                                                            ? `Calcolata automaticamente: ${revenue.camereVendute} camere vendute / (${hotelData.camereTotali} camere × ${revenue.giorniAperturaMese} giorni apertura) × 100`
+                                                            : `Calcolata automaticamente: ${revenue.nottiTotali} notti / (${hotelData.camereTotali} camere × ${revenue.giorniAperturaMese} giorni apertura) × 100`
+                                                        : 'Inserisci manualmente oppure calcola automaticamente inserendo: Camere Totali, Giorni Apertura del Mese e Camere Vendute (o Notti Totali)'}
                                                 </p>
                                             </div>
                                             <div>
@@ -1720,12 +1722,26 @@ return (
                                                     value={revenue.camereVendute || ''}
                                                     onChange={(e) => {
                                                         const updated = [...revenues];
-                                                        updated[revenues.length - 1 - idx] = { ...revenue, camereVendute: parseInt(e.target.value) || 0 };
+                                                        const camereVendute = parseInt(e.target.value) || 0;
+                                                        const revenueUpdated = { ...revenue, camereVendute };
+                                                        
+                                                        // Calcola automaticamente l'occupazione quando vengono inserite le camere vendute
+                                                        const giorniAperturaMese = revenueUpdated.giorniAperturaMese || (hotelData?.tipoHotel === 'stagionale' ? 0 : 30);
+                                                        if (giorniAperturaMese > 0 && hotelData?.camereTotali && hotelData.camereTotali > 0 && camereVendute > 0) {
+                                                            const camereDisponibili = hotelData.camereTotali * giorniAperturaMese;
+                                                            const occupazioneCalcolata = (camereVendute / camereDisponibili) * 100;
+                                                            if (occupazioneCalcolata <= 100) {
+                                                                revenueUpdated.occupazione = Math.round(occupazioneCalcolata * 10) / 10;
+                                                            }
+                                                        }
+                                                        
+                                                        updated[revenues.length - 1 - idx] = revenueUpdated;
                                                         setRevenues(updated);
                                                         handleSaveRevenues(updated[revenues.length - 1 - idx]);
                                                     }}
                                                     className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white"
                                                 />
+                                                <p className="text-xs text-gray-400 mt-1">Numero totale di camere vendute nel mese. Usato per calcolare automaticamente l'occupazione.</p>
                                             </div>
                                             <div>
                                                 <label className="block text-sm font-medium text-gray-300 mb-2">Notti Totali (Presenze)</label>
@@ -1737,12 +1753,24 @@ return (
                                                         const nottiTotali = parseInt(e.target.value) || 0;
                                                         const revenueUpdated = { ...revenue, nottiTotali };
                                                         
-                                                        // Calcola automaticamente l'occupazione se abbiamo i dati necessari
+                                                        // Calcola automaticamente l'occupazione se abbiamo i dati necessari (usa CAMERE, non posti letto)
                                                         const giorniAperturaMese = revenueUpdated.giorniAperturaMese || (hotelData?.tipoHotel === 'stagionale' ? 0 : 30);
-                                                        if (giorniAperturaMese > 0 && hotelData?.postiLettoTotali && nottiTotali > 0) {
-                                                            const occupazioneCalcolata = (nottiTotali / (hotelData.postiLettoTotali * giorniAperturaMese)) * 100;
-                                                            if (occupazioneCalcolata <= 100) {
-                                                                revenueUpdated.occupazione = Math.round(occupazioneCalcolata * 10) / 10;
+                                                        if (giorniAperturaMese > 0 && hotelData?.camereTotali && hotelData.camereTotali > 0) {
+                                                            // Usa camere vendute se disponibili (più accurato)
+                                                            if (revenueUpdated.camereVendute && revenueUpdated.camereVendute > 0) {
+                                                                const camereDisponibili = hotelData.camereTotali * giorniAperturaMese;
+                                                                const occupazioneCalcolata = (revenueUpdated.camereVendute / camereDisponibili) * 100;
+                                                                if (occupazioneCalcolata <= 100) {
+                                                                    revenueUpdated.occupazione = Math.round(occupazioneCalcolata * 10) / 10;
+                                                                }
+                                                            }
+                                                            // Altrimenti usa notti totali come alternativa
+                                                            else if (nottiTotali > 0) {
+                                                                const camereDisponibili = hotelData.camereTotali * giorniAperturaMese;
+                                                                const occupazioneCalcolata = (nottiTotali / camereDisponibili) * 100;
+                                                                if (occupazioneCalcolata <= 100) {
+                                                                    revenueUpdated.occupazione = Math.round(occupazioneCalcolata * 10) / 10;
+                                                                }
                                                             }
                                                         }
                                                         
@@ -1769,11 +1797,23 @@ return (
                                                         const giorniAperturaMese = parseInt(e.target.value) || undefined;
                                                         const revenueUpdated = { ...revenue, giorniAperturaMese };
                                                         
-                                                        // Calcola automaticamente l'occupazione se abbiamo i dati necessari
-                                                        if (giorniAperturaMese && hotelData?.postiLettoTotali && revenueUpdated.nottiTotali) {
-                                                            const occupazioneCalcolata = (revenueUpdated.nottiTotali / (hotelData.postiLettoTotali * giorniAperturaMese)) * 100;
-                                                            if (occupazioneCalcolata <= 100) {
-                                                                revenueUpdated.occupazione = Math.round(occupazioneCalcolata * 10) / 10;
+                                                        // Calcola automaticamente l'occupazione se abbiamo i dati necessari (usa CAMERE, non posti letto)
+                                                        if (giorniAperturaMese && hotelData?.camereTotali && hotelData.camereTotali > 0) {
+                                                            // Usa camere vendute se disponibili (più accurato)
+                                                            if (revenueUpdated.camereVendute && revenueUpdated.camereVendute > 0) {
+                                                                const camereDisponibili = hotelData.camereTotali * giorniAperturaMese;
+                                                                const occupazioneCalcolata = (revenueUpdated.camereVendute / camereDisponibili) * 100;
+                                                                if (occupazioneCalcolata <= 100) {
+                                                                    revenueUpdated.occupazione = Math.round(occupazioneCalcolata * 10) / 10;
+                                                                }
+                                                            }
+                                                            // Altrimenti usa notti totali come alternativa
+                                                            else if (revenueUpdated.nottiTotali && revenueUpdated.nottiTotali > 0) {
+                                                                const camereDisponibili = hotelData.camereTotali * giorniAperturaMese;
+                                                                const occupazioneCalcolata = (revenueUpdated.nottiTotali / camereDisponibili) * 100;
+                                                                if (occupazioneCalcolata <= 100) {
+                                                                    revenueUpdated.occupazione = Math.round(occupazioneCalcolata * 10) / 10;
+                                                                }
                                                             }
                                                         }
                                                         
@@ -1785,39 +1825,6 @@ return (
                                                     placeholder="Es. 28"
                                                 />
                                                 <p className="text-xs text-gray-400 mt-1">Giorni di apertura effettivi in questo mese (fondamentale per calcolo occupazione corretto)</p>
-                                            </div>
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-300 mb-2">Numero Prenotazioni</label>
-                                                <input
-                                                    type="number"
-                                                    value={revenue.numeroPrenotazioni || ''}
-                                                    onChange={(e) => {
-                                                        const updated = [...revenues];
-                                                        updated[revenues.length - 1 - idx] = { ...revenue, numeroPrenotazioni: parseInt(e.target.value) || undefined };
-                                                        setRevenues(updated);
-                                                        handleSaveRevenues(updated[revenues.length - 1 - idx]);
-                                                    }}
-                                                    className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white"
-                                                    placeholder="Es. 150"
-                                                />
-                                                <p className="text-xs text-gray-400 mt-1">Numero totale di prenotazioni ricevute (per calcolo CAC)</p>
-                                            </div>
-                                            <div>
-                                                <label className="block text-sm font-medium text-gray-300 mb-2">Permanenza Media (ALOS)</label>
-                                                <input
-                                                    type="number"
-                                                    step="0.1"
-                                                    value={revenue.permanenzaMedia || ''}
-                                                    onChange={(e) => {
-                                                        const updated = [...revenues];
-                                                        updated[revenues.length - 1 - idx] = { ...revenue, permanenzaMedia: parseFloat(e.target.value) || undefined };
-                                                        setRevenues(updated);
-                                                        handleSaveRevenues(updated[revenues.length - 1 - idx]);
-                                                    }}
-                                                    className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white"
-                                                    placeholder="Es. 3.5"
-                                                />
-                                                <p className="text-xs text-gray-400 mt-1">Durata media del soggiorno in giorni (se vuoto, calcolato automaticamente)</p>
                                             </div>
                                         </div>
                                     </div>
