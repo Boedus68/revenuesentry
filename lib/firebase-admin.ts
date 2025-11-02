@@ -56,17 +56,54 @@ try {
       try {
         const fs = require('fs');
         const path = require('path');
-        const serviceAccountPath = path.join(process.cwd(), 'service-account-key.json');
+        const cwd = process.cwd();
+        const serviceAccountPath = path.join(cwd, 'service-account-key.json');
+        
+        console.log('[Firebase Admin] Tentativo lettura da file...');
+        console.log('[Firebase Admin] Working directory (cwd):', cwd);
+        console.log('[Firebase Admin] Percorso completo file:', serviceAccountPath);
+        console.log('[Firebase Admin] File esiste?', fs.existsSync(serviceAccountPath));
+        
+        // Prova anche percorsi alternativi comuni
+        const alternativePaths = [
+          path.join(cwd, '..', 'service-account-key.json'),
+          path.join(__dirname, '..', 'service-account-key.json'),
+          path.join(__dirname, '..', '..', 'service-account-key.json'),
+        ];
+        
+        console.log('[Firebase Admin] Percorsi alternativi da controllare:');
+        alternativePaths.forEach((altPath, idx) => {
+          console.log(`[Firebase Admin]   ${idx + 1}. ${altPath} - Esiste: ${fs.existsSync(altPath)}`);
+        });
+        
         if (fs.existsSync(serviceAccountPath)) {
-          console.log('[Firebase Admin] Tentativo lettura da file service-account-key.json');
+          console.log('[Firebase Admin] ✅ File trovato! Lettura in corso...');
           const fileContent = fs.readFileSync(serviceAccountPath, 'utf8');
           serviceAccount = JSON.parse(fileContent);
           console.log('[Firebase Admin] ✅ Service Account caricato da file');
+        } else {
+          // Prova percorsi alternativi
+          for (const altPath of alternativePaths) {
+            if (fs.existsSync(altPath)) {
+              console.log('[Firebase Admin] ✅ File trovato in percorso alternativo:', altPath);
+              const fileContent = fs.readFileSync(altPath, 'utf8');
+              serviceAccount = JSON.parse(fileContent);
+              console.log('[Firebase Admin] ✅ Service Account caricato da file alternativo');
+              break;
+            }
+          }
+          
+          if (!serviceAccount) {
+            console.warn('[Firebase Admin] ⚠️ File service-account-key.json non trovato in nessun percorso');
+            console.warn('[Firebase Admin] Percorso atteso:', serviceAccountPath);
+            console.warn('[Firebase Admin] Verifica che il file esista nella root del progetto (stessa cartella di package.json)');
+          }
         }
       } catch (fileError: any) {
         // Ignora errore se il file non esiste
         if (fileError.code !== 'ENOENT') {
-          console.warn('[Firebase Admin] Errore lettura file service-account-key.json:', fileError.message);
+          console.error('[Firebase Admin] ❌ Errore lettura file service-account-key.json:', fileError.message);
+          console.error('[Firebase Admin] Stack:', fileError.stack);
         }
       }
     }
