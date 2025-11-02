@@ -241,13 +241,7 @@ export function calculateKPI(
   const trevpar = camereDisponibiliTotali > 0 ? totaleRicaviHotel / camereDisponibiliTotali : 0;
 
   // CPPR = Total Costs / Total Room Nights
-  // Calcola le notti totali da tutti i mesi
-  const nottiTotali = revenues.reduce((sum, revenue) => sum + (revenue.nottiTotali || 0), 0);
-  
-  // Calcola camere vendute totali
-  const camereVenduteTotali = revenues.reduce((sum, revenue) => sum + (revenue.camereVendute || 0), 0);
-  
-  // CPPR = Total Costs / Total Room Nights
+  // Usa le variabili nottiTotali e camereVenduteTotali già calcolate sopra
   const cppr = nottiTotali > 0 ? totaleSpese / nottiTotali : 0;
   
   // CPOR = Costi Reparto Camere / Camere Vendute
