@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { auth, db } from '@/lib/firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
@@ -75,6 +75,7 @@ export default function AdminPage() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   
   const router = useRouter();
+  const adminVerifiedRef = useRef<string | null>(null); // Ref per tracciare quale uid è stato verificato come admin
 
   useEffect(() => {
     let isMounted = true;
@@ -85,7 +86,15 @@ export default function AdminPage() {
       // Se non c'è utente, reindirizza immediatamente
       if (!currentUser) {
         setLoading(false);
+        setIsAdmin(false);
+        adminVerifiedRef.current = null;
         router.replace('/login');
+        return;
+      }
+      
+      // Se l'utente è lo stesso e abbiamo già verificato che è admin, non rifare la verifica
+      if (currentUser.uid === adminVerifiedRef.current && isAdmin) {
+        console.log('[Admin Panel] Utente già verificato come admin, skip verifica');
         return;
       }
       
@@ -106,7 +115,8 @@ export default function AdminPage() {
             uid: currentUser.uid,
             role: userData?.role,
             adminStatus,
-            email: userData?.email
+            email: userData?.email,
+            timestamp: new Date().toISOString()
           });
           
           setIsAdmin(adminStatus);
@@ -114,24 +124,30 @@ export default function AdminPage() {
           if (!adminStatus) {
             console.log('[Admin Panel] Utente non admin, reindirizzamento a dashboard');
             setLoading(false);
+            adminVerifiedRef.current = null;
             // Reindirizza immediatamente ma usa replace per non aggiungere alla history
             router.replace('/dashboard');
             return;
           }
           
-          // Se è admin, reset flag e mostra il pannello
+          // Se è admin, marca come verificato e mostra il pannello
           console.log('[Admin Panel] Utente admin verificato, mostra pannello');
+          adminVerifiedRef.current = currentUser.uid; // Salva l'uid verificato
           setStatsFetched(false); // Reset per permettere il fetch
           setLoading(false);
         } else {
           setLoading(false);
+          setIsAdmin(false);
+          adminVerifiedRef.current = null;
           router.replace('/login');
           return;
         }
       } catch (error) {
-        console.error('Errore verifica admin:', error);
+        console.error('[Admin Panel] Errore verifica admin:', error);
         if (isMounted) {
           setLoading(false);
+          setIsAdmin(false);
+          adminVerifiedRef.current = null;
           router.replace('/login');
         }
         return;
@@ -142,7 +158,7 @@ export default function AdminPage() {
       isMounted = false;
       unsubscribe();
     };
-  }, [router]);
+  }, [router]); // Rimossi user?.uid e isAdmin dalle dipendenze per evitare loop
 
   useEffect(() => {
     // Solo se abbiamo verificato che è admin E non stiamo più caricando E non abbiamo già fatto il fetch
