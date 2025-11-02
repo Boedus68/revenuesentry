@@ -40,8 +40,16 @@ const handleRegister = async (e: React.FormEvent) => {
         await setDoc(doc(db, "users", user.uid), {
             hotelName: hotelName,
             email: email,
+            role: 'user', // Default role
             createdAt: new Date()
         });
+        
+        // Invia email di benvenuto (in background, non blocca la navigazione)
+        fetch('/api/email/welcome', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, hotelName }),
+        }).catch(err => console.error('Errore invio email benvenuto:', err));
         
         router.push('/dashboard');
     } catch (err: any) {

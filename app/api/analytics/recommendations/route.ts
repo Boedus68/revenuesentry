@@ -7,7 +7,7 @@ import { CostsData, RevenueData, HotelData, MonthlyCostsData, CostAnalysis, KPID
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { costs, revenues, hotelData } = body;
+    const { costs, revenues, hotelData, userEmail, hotelName } = body;
 
     // Validazione input - almeno uno tra costs o revenues deve essere presente
     if (!costs && !revenues) {
@@ -75,6 +75,26 @@ export async function POST(request: NextRequest) {
     let alerts: Alert[] = [];
     if (kpi) {
       alerts = generateAlerts(costAnalyses, kpi);
+    }
+
+    // Invia email con consigli AI se ci sono raccomandazioni ad alta priorità (in background)
+    if (recommendations.length > 0 && userEmail && hotelName) {
+      const highPriorityRecommendations = recommendations.filter(
+        r => r.priorita === 'alta' || r.priorita === 'critica'
+      );
+      
+      if (highPriorityRecommendations.length > 0) {
+        // Invia email in background (non blocca la risposta)
+        fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/email/recommendations`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: userEmail,
+            hotelName,
+            recommendations: highPriorityRecommendations,
+          }),
+        }).catch(err => console.error('Errore invio email consigli:', err));
+      }
     }
 
     return NextResponse.json(

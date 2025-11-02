@@ -192,6 +192,8 @@ const calculateAnalytics = async (
                 costs: currentCosts,
                 revenues: currentRevenues,
                 hotelData: currentHotelData,
+                userEmail: user?.email || null,
+                hotelName: hotelName || null,
             }),
         });
 
