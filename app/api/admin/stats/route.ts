@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
+import { adminDb } from '@/lib/firebase-admin';
 import { collection, getDocs } from 'firebase/firestore';
 import { verifyAdminFromUID } from '@/lib/admin';
 import { logAdminAction } from '@/lib/admin-log';
@@ -32,8 +33,30 @@ export async function GET(request: NextRequest) {
     }
 
     // Recupera tutti gli utenti
-    const usersRef = collection(db, 'users');
-    const usersSnapshot = await getDocs(usersRef);
+    console.log('[API Admin Stats] Tentativo di recuperare tutti gli utenti...');
+    
+    // Usa adminDb se disponibile (bypassa le regole), altrimenti usa db normale
+    let usersSnapshot;
+    try {
+      if (adminDb) {
+        // Usa Firebase Admin SDK (bypassa regole Firestore)
+        console.log('[API Admin Stats] Usa Firebase Admin SDK');
+        const usersCollection = adminDb.collection('users');
+        usersSnapshot = await usersCollection.get();
+        console.log('[API Admin Stats] Documenti trovati (admin):', usersSnapshot.size);
+      } else {
+        // Fallback: usa client SDK (rispetta regole Firestore)
+        console.log('[API Admin Stats] Usa Firebase Client SDK (fallback)');
+        const usersRef = collection(db, 'users');
+        usersSnapshot = await getDocs(usersRef);
+        console.log('[API Admin Stats] Documenti trovati (client):', usersSnapshot.size);
+      }
+    } catch (firestoreError: any) {
+      console.error('[API Admin Stats] Errore Firestore getDocs:', firestoreError);
+      console.error('[API Admin Stats] Errore code:', firestoreError.code);
+      console.error('[API Admin Stats] Errore message:', firestoreError.message);
+      throw firestoreError;
+    }
     
     const users: any[] = [];
     let totalRevenue = 0;
@@ -43,7 +66,10 @@ export async function GET(request: NextRequest) {
     let totalRooms = 0;
     const registrationsByMonth: Record<string, number> = {};
     
-    usersSnapshot.forEach((doc) => {
+    // Entrambi gli SDK restituiscono docs come array
+    const docs = usersSnapshot.docs || [];
+    
+    docs.forEach((doc: any) => {
       const userData = doc.data();
       const userId = doc.id;
       
@@ -117,7 +143,8 @@ export async function GET(request: NextRequest) {
     let kpiCount = 0;
 
     users.forEach((user) => {
-      const userData = usersSnapshot.docs.find(d => d.id === user.id)?.data();
+      const userDoc = docs.find((d: any) => d.id === user.id);
+      const userData = userDoc ? userDoc.data() : null;
       if (userData?.kpi) {
         const kpi = userData.kpi;
         totalRevPAR += kpi.revpar || 0;

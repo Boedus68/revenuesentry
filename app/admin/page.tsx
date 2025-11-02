@@ -189,13 +189,21 @@ export default function AdminPage() {
       const data = await response.json();
       
       console.log('[Admin Panel] fetchStats: Response status:', response.status, 'ok:', response.ok);
+      console.log('[Admin Panel] fetchStats: Response data:', data);
       
       if (response.ok) {
-        console.log('[Admin Panel] fetchStats: Statistiche caricate con successo');
-        setStats(data.summary);
-        setUsers(data.users);
+        console.log('[Admin Panel] fetchStats: Statistiche caricate con successo', data);
+        if (data.summary && data.users) {
+          setStats(data.summary);
+          setUsers(data.users);
+        } else {
+          console.error('[Admin Panel] fetchStats: Dati incompleti:', data);
+          throw new Error('Dati incompleti dalla risposta');
+        }
       } else {
         console.error('[Admin Panel] fetchStats: Errore recupero statistiche:', data);
+        const errorMsg = data.error || data.details || 'Errore sconosciuto';
+        
         // Mostra errore all'utente
         setStats({
           totalUsers: 0,
@@ -214,9 +222,12 @@ export default function AdminPage() {
         // Se 403, mostra messaggio specifico
         if (response.status === 403) {
           console.warn('[Admin Panel] fetchStats: Accesso negato (403). Verifica che il ruolo admin sia corretto in Firestore.');
-          alert('Errore: Accesso negato. Verifica che il tuo ruolo admin sia configurato correttamente in Firestore.');
+          alert(`Errore: Accesso negato (403).\n\n${errorMsg}\n\nVerifica che:\n1. Il campo "role" nel tuo documento Firestore sia impostato su "admin"\n2. Le regole Firestore permettano agli admin di leggere i documenti`);
+        } else if (response.status === 500) {
+          console.error('[Admin Panel] fetchStats: Errore server (500):', data);
+          alert(`Errore server: ${errorMsg}\n\nControlla la console del server per maggiori dettagli.`);
         } else {
-          alert(`Errore nel caricamento delle statistiche: ${data.error || 'Errore sconosciuto'}`);
+          alert(`Errore nel caricamento delle statistiche (${response.status}): ${errorMsg}`);
         }
       }
     } catch (error: any) {
