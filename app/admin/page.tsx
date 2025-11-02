@@ -196,16 +196,46 @@ export default function AdminPage() {
         setUsers(data.users);
       } else {
         console.error('[Admin Panel] fetchStats: Errore recupero statistiche:', data);
-        // Se 403, non fare redirect - potrebbe essere un problema temporaneo
-        // Mostra solo un messaggio di errore
+        // Mostra errore all'utente
+        setStats({
+          totalUsers: 0,
+          activeUsers: 0,
+          hotelsWithData: 0,
+          hotelsWithRecommendations: 0,
+          totalRevenue: 0,
+          totalCosts: 0,
+          avgRevenue: 0,
+          avgCosts: 0,
+          avgRooms: 0,
+          registrationsByMonth: {},
+        });
+        setUsers([]);
+        
+        // Se 403, mostra messaggio specifico
         if (response.status === 403) {
           console.warn('[Admin Panel] fetchStats: Accesso negato (403). Verifica che il ruolo admin sia corretto in Firestore.');
-          // Non fare redirect - lascia che l'utente rimanga nella pagina
-          // Potrebbe essere un problema temporaneo della verifica server-side
+          alert('Errore: Accesso negato. Verifica che il tuo ruolo admin sia configurato correttamente in Firestore.');
+        } else {
+          alert(`Errore nel caricamento delle statistiche: ${data.error || 'Errore sconosciuto'}`);
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('[Admin Panel] fetchStats: Errore:', error);
+      // Mostra errore all'utente
+      setStats({
+        totalUsers: 0,
+        activeUsers: 0,
+        hotelsWithData: 0,
+        hotelsWithRecommendations: 0,
+        totalRevenue: 0,
+        totalCosts: 0,
+        avgRevenue: 0,
+        avgCosts: 0,
+        avgRooms: 0,
+        registrationsByMonth: {},
+      });
+      setUsers([]);
+      alert(`Errore nel caricamento delle statistiche: ${error.message || 'Errore sconosciuto'}\n\nControlla la console per maggiori dettagli.`);
     } finally {
       setLoadingStats(false);
     }

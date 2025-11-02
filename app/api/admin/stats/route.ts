@@ -20,11 +20,16 @@ export async function GET(request: NextRequest) {
 
     const isAdmin = await verifyAdminFromUID(adminUid);
     if (!isAdmin) {
+      console.error('[API Admin Stats] Verifica admin fallita per uid:', adminUid);
       return NextResponse.json({ error: 'Unauthorized: Non sei un admin' }, { status: 403 });
     }
 
-    // Log azione admin
-    await logAdminAction(adminUid, 'view_stats', {});
+    // Log azione admin (non bloccare se fallisce)
+    try {
+      await logAdminAction(adminUid, 'view_stats', {});
+    } catch (logError) {
+      console.warn('[API Admin Stats] Errore nel log admin action (non critico):', logError);
+    }
 
     // Recupera tutti gli utenti
     const usersRef = collection(db, 'users');
@@ -44,9 +49,22 @@ export async function GET(request: NextRequest) {
       
       // Calcola statistiche per utente
       const userRevenue = userData.revenues?.reduce((sum: number, r: any) => sum + (r.entrateTotali || 0), 0) || 0;
-      const userCosts = calculateTotalCostsForUser(userData.costs);
+      
+      // Gestisci costi: possono essere in formato costs (vecchio) o monthlyCosts (nuovo)
+      let userCosts = 0;
+      if (userData.monthlyCosts && Array.isArray(userData.monthlyCosts)) {
+        // Nuovo formato: somma tutti i costi mensili
+        userCosts = userData.monthlyCosts.reduce((sum: number, mc: any) => {
+          return sum + calculateTotalCostsForUser(mc.costs || {});
+        }, 0);
+      } else {
+        // Vecchio formato
+        userCosts = calculateTotalCostsForUser(userData.costs);
+      }
+      
       const hasRevenueData = userData.revenues && userData.revenues.length > 0;
-      const hasCostsData = userData.costs && Object.keys(userData.costs).length > 0;
+      const hasCostsData = (userData.costs && Object.keys(userData.costs).length > 0) || 
+                           (userData.monthlyCosts && userData.monthlyCosts.length > 0);
       const hasData = hasRevenueData || hasCostsData;
       const hasRecommendations = userData.recommendations && userData.recommendations.length > 0;
       
@@ -158,9 +176,15 @@ export async function GET(request: NextRequest) {
       }),
     });
   } catch (error: any) {
-    console.error('Errore recupero statistiche admin:', error);
+    console.error('[API Admin Stats] Errore recupero statistiche admin:', error);
+    console.error('[API Admin Stats] Stack trace:', error.stack);
     return NextResponse.json(
-      { error: 'Errore nel recupero delle statistiche', details: error.message },
+      { 
+        error: 'Errore nel recupero delle statistiche', 
+        details: error.message,
+        code: error.code || 'UNKNOWN',
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      },
       { status: 500 }
     );
   }
