@@ -64,6 +64,7 @@ export default function AdminPage() {
   const [users, setUsers] = useState<UserStats[]>([]);
   const [logs, setLogs] = useState<AdminLog[]>([]);
   const [loadingStats, setLoadingStats] = useState(false);
+  const [statsFetched, setStatsFetched] = useState(false); // Flag per evitare fetch multipli
   const [activeTab, setActiveTab] = useState<'dashboard' | 'users' | 'logs'>('dashboard');
   
   // Filtri e ricerca
@@ -101,16 +102,27 @@ export default function AdminPage() {
           const userData = userDocSnap.data();
           const adminStatus = userData?.role === 'admin';
           
+          console.log('[Admin Panel] Verifica admin:', {
+            uid: currentUser.uid,
+            role: userData?.role,
+            adminStatus,
+            email: userData?.email
+          });
+          
           setIsAdmin(adminStatus);
-          setLoading(false);
           
           if (!adminStatus) {
+            console.log('[Admin Panel] Utente non admin, reindirizzamento a dashboard');
+            setLoading(false);
             // Reindirizza immediatamente ma usa replace per non aggiungere alla history
             router.replace('/dashboard');
             return;
           }
           
-          // Se è admin, non fare nulla - mostra il pannello
+          // Se è admin, reset flag e mostra il pannello
+          console.log('[Admin Panel] Utente admin verificato, mostra pannello');
+          setStatsFetched(false); // Reset per permettere il fetch
+          setLoading(false);
         } else {
           setLoading(false);
           router.replace('/login');
@@ -133,32 +145,51 @@ export default function AdminPage() {
   }, [router]);
 
   useEffect(() => {
-    // Solo se abbiamo verificato che è admin E non stiamo più caricando
-    if (user && isAdmin && !loading) {
+    // Solo se abbiamo verificato che è admin E non stiamo più caricando E non abbiamo già fatto il fetch
+    if (user && isAdmin && !loading && !statsFetched) {
+      console.log('[Admin Panel] Condizioni fetch soddisfatte, carico statistiche');
+      setStatsFetched(true); // Imposta subito per evitare chiamate multiple
       fetchStats();
       fetchLogs();
     }
-  }, [user, isAdmin, loading]);
+  }, [user, isAdmin, loading, statsFetched]);
 
   const fetchStats = async () => {
-    if (!user?.uid) return;
+    if (!user?.uid) {
+      console.warn('[Admin Panel] fetchStats: uid mancante');
+      return;
+    }
     
+    // Verifica di nuovo che sia admin prima di fare la chiamata
+    if (!isAdmin) {
+      console.warn('[Admin Panel] fetchStats: Tentativo senza permessi admin');
+      return;
+    }
+    
+    console.log('[Admin Panel] fetchStats: Inizio fetch con uid:', user.uid);
     setLoadingStats(true);
     try {
       const response = await fetch(`/api/admin/stats?uid=${user.uid}`);
       const data = await response.json();
       
+      console.log('[Admin Panel] fetchStats: Response status:', response.status, 'ok:', response.ok);
+      
       if (response.ok) {
+        console.log('[Admin Panel] fetchStats: Statistiche caricate con successo');
         setStats(data.summary);
         setUsers(data.users);
       } else {
-        console.error('Errore recupero statistiche:', data);
+        console.error('[Admin Panel] fetchStats: Errore recupero statistiche:', data);
+        // Se 403, non fare redirect - potrebbe essere un problema temporaneo
+        // Mostra solo un messaggio di errore
         if (response.status === 403) {
-          router.push('/dashboard');
+          console.warn('[Admin Panel] fetchStats: Accesso negato (403). Verifica che il ruolo admin sia corretto in Firestore.');
+          // Non fare redirect - lascia che l'utente rimanga nella pagina
+          // Potrebbe essere un problema temporaneo della verifica server-side
         }
       }
     } catch (error) {
-      console.error('Errore recupero statistiche:', error);
+      console.error('[Admin Panel] fetchStats: Errore:', error);
     } finally {
       setLoadingStats(false);
     }
