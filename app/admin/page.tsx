@@ -76,49 +76,69 @@ export default function AdminPage() {
   const router = useRouter();
 
   useEffect(() => {
+    let isMounted = true;
+    
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      setUser(currentUser);
+      if (!isMounted) return;
       
-      if (currentUser) {
-        // Verifica se l'utente è admin
-        try {
-          const userDocRef = doc(db, 'users', currentUser.uid);
-          const userDocSnap = await getDoc(userDocRef);
-          
-          if (userDocSnap.exists()) {
-            const userData = userDocSnap.data();
-            const adminStatus = userData?.role === 'admin';
-            setIsAdmin(adminStatus);
-            
-            if (!adminStatus) {
-              router.push('/dashboard');
-              return;
-            }
-          } else {
-            router.push('/login');
-            return;
-          }
-        } catch (error) {
-          console.error('Errore verifica admin:', error);
-          router.push('/login');
-          return;
-        }
-      } else {
-        router.push('/login');
+      // Se non c'è utente, reindirizza immediatamente
+      if (!currentUser) {
+        setLoading(false);
+        router.replace('/login');
+        return;
       }
       
-      setLoading(false);
+      setUser(currentUser);
+      
+      // Verifica se l'utente è admin
+      try {
+        const userDocRef = doc(db, 'users', currentUser.uid);
+        const userDocSnap = await getDoc(userDocRef);
+        
+        if (!isMounted) return;
+        
+        if (userDocSnap.exists()) {
+          const userData = userDocSnap.data();
+          const adminStatus = userData?.role === 'admin';
+          
+          setIsAdmin(adminStatus);
+          setLoading(false);
+          
+          if (!adminStatus) {
+            // Reindirizza immediatamente ma usa replace per non aggiungere alla history
+            router.replace('/dashboard');
+            return;
+          }
+          
+          // Se è admin, non fare nulla - mostra il pannello
+        } else {
+          setLoading(false);
+          router.replace('/login');
+          return;
+        }
+      } catch (error) {
+        console.error('Errore verifica admin:', error);
+        if (isMounted) {
+          setLoading(false);
+          router.replace('/login');
+        }
+        return;
+      }
     });
 
-    return () => unsubscribe();
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
   }, [router]);
 
   useEffect(() => {
-    if (user && isAdmin) {
+    // Solo se abbiamo verificato che è admin E non stiamo più caricando
+    if (user && isAdmin && !loading) {
       fetchStats();
       fetchLogs();
     }
-  }, [user, isAdmin]);
+  }, [user, isAdmin, loading]);
 
   const fetchStats = async () => {
     if (!user?.uid) return;
@@ -253,16 +273,25 @@ export default function AdminPage() {
     return Object.entries(types).map(([name, value]) => ({ name, value }));
   }, [users]);
 
+  // Mostra loading finché non abbiamo verificato lo stato
   if (loading) {
     return (
       <div className="bg-gray-900 min-h-screen flex items-center justify-center">
-        <div className="text-white text-xl">Caricamento...</div>
+        <div className="text-center">
+          <div className="text-white text-xl mb-4">Verifica accesso...</div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400 mx-auto"></div>
+        </div>
       </div>
     );
   }
 
+  // Se non c'è utente o non è admin, mostra nulla (verrà reindirizzato)
   if (!user || !isAdmin) {
-    return null;
+    return (
+      <div className="bg-gray-900 min-h-screen flex items-center justify-center">
+        <div className="text-white text-xl">Accesso negato. Reindirizzamento...</div>
+      </div>
+    );
   }
 
   return (
