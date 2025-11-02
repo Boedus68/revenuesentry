@@ -411,26 +411,119 @@ export function generateRecommendations(
     });
   }
 
-  // Analisi Ristorazione - troppi fornitori
+  // ==========================================
+  // 11. ANALISI RISTORAZIONE DETTAGLIATA
+  // ==========================================
+
   if (costs.ristorazione) {
+    const totaleRistorazione = costs.ristorazione.reduce((sum, item) => sum + (item.importo || 0), 0);
     const fornitoriAttivi = costs.ristorazione.filter((item) => item.importo > 0).length;
+    const ricaviRistorazione = revenues.reduce((sum, r) => sum + (r.ricaviRistorazione || 0), 0);
+    
+    // Analisi food cost percentage (best practice: 25-35% per hotel)
+    if (ricaviRistorazione > 0 && totaleRistorazione > 0) {
+      const foodCostPercent = (totaleRistorazione / ricaviRistorazione) * 100;
+      
+      if (foodCostPercent > 40) {
+        recommendations.push({
+          id: 'food-cost-alto',
+          categoria: 'Ristorazione',
+          titolo: `Food Cost troppo elevato: ${foodCostPercent.toFixed(1)}% (target: 25-35%)`,
+          descrizione: `Il tuo food cost è del ${foodCostPercent.toFixed(1)}%, significativamente sopra il target settoriale (25-35%). Questo indica inefficienze in acquisti, sprechi o pricing inadeguato.`,
+          impattoStimato: Math.round((foodCostPercent - 35) / 100 * ricaviRistorazione),
+          difficolta: 'media',
+          priorita: 'alta',
+          azioni: [
+            'Analizza sprechi in cucina: inventario, scadenza prodotti, porzioni eccessive',
+            'Rinegozia contratti con fornitori per migliori prezzi',
+            'Implementa sistema di controllo inventario rigoroso',
+            'Rivedi menu: elimina piatti poco redditizi, potenzia quelli ad alto margine',
+            'Forma personale su gestione inventario e riduzione sprechi',
+            'Considera approvvigionamento locale o dirette (meno intermediari)',
+            'Analizza pricing: c\'è spazio per aumentare prezzi mantenendo competitività?',
+            'Implementa porzioni standardizzate per ridurre sprechi',
+          ],
+          evidenze: [
+            `Food Cost: ${foodCostPercent.toFixed(1)}%`,
+            `Target settore: 25-35%`,
+            `Costi ristorazione: €${totaleRistorazione.toLocaleString('it-IT')}`,
+            `Ricavi ristorazione: €${ricaviRistorazione.toLocaleString('it-IT')}`,
+          ],
+        });
+      } else if (foodCostPercent < 20 && ricaviRistorazione > 0) {
+        recommendations.push({
+          id: 'food-cost-basso-potenziale-qualita',
+          categoria: 'Ristorazione',
+          titolo: 'Food Cost molto basso: valuta qualità vs. profitto',
+          descrizione: `Il tuo food cost è del ${foodCostPercent.toFixed(1)}%, sotto il target. Valuta se c'è spazio per migliorare qualità ingredienti senza impattare margini, o se puoi aumentare prezzi giustificati dalla qualità.`,
+          impattoStimato: Math.round(ricaviRistorazione * 0.05),
+          difficolta: 'facile',
+          priorita: 'media',
+          azioni: [
+            'Valuta upgrade ingredienti per migliorare percezione qualità',
+            'Aumenta prezzi se qualità giustifica',
+            'Mantieni standard attuali se margini sono soddisfacenti',
+          ],
+          evidenze: [`Food Cost: ${foodCostPercent.toFixed(1)}% (basso)`],
+        });
+      }
+    }
+    
+    // Troppi fornitori
     if (fornitoriAttivi > 10) {
       recommendations.push({
         id: 'fornitori-troppi',
         categoria: 'Ristorazione',
-        titolo: 'Troppi fornitori ristorazione',
-        descrizione: `Hai ${fornitoriAttivi} fornitori attivi. Consolidare in 5-8 fornitori principali può ridurre costi e semplificare gestione.`,
+        titolo: 'Troppi fornitori ristorazione: opportunità di consolidamento',
+        descrizione: `Hai ${fornitoriAttivi} fornitori attivi. Best practice del settore: consolidare in 5-8 fornitori principali può ridurre costi del 5-10% grazie a volumi maggiori, semplificare gestione e migliorare condizioni contrattuali.`,
         impattoStimato: Math.round(calculateTotalCosts({ ristorazione: costs.ristorazione }) * 0.08),
         difficolta: 'facile',
         priorita: 'media',
         azioni: [
-          'Identifica fornitori principali (80% spesa)',
-          'Valuta consolidamento con fornitori chiave',
-          'Rinegozia contratti con volumi maggiori',
-          'Elimina fornitori marginali',
+          'Analizza spesa per fornitore: identifica top 80% della spesa',
+          'Valuta consolidamento con fornitori principali per volumi maggiori',
+          'Rinegozia contratti: volumi maggiori = prezzi migliori',
+          'Elimina fornitori marginali (<2% spesa totale)',
+          'Considera fornitori one-stop shop per semplificare',
+          'Documenta risparmi attesi per giustificare consolidamento',
         ],
-        evidenze: [`Numero fornitori attivi: ${fornitoriAttivi}`],
+        evidenze: [
+          `Numero fornitori attivi: ${fornitoriAttivi}`,
+          `Target ottimale: 5-8 fornitori`,
+          `Costi ristorazione totali: €${totaleRistorazione.toLocaleString('it-IT')}`,
+        ],
       });
+    } else if (fornitoriAttivi > 0 && totaleRistorazione > 0) {
+      // Analisi fornitori: distribuzione spesa
+      const spesePerFornitore = costs.ristorazione
+        .filter((item) => item.importo > 0)
+        .map((item) => ({ fornitore: item.fornitore, importo: item.importo }))
+        .sort((a, b) => b.importo - a.importo);
+      
+      const top3Totale = spesePerFornitore.slice(0, 3).reduce((sum, f) => sum + f.importo, 0);
+      const concentrazioneTop3 = (top3Totale / totaleRistorazione) * 100;
+      
+      if (concentrazioneTop3 < 60 && fornitoriAttivi >= 5) {
+        recommendations.push({
+          id: 'spesa-troppo-dispersa',
+          categoria: 'Ristorazione',
+          titolo: 'Spesa ristorazione troppo dispersa tra fornitori',
+          descrizione: `La concentrazione su top 3 fornitori è solo del ${concentrazioneTop3.toFixed(1)}%. Concentrare l'80% della spesa su 3-5 fornitori principali migliora potere contrattuale.`,
+          impattoStimato: Math.round(totaleRistorazione * 0.05),
+          difficolta: 'facile',
+          priorita: 'media',
+          azioni: [
+            'Identifica fornitori strategici: qualità, affidabilità, prezzi',
+            'Trasferisci volumi ai fornitori migliori',
+            'Rinegozia contratti con volumi concentrati',
+            'Elimina fornitori marginali',
+          ],
+          evidenze: [
+            `Concentrazione top 3: ${concentrazioneTop3.toFixed(1)}%`,
+            `Target: >60%`,
+          ],
+        });
+      }
     }
   }
 
@@ -485,39 +578,235 @@ export function generateRecommendations(
     });
   }
 
-  // Analisi Utenze
+  // ==========================================
+  // 12. ANALISI UTENZE DETTAGLIATA (Energia, Gas, Acqua)
+  // ==========================================
+
   if (costs.utenze) {
-    const utenzeTotali =
-      (costs.utenze.energia?.importo || 0) +
-      (costs.utenze.gas?.importo || 0) +
-      (costs.utenze.acqua?.importo || 0);
+    const energia = costs.utenze.energia?.importo || 0;
+    const gas = costs.utenze.gas?.importo || 0;
+    const acqua = costs.utenze.acqua?.importo || 0;
+    const utenzeTotali = energia + gas + acqua;
     const benchmark = getBenchmarkValues(hotelData);
+    
+    // Benchmark per hotel (€/camera/mese)
+    const benchmarkEnergiaPerCamera = 80; // €/camera/mese
+    const benchmarkGasPerCamera = 40;
+    const benchmarkAcquaPerCamera = 20;
+    
     if (utenzeTotali > benchmark.utenze * 1.3) {
       recommendations.push({
         id: 'utenze-eccessive',
         categoria: 'Utenze',
-        titolo: 'Consumo utenze superiore alla norma',
-        descrizione: 'Le utenze rappresentano una spesa significativa. Valuta interventi di efficienza energetica.',
+        titolo: 'Consumo utenze superiore alla norma: opportunità di risparmio',
+        descrizione: `Le utenze rappresentano una spesa significativa (€${utenzeTotali.toLocaleString('it-IT')}). Interventi di efficienza energetica possono ridurre costi del 15-25% secondo studi del settore.`,
         impattoStimato: Math.round(utenzeTotali * 0.2),
         difficolta: 'media',
-        priorita: 'media',
+        priorita: 'alta',
         azioni: [
-          'Effettua audit energetico',
-          'Installa sistemi di controllo automatico',
-          'Sostituisci apparecchi obsoleti',
-          'Forma personale su best practices',
-          'Considera investimenti in energie rinnovabili (fotovoltaico)',
+          'EFFETTUA AUDIT ENERGETICO PROFESSIONALE: identifica perdite e inefficienze',
+          'INSTALLA TERMOSTATI INTELLIGENTI: risparmio del 10-15% su riscaldamento/AC',
+          'SOSTITUISCI ILLUMINAZIONE CON LED: risparmio del 60-80% su elettricità illuminazione',
+          'OTTIMIZZA SISTEMI CLIMATIZZAZIONE: manutenzione e calibrazione periodica',
+          'INSTALLA FLUSSI RIDUTTORI ACQUA: riduzione consumo 20-30% senza impatto servizio',
+          'IMPLEMENTA SISTEMI DI MONITORAGGIO REAL-TIME: rileva anomalie consumo',
+          'FORMA PERSONALE: spegnere luci, ottimizzare temperatura, chiudere porte',
+          'VALUTA INVESTIMENTI: fotovoltaico (ROI 5-8 anni), pompe di calore, isolamento',
+          'RINEGOZIA CONTRATTI FORNITORI: confronta offerte, considera tariffe biorarie',
+          'ANALIZZA CONSUMO PER REPARTO: identifica aree ad alto consumo',
         ],
         evidenze: [
-          `Spesa utenze: €${utenzeTotali.toLocaleString('it-IT')}`,
-          `Benchmark: €${benchmark.utenze.toLocaleString('it-IT')}`,
+          `Spesa utenze totale: €${utenzeTotali.toLocaleString('it-IT')}`,
+          `Energia: €${energia.toLocaleString('it-IT')}`,
+          `Gas: €${gas.toLocaleString('it-IT')}`,
+          `Acqua: €${acqua.toLocaleString('it-IT')}`,
+          `Benchmark totale: €${benchmark.utenze.toLocaleString('it-IT')}`,
+          `Risparmio potenziale: €${Math.round(utenzeTotali * 0.2).toLocaleString('it-IT')}/anno`,
         ],
       });
+    }
+    
+    // Analisi specifica energia elettrica
+    if (energia > 0 && camereTotali > 0) {
+      const energiaPerCameraMese = energia / camereTotali;
+      if (energiaPerCameraMese > benchmarkEnergiaPerCamera * 1.2) {
+        recommendations.push({
+          id: 'energia-eccessiva-per-camera',
+          categoria: 'Utenze - Energia',
+          titolo: `Consumo energia elettrica elevato: €${energiaPerCameraMese.toFixed(2)}/camera/mese`,
+          descrizione: `Il consumo energia per camera è del ${((energiaPerCameraMese / benchmarkEnergiaPerCamera) * 100).toFixed(0)}% sopra il benchmark. Focus su illuminazione LED e climatizzazione.`,
+          impattoStimato: Math.round((energiaPerCameraMese - benchmarkEnergiaPerCamera) * camereTotali * 12 * 0.3),
+          difficolta: 'facile',
+          priorita: 'alta',
+          azioni: [
+            'SOSTITUISCI ILLUMINAZIONE CON LED: investimento recuperato in 1-2 anni',
+            'Installazione sensori presenza per luci automatiche',
+            'Ottimizza climatizzazione: manutenzione filtri, calibrazione termostati',
+            'Valuta sistemi di prenotazione che gestiscono automaticamente AC',
+            'Spegni apparecchi non utilizzati (minibar, TV standby)',
+          ],
+          evidenze: [
+            `Energia per camera: €${energiaPerCameraMese.toFixed(2)}/mese`,
+            `Benchmark: €${benchmarkEnergiaPerCamera}/mese`,
+          ],
+        });
+      }
+    }
+  }
+  
+  // ==========================================
+  // 13. ANALISI PERSONALE E BUSTE PAGA
+  // ==========================================
+  
+  if (costs.personale) {
+    const bustePaga = costs.personale.bustePaga || 0;
+    const sicurezza = costs.personale.sicurezza || 0;
+    const personaleTotale = bustePaga + sicurezza;
+    const ricaviTotali = kpi.totaleRicavi;
+    
+    // Benchmark: personale dovrebbe essere 35-45% dei ricavi per hotel standard
+    if (ricaviTotali > 0 && personaleTotale > 0) {
+      const personalePercent = (personaleTotale / ricaviTotali) * 100;
+      
+      if (personalePercent > 50) {
+        recommendations.push({
+          id: 'personale-troppo-alto-percentuale',
+          categoria: 'Personale',
+          titolo: `Costi personale del ${personalePercent.toFixed(1)}% dei ricavi (target: 35-45%)`,
+          descrizione: `I costi del personale rappresentano ${personalePercent.toFixed(1)}% dei ricavi, sopra il target settoriale. Questo può indicare overstaffing, salari elevati o ricavi insufficienti.`,
+          impattoStimato: Math.round(personaleTotale * 0.1),
+          difficolta: 'complessa',
+          priorita: 'alta',
+          azioni: [
+            'AUDIT EFFICIENZA PERSONALE: analizza produttività per reparto',
+            'Ottimizza turni: allinea personale alla domanda reale (non fissa)',
+            'Valuta outsourcing per servizi non core (pulizie, manutenzione)',
+            'Implementa formazione per aumentare produttività',
+            'Analizza salari vs. benchmark di mercato locale',
+            'Considera automazioni (check-in self-service, chat bot) per ridurre front office',
+            'Cross-training: personale multi-ruolo riduce necessità totale',
+            'Analizza rapporto personale/camera: benchmark 0.8-1.2 dipendenti/camera',
+          ],
+          evidenze: [
+            `Personale totale: €${personaleTotale.toLocaleString('it-IT')}`,
+            `Ricavi totali: €${ricaviTotali.toLocaleString('it-IT')}`,
+            `Percentuale: ${personalePercent.toFixed(1)}%`,
+            `Target: 35-45%`,
+          ],
+        });
+      } else if (personalePercent < 25 && ricaviTotali > 100000) {
+        recommendations.push({
+          id: 'personale-potenzialmente-sotto-staffed',
+          categoria: 'Personale',
+          titolo: 'Costi personale molto bassi: valuta qualità servizio',
+          descrizione: `I costi del personale sono solo ${personalePercent.toFixed(1)}% dei ricavi. Valuta se il servizio è adeguato o se c'è rischio di burn-out del personale.`,
+          impattoStimato: 0, // Non è un risparmio, ma un avviso
+          difficolta: 'media',
+          priorita: 'media',
+          azioni: [
+            'Valuta soddisfazione cliente: bassi costi potrebbero impattare qualità',
+            'Analizza turnover personale: alto turnover può costare di più',
+            'Considera se servizio è adeguato alle aspettative',
+            'Mantieni se qualità servizio è alta e margini soddisfacenti',
+          ],
+          evidenze: [`Personale: ${personalePercent.toFixed(1)}% dei ricavi`],
+        });
+      }
+    }
+    
+    // Analisi sicurezza vs. buste paga
+    if (bustePaga > 0 && sicurezza > 0) {
+      const rapportoSicurezza = (sicurezza / personaleTotale) * 100;
+      if (rapportoSicurezza > 30) {
+        recommendations.push({
+          id: 'sicurezza-troppo-alta',
+          categoria: 'Personale - Sicurezza',
+          titolo: 'Costi sicurezza molto alti rispetto al personale totale',
+          descrizione: `I costi sicurezza rappresentano ${rapportoSicurezza.toFixed(1)}% del personale totale. Valuta se il livello di sicurezza è necessario o ottimizzabile.`,
+          impattoStimato: Math.round(sicurezza * 0.15),
+          difficolta: 'media',
+          priorita: 'media',
+          azioni: [
+            'Valuta necessità reale servizi sicurezza',
+            'Considera sistemi di sicurezza tecnologici (CCTV, accesso)',
+            'Rinegozia contratti sicurezza',
+            'Analizza orari copertura: è necessaria 24/7?',
+          ],
+          evidenze: [`Sicurezza: ${rapportoSicurezza.toFixed(1)}% del personale`],
+        });
+      }
     }
   }
 
   // ==========================================
-  // 9. ANALISI TREND MENSILI
+  // 14. ANALISI COMMISSIONI OTA E CANALI DISTRIBUZIONE
+  // ==========================================
+  
+  if (costs.marketing?.commissioniOTA && revenues.length > 0) {
+    const commissioniOTATotali = costs.marketing.commissioniOTA;
+    const prenotazioniTotali = revenues.reduce((sum, r) => sum + (r.numeroPrenotazioni || 0), 0);
+    const ricaviCamereTotali = revenues.reduce((sum, r) => sum + (r.entrateTotali || 0), 0);
+    
+    if (commissioniOTATotali > 0 && ricaviCamereTotali > 0) {
+      const percentualeCommissioni = (commissioniOTATotali / ricaviCamereTotali) * 100;
+      const commissioneMediaPerPrenotazione = prenotazioniTotali > 0 ? commissioniOTATotali / prenotazioniTotali : 0;
+      
+      // Benchmark: commissioni OTA tipicamente 15-18% per Booking.com, 18-25% per Expedia
+      if (percentualeCommissioni > 20) {
+        recommendations.push({
+          id: 'commissioni-ota-eccessive',
+          categoria: 'Marketing - Distribuzione',
+          titolo: `Commissioni OTA del ${percentualeCommissioni.toFixed(1)}% dei ricavi camere: opportunità prenotazioni dirette`,
+          descrizione: `Le commissioni OTA rappresentano ${percentualeCommissioni.toFixed(1)}% dei ricavi camere (€${commissioniOTATotali.toLocaleString('it-IT')}). Aumentare prenotazioni dirette può ridurre significativamente questi costi. Ogni punto percentuale di prenotazioni dirette aggiuntive = migliaia di euro risparmiati.`,
+          impattoStimato: Math.round(commissioniOTATotali * 0.3), // 30% riduzione se aumenti prenotazioni dirette
+          difficolta: 'media',
+          priorita: 'alta',
+          azioni: [
+            'IMPLEMENTA PROGRAMMA FEDELTÀ: incentiva prenotazioni dirette con sconti esclusivi',
+            'Migliora sito web: user experience ottimale per conversioni prenotazioni',
+            'Offri best rate guarantee: assicura che sito diretto abbia sempre prezzo migliore',
+            'Promuovi prenotazioni dirette: comunicazione check-in, email, marketing',
+            'Implementa sistema prenotazioni diretto user-friendly (calendario, pagamento facile)',
+            'Crea offerte esclusive solo per prenotazioni dirette (upgrade, colazione inclusa)',
+            'Analizza canali: diversifica mix per ridurre dipendenza OTA',
+            'Negozia commissioni OTA: volumi alti possono permettere sconti',
+            'Target: 30-40% prenotazioni dirette per hotel indipendenti',
+          ],
+          evidenze: [
+            `Commissioni OTA: €${commissioniOTATotali.toLocaleString('it-IT')}`,
+            `Percentuale su ricavi: ${percentualeCommissioni.toFixed(1)}%`,
+            `Commissione media/prenotazione: €${commissioneMediaPerPrenotazione.toFixed(2)}`,
+            `Prenotazioni totali: ${prenotazioniTotali}`,
+            `Risparmio potenziale (30% riduzione): €${Math.round(commissioniOTATotali * 0.3).toLocaleString('it-IT')}/anno`,
+          ],
+        });
+      }
+      
+      // Analisi dipendenza OTA (se commissioni sono >40% di tutti i costi marketing)
+      const costiMarketingTotali = (costs.marketing?.costiMarketing || 0) + commissioniOTATotali;
+      if (costiMarketingTotali > 0 && (commissioniOTATotali / costiMarketingTotali) > 0.6) {
+        recommendations.push({
+          id: 'dipendenza-eccessiva-ota',
+          categoria: 'Marketing - Strategia',
+          titolo: 'Eccessiva dipendenza da OTA: diversifica canali distribuzione',
+          descrizione: `Le commissioni OTA rappresentano oltre il 60% dei costi marketing totali. Questa dipendenza può limitare controllo pricing e margini. Diversifica canali.`,
+          impattoStimato: Math.round(commissioniOTATotali * 0.2),
+          difficolta: 'media',
+          priorita: 'alta',
+          azioni: [
+            'Sviluppa presenza su canali alternativi: GDS, tour operator, aziende',
+            'Implementa strategia omnicanale: tutti i canali, ma controllo pricing',
+            'Negozia contratti corporate per prenotazioni ricorrenti',
+            'Sviluppa partnership locali (ristoranti, attività) per referral',
+          ],
+          evidenze: [`Commissioni OTA: ${((commissioniOTATotali / costiMarketingTotali) * 100).toFixed(1)}% dei costi marketing`],
+        });
+      }
+    }
+  }
+
+  // ==========================================
+  // 15. ANALISI TREND MENSILI (già presente, mantenuta)
   // ==========================================
 
   if (revenues.length >= 2) {

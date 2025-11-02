@@ -91,11 +91,52 @@ export function calculateKPI(
   // KPI base (usiamo l'ultimo mese per occupazione e ADR per i calcoli KPI specifici)
   const ultimoMese = revenues[revenues.length - 1];
   const camereTotali = hotelData?.camereTotali || 1;
-  const occupazione = ultimoMese?.occupazione || 0;
+  const postiLettoTotali = hotelData?.postiLettoTotali || camereTotali; // usa posti letto se disponibili, altrimenti assume 1 posto letto per camera
+  
+  // Calcola occupazione correttamente usando giorni di apertura invece di giorni del mese
+  let occupazione = ultimoMese?.occupazione || 0;
+  
+  // Se l'occupazione non è fornita o vogliamo ricalcolarla, usiamo i dati disponibili
+  // Occupazione = (Presenze / (Posti Letto Totali × Giorni Apertura)) × 100
+  if (ultimoMese) {
+    const giorniAperturaMese = ultimoMese.giorniAperturaMese || (isStagionale ? Math.floor(giorniAperturaTotali / revenues.length) : 30);
+    const presenze = ultimoMese.nottiTotali || 0;
+    
+    // Calcola occupazione corretta usando giorni di apertura e posti letto
+    if (presenze > 0 && postiLettoTotali > 0 && giorniAperturaMese > 0) {
+      const occupazioneCalcolata = (presenze / (postiLettoTotali * giorniAperturaMese)) * 100;
+      
+      // Se l'occupazione fornita è molto diversa da quella calcolata, potrebbe essere errata
+      // Usa quella calcolata se la differenza è significativa (>5 punti percentuali)
+      if (!ultimoMese.occupazione || Math.abs(occupazioneCalcolata - (ultimoMese.occupazione || 0)) > 5) {
+        occupazione = occupazioneCalcolata;
+      }
+    } else if (ultimoMese.camereVendute && giorniAperturaMese > 0) {
+      // Alternativa: usa camere vendute se disponibili
+      const camereDisponibiliMese = camereTotali * giorniAperturaMese;
+      occupazione = camereDisponibiliMese > 0 ? (ultimoMese.camereVendute / camereDisponibiliMese) * 100 : occupazione;
+    }
+  }
+  
   const adr = ultimoMese?.prezzoMedioCamera || 0;
 
   // RevPAR = ADR × Occupancy Rate (o Ricavi Camere / Camere Disponibili)
-  const revpar = (adr * occupazione) / 100;
+  // Calcola RevPAR usando i giorni di apertura del mese invece di tutti i giorni del mese
+  let revpar = 0;
+  
+  if (ultimoMese?.entrateTotali) {
+    // Metodo più accurato: RevPAR = Ricavi Camere / (Camere × Giorni Apertura Mese)
+    const giorniAperturaMese = ultimoMese.giorniAperturaMese || (isStagionale ? Math.floor(giorniAperturaTotali / revenues.length) : 30);
+    const camereDisponibiliMese = camereTotali * giorniAperturaMese;
+    if (camereDisponibiliMese > 0) {
+      revpar = ultimoMese.entrateTotali / camereDisponibiliMese;
+    }
+  }
+  
+  // Se non abbiamo entrate totali, usa il metodo ADR × Occupancy
+  if (revpar === 0 && adr > 0 && occupazione > 0) {
+    revpar = (adr * occupazione) / 100;
+  }
   
   // TRevPAR = Total Revenue Per Available Room (ricavi totali hotel / camere disponibili)
   // Camere disponibili = camereTotali × giorni di apertura reali

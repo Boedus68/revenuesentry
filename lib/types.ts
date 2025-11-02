@@ -29,6 +29,7 @@ export interface CostsData {
 export interface HotelData {
   hotelName: string;
   camereTotali: number;
+  postiLettoTotali?: number; // numero totale di posti letto (fondamentale per calcolo occupazione corretto)
   stelle?: number;
   localita?: string;
   annoInizio?: number; // anno in cui è iniziato il monitoraggio

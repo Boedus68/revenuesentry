@@ -11,7 +11,7 @@ import KPICard from './components/KPICard';
 import RecommendationCard from './components/RecommendationCard';
 import ImportCostsDialog from './components/ImportCostsDialog';
 import CategorizeCostsDialog from './components/CategorizeCostsDialog';
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, Label, LabelList } from 'recharts';
 
 // Helper per calcolare il totale costi di un mese
 const calculateTotalCostsForMonth = (costs: Partial<CostsData>): number => {
@@ -1028,7 +1028,7 @@ return (
                                         {/* Grafico Distribuzione Costi */}
                                         <div className="bg-gray-800/50 border border-gray-700 rounded-2xl p-6">
                                             <h3 className="text-xl font-semibold text-white mb-4">Distribuzione Costi</h3>
-                                            <ResponsiveContainer width="100%" height={300}>
+                                            <ResponsiveContainer width="100%" height={400}>
                                                 <PieChart>
                                                     <Pie
                                                         data={(() => {
@@ -1115,23 +1115,90 @@ return (
                                                                 }
                                                             });
                                                             
+                                                            const totale = Object.values(costiPerCategoria).reduce((sum, val) => sum + val, 0);
                                                             return Object.entries(costiPerCategoria)
-                                                                .map(([name, value]) => ({ name, value }))
+                                                                .map(([name, value]) => ({ 
+                                                                    name, 
+                                                                    value,
+                                                                    percent: totale > 0 ? (value / totale) * 100 : 0
+                                                                }))
                                                                 .sort((a, b) => b.value - a.value);
                                                         })()}
                                                         cx="50%"
                                                         cy="50%"
-                                                        labelLine={false}
-                                                        label={(entry: any) => `${entry.name} ${((entry.percent || 0) * 100).toFixed(0)}%`}
-                                                        outerRadius={80}
+                                                        labelLine={true}
+                                                        label={(entry: any) => {
+                                                            // Mostra etichetta solo se la percentuale è > 5% per evitare sovrapposizioni
+                                                            if (entry.percent > 5) {
+                                                                // Nome abbreviato se troppo lungo
+                                                                const nome = entry.name.length > 15 ? entry.name.substring(0, 12) + '...' : entry.name;
+                                                                return `${nome}\n${entry.percent.toFixed(1)}%`;
+                                                            }
+                                                            return '';
+                                                        }}
+                                                        outerRadius={100}
+                                                        innerRadius={30}
                                                         fill="#8884d8"
                                                         dataKey="value"
                                                     >
-                                                        {['#3B82F6', '#10B981', '#F59E0B', '#EF4444'].map((color, index) => (
-                                                            <Cell key={`cell-${index}`} fill={color} />
-                                                        ))}
+                                                        {(() => {
+                                                            const colors = [
+                                                                '#3B82F6', '#10B981', '#F59E0B', '#EF4444', 
+                                                                '#8B5CF6', '#EC4899', '#06B6D4', '#84CC16',
+                                                                '#F97316', '#14B8A6', '#6366F1', '#A855F7'
+                                                            ];
+                                                            const data = (() => {
+                                                                const costiPerCategoria: Record<string, number> = {};
+                                                                const costiDaProcessare = Array.isArray(monthlyCosts) && monthlyCosts.length > 0
+                                                                    ? monthlyCosts.map(mc => mc.costs)
+                                                                    : [costs];
+                                                                costiDaProcessare.forEach((costData) => {
+                                                                    if (costData.ristorazione && Array.isArray(costData.ristorazione)) {
+                                                                        const totale = costData.ristorazione.reduce((sum, item) => sum + (item.importo || 0), 0);
+                                                                        if (totale > 0) costiPerCategoria['Ristorazione'] = (costiPerCategoria['Ristorazione'] || 0) + totale;
+                                                                    }
+                                                                    if (costData.utenze?.energia?.importo) costiPerCategoria['Utenze - Energia'] = (costiPerCategoria['Utenze - Energia'] || 0) + costData.utenze.energia.importo;
+                                                                    if (costData.utenze?.gas?.importo) costiPerCategoria['Utenze - Gas'] = (costiPerCategoria['Utenze - Gas'] || 0) + costData.utenze.gas.importo;
+                                                                    if (costData.utenze?.acqua?.importo) costiPerCategoria['Utenze - Acqua'] = (costiPerCategoria['Utenze - Acqua'] || 0) + costData.utenze.acqua.importo;
+                                                                    if (costData.personale?.bustePaga) costiPerCategoria['Personale - Buste Paga'] = (costiPerCategoria['Personale - Buste Paga'] || 0) + costData.personale.bustePaga;
+                                                                    if (costData.personale?.sicurezza) costiPerCategoria['Personale - Sicurezza'] = (costiPerCategoria['Personale - Sicurezza'] || 0) + costData.personale.sicurezza;
+                                                                    if (costData.marketing?.costiMarketing) costiPerCategoria['Marketing'] = (costiPerCategoria['Marketing'] || 0) + costData.marketing.costiMarketing;
+                                                                    if (costData.marketing?.commissioniOTA) costiPerCategoria['Commissioni OTA'] = (costiPerCategoria['Commissioni OTA'] || 0) + costData.marketing.commissioniOTA;
+                                                                    if (costData.altriCosti) {
+                                                                        Object.entries(costData.altriCosti).forEach(([key, valore]) => {
+                                                                            if (valore && valore > 0) {
+                                                                                const mappingAltriCosti: Record<string, string> = {
+                                                                                    pulizie: 'Pulizie', manElettricista: 'Manutenzione - Elettricista', manIdraulico: 'Manutenzione - Idraulico',
+                                                                                    manCaldaia: 'Manutenzione - Caldaia/Aria Condizionata', manPiscina: 'Manutenzione - Piscina', ascensore: 'Manutenzione - Ascensore',
+                                                                                    ppc: 'Marketing - PPC', marketing: 'Marketing', telefono: 'Telefono/Internet',
+                                                                                    commercialista: 'Commercialista/Consulente', tari: 'Tasse', gestionale: 'Gestionale',
+                                                                                };
+                                                                                const categoriaNome = mappingAltriCosti[key] || key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1').trim();
+                                                                                costiPerCategoria[categoriaNome] = (costiPerCategoria[categoriaNome] || 0) + valore;
+                                                                            }
+                                                                        });
+                                                                    }
+                                                                });
+                                                                return Object.entries(costiPerCategoria).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
+                                                            })();
+                                                            return data.map((_, index) => (
+                                                                <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
+                                                            ));
+                                                        })()}
                                                     </Pie>
-                                                    <Tooltip contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #374151', borderRadius: '8px' }} />
+                                                    <Tooltip 
+                                                        contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #374151', borderRadius: '8px', color: '#F9FAFB' }}
+                                                        formatter={(value: number, name: string) => [
+                                                            `€${value.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                                                            name
+                                                        ]}
+                                                    />
+                                                    <Legend 
+                                                        wrapperStyle={{ color: '#F9FAFB', fontSize: '12px' }}
+                                                        iconSize={12}
+                                                        verticalAlign="bottom"
+                                                        height={36}
+                                                    />
                                                 </PieChart>
                                             </ResponsiveContainer>
                                         </div>
@@ -1425,6 +1492,43 @@ return (
                                         placeholder="Es. 50"
                                     />
                                 </div>
+                                <div className="md:col-span-1 lg:col-span-1">
+                                    <label className="block text-sm font-medium text-white mb-2">
+                                        <span className="inline-flex items-center">
+                                            Posti Letto Totali
+                                            <span className="ml-2 text-xs font-bold text-red-400 bg-red-400/20 px-2 py-1 rounded">OBBLIGATORIO</span>
+                                        </span>
+                                    </label>
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        required
+                                        value={hotelData?.postiLettoTotali || ''}
+                                        onChange={(e) => {
+                                            const postiLettoTotali = parseInt(e.target.value) || undefined;
+                                            const newData = { 
+                                                ...hotelData, 
+                                                postiLettoTotali,
+                                                hotelName: hotelName || hotelData?.hotelName || 'Mio Hotel',
+                                                camereTotali: hotelData?.camereTotali || 0
+                                            };
+                                            setHotelData(newData as HotelData);
+                                            // Salva sempre, anche senza camereTotali, perché è un dato fondamentale
+                                            handleSaveHotelData(newData);
+                                        }}
+                                        className="w-full bg-gray-700 border-2 border-blue-500 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        placeholder="Es. 100"
+                                    />
+                                    <p className="text-xs text-blue-300 mt-1 font-medium">
+                                        ⚠️ DATO FONDAMENTALE: Numero totale di posti letto dell'hotel. 
+                                        Essenziale per calcolare correttamente la percentuale di occupazione, RevPAR, TrevPAR e tutti gli altri indici KPI.
+                                    </p>
+                                    {hotelData?.postiLettoTotali && hotelData?.camereTotali && (
+                                        <p className="text-xs text-green-300 mt-1">
+                                            ✓ {hotelData.postiLettoTotali} posti letto ÷ {hotelData.camereTotali} camere = {(hotelData.postiLettoTotali / hotelData.camereTotali).toFixed(1)} posti letto per camera
+                                        </p>
+                                    )}
+                                </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-300 mb-2">Stelle</label>
                                     <input
@@ -1531,7 +1635,12 @@ return (
                                                 />
                                             </div>
                                             <div>
-                                                <label className="block text-sm font-medium text-gray-300 mb-2">Occupazione (%)</label>
+                                                <label className="block text-sm font-medium text-gray-300 mb-2">
+                                                    Occupazione (%)
+                                                    {hotelData?.postiLettoTotali && revenue.giorniAperturaMese && revenue.nottiTotali && (
+                                                        <span className="text-xs text-green-400 ml-2">(calcolata automaticamente)</span>
+                                                    )}
+                                                </label>
                                                 <input
                                                     type="number"
                                                     step="0.1"
@@ -1544,7 +1653,13 @@ return (
                                                         handleSaveRevenues(updated[revenues.length - 1 - idx]);
                                                     }}
                                                     className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white"
+                                                    readOnly={!!(hotelData?.postiLettoTotali && revenue.giorniAperturaMese && revenue.nottiTotali)}
                                                 />
+                                                <p className="text-xs text-gray-400 mt-1">
+                                                    {hotelData?.postiLettoTotali && revenue.giorniAperturaMese && revenue.nottiTotali 
+                                                        ? `Calcolata automaticamente: ${revenue.nottiTotali} presenze / (${hotelData.postiLettoTotali} posti letto × ${revenue.giorniAperturaMese} giorni apertura) × 100`
+                                                        : 'Inserisci manualmente oppure calcola automaticamente inserendo: Posti Letto Totali, Giorni Apertura del Mese e Notti Totali'}
+                                                </p>
                                             </div>
                                             <div>
                                                 <label className="block text-sm font-medium text-gray-300 mb-2">Prezzo Medio Camera - ADR (€)</label>
@@ -1576,44 +1691,64 @@ return (
                                                 />
                                             </div>
                                             <div>
-                                                <label className="block text-sm font-medium text-gray-300 mb-2">Notti Totali</label>
+                                                <label className="block text-sm font-medium text-gray-300 mb-2">Notti Totali (Presenze)</label>
                                                 <input
                                                     type="number"
                                                     value={revenue.nottiTotali || ''}
                                                     onChange={(e) => {
                                                         const updated = [...revenues];
-                                                        updated[revenues.length - 1 - idx] = { ...revenue, nottiTotali: parseInt(e.target.value) || 0 };
+                                                        const nottiTotali = parseInt(e.target.value) || 0;
+                                                        const revenueUpdated = { ...revenue, nottiTotali };
+                                                        
+                                                        // Calcola automaticamente l'occupazione se abbiamo i dati necessari
+                                                        const giorniAperturaMese = revenueUpdated.giorniAperturaMese || (hotelData?.tipoHotel === 'stagionale' ? 0 : 30);
+                                                        if (giorniAperturaMese > 0 && hotelData?.postiLettoTotali && nottiTotali > 0) {
+                                                            const occupazioneCalcolata = (nottiTotali / (hotelData.postiLettoTotali * giorniAperturaMese)) * 100;
+                                                            if (occupazioneCalcolata <= 100) {
+                                                                revenueUpdated.occupazione = Math.round(occupazioneCalcolata * 10) / 10;
+                                                            }
+                                                        }
+                                                        
+                                                        updated[revenues.length - 1 - idx] = revenueUpdated;
                                                         setRevenues(updated);
-                                                        handleSaveRevenues(updated[revenues.length - 1 - idx]);
+                                                        handleSaveRevenues(revenueUpdated);
                                                     }}
                                                     className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white"
                                                 />
+                                                <p className="text-xs text-gray-400 mt-1">Numero totale di presenze (notti occupate). Usato per calcolare automaticamente l'occupazione.</p>
                                             </div>
-                                            {(hotelData?.tipoHotel === 'stagionale' || revenue.giorniAperturaMese) && (
-                                                <div>
-                                                    <label className="block text-sm font-medium text-gray-300 mb-2">
-                                                        Giorni di Apertura del Mese
-                                                        {hotelData?.tipoHotel === 'stagionale' && (
-                                                            <span className="text-xs text-blue-400 ml-1">*</span>
-                                                        )}
-                                                    </label>
-                                                    <input
-                                                        type="number"
-                                                        min="1"
-                                                        max="31"
-                                                        value={revenue.giorniAperturaMese || ''}
-                                                        onChange={(e) => {
-                                                            const updated = [...revenues];
-                                                            updated[revenues.length - 1 - idx] = { ...revenue, giorniAperturaMese: parseInt(e.target.value) || undefined };
-                                                            setRevenues(updated);
-                                                            handleSaveRevenues(updated[revenues.length - 1 - idx]);
-                                                        }}
-                                                        className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white"
-                                                        placeholder="Es. 28"
-                                                    />
-                                                    <p className="text-xs text-gray-400 mt-1">Giorni di apertura effettivi in questo mese</p>
-                                                </div>
-                                            )}
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-300 mb-2">
+                                                    Giorni di Apertura del Mese
+                                                    <span className="text-xs text-blue-400 ml-1">*</span>
+                                                </label>
+                                                <input
+                                                    type="number"
+                                                    min="1"
+                                                    max="31"
+                                                    value={revenue.giorniAperturaMese || ''}
+                                                    onChange={(e) => {
+                                                        const updated = [...revenues];
+                                                        const giorniAperturaMese = parseInt(e.target.value) || undefined;
+                                                        const revenueUpdated = { ...revenue, giorniAperturaMese };
+                                                        
+                                                        // Calcola automaticamente l'occupazione se abbiamo i dati necessari
+                                                        if (giorniAperturaMese && hotelData?.postiLettoTotali && revenueUpdated.nottiTotali) {
+                                                            const occupazioneCalcolata = (revenueUpdated.nottiTotali / (hotelData.postiLettoTotali * giorniAperturaMese)) * 100;
+                                                            if (occupazioneCalcolata <= 100) {
+                                                                revenueUpdated.occupazione = Math.round(occupazioneCalcolata * 10) / 10;
+                                                            }
+                                                        }
+                                                        
+                                                        updated[revenues.length - 1 - idx] = revenueUpdated;
+                                                        setRevenues(updated);
+                                                        handleSaveRevenues(revenueUpdated);
+                                                    }}
+                                                    className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white"
+                                                    placeholder="Es. 28"
+                                                />
+                                                <p className="text-xs text-gray-400 mt-1">Giorni di apertura effettivi in questo mese (fondamentale per calcolo occupazione corretto)</p>
+                                            </div>
                                             <div>
                                                 <label className="block text-sm font-medium text-gray-300 mb-2">Numero Prenotazioni</label>
                                                 <input
