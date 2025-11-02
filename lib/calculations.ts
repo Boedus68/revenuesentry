@@ -124,19 +124,40 @@ export function calculateKPI(
   // Calcola RevPAR usando i giorni di apertura del mese invece di tutti i giorni del mese
   let revpar = 0;
   
-  if (ultimoMese?.entrateTotali) {
+  if (ultimoMese?.entrateTotali && camereTotali > 0) {
     // Metodo più accurato: RevPAR = Ricavi Camere / (Camere × Giorni Apertura Mese)
-    const giorniAperturaMese = ultimoMese.giorniAperturaMese || (isStagionale ? Math.floor(giorniAperturaTotali / revenues.length) : 30);
+    // Se abbiamo giorniAperturaMese specificato, usalo, altrimenti usa il default corretto
+    let giorniAperturaMese = ultimoMese.giorniAperturaMese;
+    
+    // Se non è specificato, calcolalo in modo intelligente
+    if (!giorniAperturaMese || giorniAperturaMese <= 0) {
+      if (isStagionale && giorniAperturaTotali > 0 && revenues.length > 0) {
+        // Per hotel stagionali: distribuisci i giorni totali tra i mesi
+        giorniAperturaMese = Math.floor(giorniAperturaTotali / revenues.length);
+      } else {
+        // Per hotel annuali: usa giorni effettivi del mese (non sempre 30!)
+        const meseYear = ultimoMese.mese.split('-');
+        const year = parseInt(meseYear[0]);
+        const month = parseInt(meseYear[1]) - 1; // 0-based
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        giorniAperturaMese = daysInMonth; // Assumiamo aperti tutti i giorni del mese per hotel annuali
+      }
+    }
+    
     const camereDisponibiliMese = camereTotali * giorniAperturaMese;
     if (camereDisponibiliMese > 0) {
       revpar = ultimoMese.entrateTotali / camereDisponibiliMese;
     }
   }
   
-  // Se non abbiamo entrate totali, usa il metodo ADR × Occupancy
-  if (revpar === 0 && adr > 0 && occupazione > 0) {
+  // Se non abbiamo entrate totali o RevPAR è ancora 0, usa il metodo ADR × Occupancy
+  // Questo metodo è più diretto e spesso più accurato se l'occupazione è calcolata correttamente
+  if ((revpar === 0 || !ultimoMese?.entrateTotali) && adr > 0 && occupazione > 0) {
     revpar = (adr * occupazione) / 100;
   }
+  
+  // Assicurati che RevPAR non sia negativo
+  if (revpar < 0) revpar = 0;
   
   // TRevPAR = Total Revenue Per Available Room (ricavi totali hotel / camere disponibili)
   // Camere disponibili = camereTotali × giorni di apertura reali

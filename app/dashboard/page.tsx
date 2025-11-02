@@ -642,7 +642,8 @@ const handleSaveHotelData = async (data: Partial<HotelData> | null) => {
     // Valida e completa i dati
     const hotelDataToSave: HotelData = {
         hotelName: data?.hotelName || hotelName || 'Mio Hotel',
-        camereTotali: data?.camereTotali || hotelData?.camereTotali || 0,
+        camereTotali: data?.camereTotali !== undefined ? data.camereTotali : (hotelData?.camereTotali || 0),
+        postiLettoTotali: data?.postiLettoTotali !== undefined ? data.postiLettoTotali : hotelData?.postiLettoTotali,
         stelle: data?.stelle !== undefined ? data.stelle : hotelData?.stelle,
         localita: data?.localita || hotelData?.localita,
         annoInizio: data?.annoInizio || hotelData?.annoInizio,
@@ -650,9 +651,10 @@ const handleSaveHotelData = async (data: Partial<HotelData> | null) => {
         giorniApertura: data?.giorniApertura !== undefined ? data.giorniApertura : hotelData?.giorniApertura,
     };
     
-    // Non salvare se non ci sono almeno le informazioni essenziali
-    if (!hotelDataToSave.camereTotali || hotelDataToSave.camereTotali <= 0) {
-        setToastMessage('Inserisci il numero di camere prima di salvare.');
+    // Permetti salvataggio se c'è almeno camereTotali o postiLettoTotali (entrambi sono importanti)
+    if ((!hotelDataToSave.camereTotali || hotelDataToSave.camereTotali <= 0) && 
+        (!hotelDataToSave.postiLettoTotali || hotelDataToSave.postiLettoTotali <= 0)) {
+        setToastMessage('Inserisci almeno il numero di camere o i posti letto totali prima di salvare.');
         setShowToast(true);
         setTimeout(() => setShowToast(false), 3000);
         return;
