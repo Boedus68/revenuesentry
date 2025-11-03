@@ -267,7 +267,7 @@ export default function AdminPage() {
     }
   };
 
-  const handleExport = async (format: 'csv' | 'json') => {
+  const handleExport = async (format: 'csv' | 'json' | 'pdf') => {
     if (!user?.uid) return;
     
     try {
@@ -283,6 +283,9 @@ export default function AdminPage() {
         a.click();
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
+      } else {
+        const error = await response.json();
+        alert(`Errore durante l'export: ${error.error || 'Errore sconosciuto'}`);
       }
     } catch (error) {
       console.error('Errore export:', error);
@@ -402,8 +405,20 @@ export default function AdminPage() {
                 📥 Export CSV
               </button>
               <button
+                onClick={() => handleExport('json')}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition text-sm"
+              >
+                📄 Export JSON
+              </button>
+              <button
+                onClick={() => handleExport('pdf')}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition text-sm"
+              >
+                📑 Export PDF
+              </button>
+              <button
                 onClick={handleLogout}
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition"
+                className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition"
               >
                 Logout
               </button>

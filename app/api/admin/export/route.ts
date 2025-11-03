@@ -3,6 +3,7 @@ import { db } from '@/lib/firebase';
 import { collection, getDocs } from 'firebase/firestore';
 import { verifyAdminFromUID } from '@/lib/admin';
 import { logAdminAction } from '@/lib/admin-log';
+import { jsPDF } from 'jspdf';
 
 /**
  * API per esportare dati utenti in CSV (solo admin)
@@ -90,8 +91,209 @@ export async function GET(request: NextRequest) {
           'Content-Disposition': `attachment; filename="revenuesentry-users-${new Date().toISOString().split('T')[0]}.json"`,
         },
       });
+    } else if (format === 'pdf') {
+      // Genera PDF con logo e impaginazione accattivante
+      const doc = new jsPDF({
+        orientation: 'landscape',
+        unit: 'mm',
+        format: 'a4'
+      });
+
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      
+      // Colori del tema
+      const primaryColor = [59, 130, 246]; // blue-500
+      const secondaryColor = [147, 197, 253]; // blue-300
+      const darkColor = [31, 41, 55]; // gray-800
+      const textColor = [17, 24, 39]; // gray-900
+      const lightGray = [229, 231, 235]; // gray-200
+
+      // Header con logo e titolo
+      doc.setFillColor(...primaryColor);
+      doc.rect(0, 0, pageWidth, 30, 'F');
+      
+      // Testo logo
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(24);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Revenue', 20, 15);
+      
+      doc.setFontSize(18);
+      doc.setTextColor(...secondaryColor);
+      doc.text('Sentry', 20, 22);
+      
+      // Titolo report
+      doc.setFontSize(20);
+      doc.setTextColor(255, 255, 255);
+      doc.text('Report Utenti', pageWidth - 20, 18, { align: 'right' });
+      
+      // Data generazione
+      doc.setFontSize(10);
+      doc.setTextColor(...secondaryColor);
+      const dataGen = new Date().toLocaleDateString('it-IT', { 
+        day: '2-digit', 
+        month: '2-digit', 
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+      doc.text(`Generato il: ${dataGen}`, pageWidth - 20, 25, { align: 'right' });
+
+      // Separatore
+      doc.setDrawColor(...primaryColor);
+      doc.setLineWidth(0.5);
+      doc.line(0, 32, pageWidth, 32);
+
+      // Statistiche riassuntive
+      let yPos = 40;
+      doc.setFontSize(12);
+      doc.setTextColor(...textColor);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Statistiche Riepilogative', 10, yPos);
+      
+      yPos += 8;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      const totalUsers = users.length;
+      const activeUsers = users.filter(u => u.hasRevenueData || u.hasCostsData).length;
+      const totalRevenue = users.reduce((sum, u) => sum + u.totalRevenue, 0);
+      const totalCosts = users.reduce((sum, u) => sum + u.totalCosts, 0);
+      
+      doc.text(`Utenti Totali: ${totalUsers}`, 10, yPos);
+      doc.text(`Utenti Attivi: ${activeUsers}`, 80, yPos);
+      doc.text(`Ricavi Totali: €${totalRevenue.toLocaleString('it-IT', { minimumFractionDigits: 2 })}`, 150, yPos);
+      
+      yPos += 6;
+      doc.text(`Costi Totali: €${totalCosts.toLocaleString('it-IT', { minimumFractionDigits: 2 })}`, 10, yPos);
+      doc.text(`Media Ricavi: €${totalUsers > 0 ? (totalRevenue / totalUsers).toLocaleString('it-IT', { minimumFractionDigits: 2 }) : '0.00'}`, 150, yPos);
+
+      // Tabella utenti
+      yPos += 10;
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.setTextColor(...textColor);
+      doc.text('Dettaglio Utenti', 10, yPos);
+      
+      yPos += 8;
+      
+      // Intestazione tabella
+      doc.setFillColor(...darkColor);
+      doc.rect(10, yPos - 5, pageWidth - 20, 6, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'bold');
+      
+      const colWidths = [25, 35, 25, 20, 25, 25, 15, 15, 15];
+      const headers = ['Hotel', 'Email', 'Tipo', 'Camere', 'Ricavi', 'Costi', 'Ricavi', 'Costi', 'Consigli'];
+      let xPos = 12;
+      headers.forEach((header, idx) => {
+        doc.text(header, xPos, yPos);
+        xPos += colWidths[idx];
+      });
+
+      yPos += 5;
+      
+      // Dati utenti
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7);
+      let rowCount = 0;
+      const maxRowsPerPage = 12;
+      
+      users.forEach((user, index) => {
+        if (rowCount >= maxRowsPerPage) {
+          doc.addPage();
+          yPos = 20;
+          rowCount = 0;
+          
+          // Ripeti header
+          doc.setFillColor(...darkColor);
+          doc.rect(10, yPos - 5, pageWidth - 20, 6, 'F');
+          doc.setTextColor(255, 255, 255);
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(8);
+          xPos = 12;
+          headers.forEach((header, idx) => {
+            doc.text(header, xPos, yPos);
+            xPos += colWidths[idx];
+          });
+          yPos += 5;
+        }
+
+        // Alterna colore righe
+        if (index % 2 === 0) {
+          doc.setFillColor(...lightGray);
+          doc.rect(10, yPos - 4, pageWidth - 20, 4, 'F');
+        }
+        
+        doc.setTextColor(...textColor);
+        xPos = 12;
+        
+        // Hotel Name (troncato se troppo lungo)
+        const hotelName = user.hotelName.length > 20 ? user.hotelName.substring(0, 17) + '...' : user.hotelName;
+        doc.text(hotelName, xPos, yPos);
+        xPos += colWidths[0];
+        
+        // Email (troncato)
+        const email = user.email.length > 25 ? user.email.substring(0, 22) + '...' : user.email;
+        doc.text(email, xPos, yPos);
+        xPos += colWidths[1];
+        
+        // Tipo Hotel
+        doc.text(user.hotelType, xPos, yPos);
+        xPos += colWidths[2];
+        
+        // Camere
+        doc.text(user.rooms.toString(), xPos, yPos);
+        xPos += colWidths[3];
+        
+        // Ricavi Totali
+        doc.text(`€${user.totalRevenue.toLocaleString('it-IT', { minimumFractionDigits: 0 })}`, xPos, yPos);
+        xPos += colWidths[4];
+        
+        // Costi Totali
+        doc.text(`€${user.totalCosts.toLocaleString('it-IT', { minimumFractionDigits: 0 })}`, xPos, yPos);
+        xPos += colWidths[5];
+        
+        // Dati Ricavi
+        doc.text(user.hasRevenueData ? 'Sì' : 'No', xPos, yPos);
+        xPos += colWidths[6];
+        
+        // Dati Costi
+        doc.text(user.hasCostsData ? 'Sì' : 'No', xPos, yPos);
+        xPos += colWidths[7];
+        
+        // Num Consigli
+        doc.text(user.recommendationsCount.toString(), xPos, yPos);
+        
+        yPos += 5;
+        rowCount++;
+      });
+
+      // Footer
+      const totalPages = doc.internal.pages.length - 1;
+      for (let i = 1; i <= totalPages; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setTextColor(128, 128, 128);
+        doc.text(
+          `Pagina ${i} di ${totalPages} - RevenueSentry Report`,
+          pageWidth / 2,
+          pageHeight - 10,
+          { align: 'center' }
+        );
+      }
+
+      const pdfBuffer = Buffer.from(doc.output('arraybuffer'));
+      
+      return new NextResponse(pdfBuffer, {
+        headers: {
+          'Content-Type': 'application/pdf',
+          'Content-Disposition': `attachment; filename="revenuesentry-users-${new Date().toISOString().split('T')[0]}.pdf"`,
+        },
+      });
     } else {
-      return NextResponse.json({ error: 'Formato non supportato. Usa csv o json' }, { status: 400 });
+      return NextResponse.json({ error: 'Formato non supportato. Usa csv, json o pdf' }, { status: 400 });
     }
   } catch (error: any) {
     console.error('Errore export dati:', error);

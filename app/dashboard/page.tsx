@@ -11,6 +11,7 @@ import KPICard from './components/KPICard';
 import RecommendationCard from './components/RecommendationCard';
 import ImportCostsDialog from './components/ImportCostsDialog';
 import CategorizeCostsDialog from './components/CategorizeCostsDialog';
+import MonthPicker from './components/MonthPicker';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, Label, LabelList } from 'recharts';
 
 // Helper per calcolare il totale costi di un mese
@@ -81,6 +82,8 @@ const [showToast, setShowToast] = useState(false);
 const [toastMessage, setToastMessage] = useState('');
 const [showImportDialog, setShowImportDialog] = useState(false);
 const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+const [showMonthPicker, setShowMonthPicker] = useState(false);
+const [monthPickerType, setMonthPickerType] = useState<'costi' | 'ricavi'>('costi');
 const router = useRouter();
 
 // Lista di altri costi per generare il form dinamicamente
@@ -1419,13 +1422,15 @@ return (
                                 <p className="text-gray-400 mb-4">Seleziona un mese per inserire i costi.</p>
                                 <button
                                     onClick={() => {
-                                        const currentMonth = new Date().toISOString().slice(0, 7);
-                                        setSelectedMonth(currentMonth);
-                                        setCosts({});
+                                        setMonthPickerType('costi');
+                                        setShowMonthPicker(true);
                                     }}
-                                    className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-6 rounded-lg transition"
+                                    className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-6 rounded-lg transition flex items-center gap-2 mx-auto"
                                 >
-                                    Inizia con il mese corrente
+                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                    Aggiungi Mese
                                 </button>
                             </div>
                         )}
@@ -1485,21 +1490,14 @@ return (
                                 </button>
                                 <button
                                     onClick={() => {
-                                        const mese = prompt('Inserisci il mese (formato YYYY-MM, es. 2025-01):');
-                                        if (mese && mese.match(/^\d{4}-\d{2}$/)) {
-                                            const revenueData: RevenueData = {
-                                                mese,
-                                                entrateTotali: 0,
-                                                occupazione: 0,
-                                                prezzoMedioCamera: 0,
-                                                camereVendute: 0,
-                                                nottiTotali: 0,
-                                            };
-                                            handleSaveRevenues(revenueData);
-                                        }
+                                        setMonthPickerType('ricavi');
+                                        setShowMonthPicker(true);
                                     }}
-                                    className="bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-6 rounded-lg transition"
+                                    className="bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-6 rounded-lg transition flex items-center gap-2"
                                 >
+                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
                                     Aggiungi Mese
                                 </button>
                             </div>
@@ -2256,6 +2254,33 @@ return (
                 }}
             />
         )}
+
+        {/* MonthPicker */}
+        <MonthPicker
+            isOpen={showMonthPicker}
+            onClose={() => setShowMonthPicker(false)}
+            onSelect={(mese) => {
+                if (monthPickerType === 'costi') {
+                    setSelectedMonth(mese);
+                    setCosts({});
+                } else if (monthPickerType === 'ricavi') {
+                    const revenueData: RevenueData = {
+                        mese,
+                        entrateTotali: 0,
+                        occupazione: 0,
+                        prezzoMedioCamera: 0,
+                        camereVendute: 0,
+                        nottiTotali: 0,
+                    };
+                    handleSaveRevenues(revenueData);
+                }
+                setShowMonthPicker(false);
+            }}
+            excludeMonths={[
+                ...monthlyCosts.map(mc => mc.mese),
+                ...revenues.map(r => r.mese)
+            ]}
+        />
     </div>
 );
 
