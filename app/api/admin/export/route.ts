@@ -113,15 +113,43 @@ export async function GET(request: NextRequest) {
       doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
       doc.rect(0, 0, pageWidth, 30, 'F');
       
-      // Testo logo
+      // Disegna logo (cerchio con gradient e icone)
+      const logoSize = 14;
+      const logoX = 20;
+      const logoY = 8;
+      
+      // Cerchio di sfondo
+      doc.setFillColor(59, 130, 246); // blue-500
+      doc.circle(logoX + logoSize / 2, logoY + logoSize / 2, logoSize / 2, 'F');
+      
+      // Barre del grafico (rappresentano crescita)
+      doc.setFillColor(255, 255, 255);
+      const barWidth = 1;
+      const barSpacing = 1.3;
+      const barsStartX = logoX + 3;
+      const barsStartY = logoY + 7;
+      doc.rect(barsStartX, barsStartY + 3, barWidth, 2.5, 'F'); // Barra 1
+      doc.rect(barsStartX + barSpacing, barsStartY + 1.5, barWidth, 4, 'F'); // Barra 2
+      doc.rect(barsStartX + barSpacing * 2, barsStartY, barWidth, 5.5, 'F'); // Barra 3
+      doc.rect(barsStartX + barSpacing * 3, barsStartY - 1, barWidth, 7, 'F'); // Barra 4
+      doc.rect(barsStartX + barSpacing * 4, barsStartY - 1.5, barWidth, 8, 'F'); // Barra 5
+      
+      // Simbolo Euro
+      doc.setFontSize(7);
+      doc.setFont('helvetica', 'bold');
       doc.setTextColor(255, 255, 255);
+      doc.text('€', logoX + logoSize / 2, logoY + 4, { align: 'center' });
+      
+      // Nome del sito con grafica migliorata
+      const textStartX = logoX + logoSize + 5;
       doc.setFontSize(24);
       doc.setFont('helvetica', 'bold');
-      doc.text('Revenue', 20, 15);
+      doc.setTextColor(255, 255, 255);
+      doc.text('Revenue', textStartX, 15);
       
       doc.setFontSize(18);
       doc.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
-      doc.text('Sentry', 20, 22);
+      doc.text('Sentry', textStartX, 22);
       
       // Titolo report
       doc.setFontSize(20);

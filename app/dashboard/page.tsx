@@ -2287,14 +2287,43 @@ return (
                                                    doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
                                                    doc.rect(0, 0, pageWidth, 40, 'F');
                                                    
+                                                   // Disegna logo (cerchio con gradient e icone)
+                                                   const logoSize = 16;
+                                                   const logoX = margin;
+                                                   const logoY = 12;
+                                                   
+                                                   // Cerchio di sfondo con gradiente (approssimato)
+                                                   doc.setFillColor(59, 130, 246); // blue-500
+                                                   doc.circle(logoX + logoSize / 2, logoY + logoSize / 2, logoSize / 2, 'F');
+                                                   
+                                                   // Barre del grafico (rappresentano crescita)
+                                                   doc.setFillColor(255, 255, 255);
+                                                   const barWidth = 1.2;
+                                                   const barSpacing = 1.5;
+                                                   const barsStartX = logoX + 4;
+                                                   const barsStartY = logoY + 8;
+                                                   doc.rect(barsStartX, barsStartY + 4, barWidth, 3, 'F'); // Barra 1
+                                                   doc.rect(barsStartX + barSpacing, barsStartY + 2, barWidth, 5, 'F'); // Barra 2
+                                                   doc.rect(barsStartX + barSpacing * 2, barsStartY, barWidth, 7, 'F'); // Barra 3
+                                                   doc.rect(barsStartX + barSpacing * 3, barsStartY - 1, barWidth, 9, 'F'); // Barra 4
+                                                   doc.rect(barsStartX + barSpacing * 4, barsStartY - 2, barWidth, 11, 'F'); // Barra 5
+                                                   
+                                                   // Simbolo Euro semplificato (E)
+                                                   doc.setFontSize(8);
+                                                   doc.setFont('helvetica', 'bold');
                                                    doc.setTextColor(255, 255, 255);
+                                                   doc.text('€', logoX + logoSize / 2, logoY + 4.5, { align: 'center' });
+                                                   
+                                                   // Nome del sito con grafica migliorata
+                                                   const textStartX = logoX + logoSize + 6;
                                                    doc.setFontSize(24);
                                                    doc.setFont('helvetica', 'bold');
-                                                   doc.text('Revenue', margin, 18);
+                                                   doc.setTextColor(255, 255, 255);
+                                                   doc.text('Revenue', textStartX, 18);
                                                    
                                                    doc.setFontSize(18);
                                                    doc.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
-                                                   doc.text('Sentry', margin, 26);
+                                                   doc.text('Sentry', textStartX, 26);
                                                    
                                                    doc.setFontSize(20);
                                                    doc.setTextColor(255, 255, 255);
@@ -2649,18 +2678,19 @@ return (
                                                                doc.text(d.mese, x, chartY + 5, { align: 'center' });
                                                            });
                                                            
-                                                           // Legenda
+                                                           // Legenda (sotto il grafico)
+                                                           yPos += chartHeight + 10;
                                                            doc.setFontSize(8);
                                                            doc.setFillColor(blueColor[0], blueColor[1], blueColor[2]);
-                                                           doc.rect(chartX + 10, chartY - chartHeight - 8, 3, 3, 'F');
+                                                           doc.rect(chartX + 10, yPos - 2, 3, 3, 'F');
                                                            doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-                                                           doc.text('Ricavi', chartX + 15, chartY - chartHeight - 6);
+                                                           doc.text('Ricavi', chartX + 15, yPos);
                                                            
                                                            doc.setFillColor(redColorChart[0], redColorChart[1], redColorChart[2]);
-                                                           doc.rect(chartX + 40, chartY - chartHeight - 8, 3, 3, 'F');
-                                                           doc.text('Spese', chartX + 45, chartY - chartHeight - 6);
+                                                           doc.rect(chartX + 40, yPos - 2, 3, 3, 'F');
+                                                           doc.text('Spese', chartX + 45, yPos);
                                                            
-                                                           yPos += chartHeight + 15;
+                                                           yPos += 10;
                                                        }
                                                    }
 
@@ -2717,28 +2747,29 @@ return (
                                                            doc.text(`${comp.tuo.toFixed(1)}${comp.nome === 'Occupazione' || comp.nome === 'GOP Margin' ? '%' : '€'}`, barX + barWidth / 2, barChartY - tuoHeight - 2, { align: 'center' });
                                                        });
                                                        
-                                                       // Legenda
+                                                       // Legenda (sotto il grafico)
+                                                       yPos += barChartHeight + 10;
                                                        doc.setFontSize(8);
                                                        doc.setFillColor(lightGray[0], lightGray[1], lightGray[2]);
-                                                       doc.rect(barChartX + 10, barChartY - barChartHeight - 8, 3, 3, 'F');
+                                                       doc.rect(barChartX + 10, yPos - 2, 3, 3, 'F');
                                                        doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-                                                       doc.text('Benchmark', barChartX + 15, barChartY - barChartHeight - 6);
+                                                       doc.text('Benchmark', barChartX + 15, yPos);
                                                        
                                                        doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-                                                       doc.rect(barChartX + 50, barChartY - barChartHeight - 8, 3, 3, 'F');
-                                                       doc.text('Il Tuo Hotel', barChartX + 55, barChartY - barChartHeight - 6);
+                                                       doc.rect(barChartX + 50, yPos - 2, 3, 3, 'F');
+                                                       doc.text('Il Tuo Hotel', barChartX + 55, yPos);
                                                        
-                                                       yPos += barChartHeight + 15;
+                                                       yPos += 10;
                                                    }
 
-                                                   // Grafico 3: Distribuzione Costi (Bar Chart)
-                                                   checkPageBreak(50);
+                                                   // Grafico 3: Distribuzione Costi (Pie Chart semplificato con approccio alternativo)
+                                                   checkPageBreak(60);
                                                    doc.setFontSize(12);
                                                    doc.setFont('helvetica', 'bold');
-                                                   doc.text('Distribuzione Costi per Categoria', margin, yPos);
-                                                   yPos += 5;
+                                                   doc.text('Distribuzione Costi per Categoria (Grafico a Torta)', margin, yPos);
+                                                   yPos += 8;
 
-                                                   // Calcola costi per il grafico (riutilizzando stessa logica della sezione 3)
+                                                   // Calcola costi per il grafico
                                                    const ristorazioneTotaleChart = Array.isArray(monthlyCosts) && monthlyCosts.length > 0
                                                        ? monthlyCosts.reduce((sum, mc) => sum + (mc.costs.ristorazione?.reduce((s, item) => s + (item.importo || 0), 0) || 0), 0)
                                                        : (costs.ristorazione?.reduce((sum, item) => sum + (item.importo || 0), 0) || 0);
@@ -2769,56 +2800,110 @@ return (
                                                        { nome: 'Utenze', valore: utenzeTotaleChart },
                                                        { nome: 'Personale', valore: personaleTotaleChart },
                                                        { nome: 'Marketing', valore: marketingTotaleChart },
-                                                   ].filter(c => c.valore > 0);
+                                                   ].filter(c => c.valore > 0).sort((a, b) => b.valore - a.valore);
 
                                                    if (costiChartData.length > 0) {
                                                        const totalCosts = costiChartData.reduce((sum, c) => sum + c.valore, 0);
-                                                       const barChartWidth2 = pageWidth - (margin * 2);
-                                                       const barChartHeight2 = 30;
-                                                       const barChartX2 = margin;
-                                                       const barChartY2 = yPos;
-                                                       const maxCostValue = Math.max(...costiChartData.map(c => c.valore));
+                                                       const pieRadius = 22;
+                                                       const pieX = margin + 35;
+                                                       const pieY = yPos + pieRadius + 5;
                                                        
                                                        const colors = [
-                                                           [59, 130, 246], [16, 185, 129], [245, 158, 11], [239, 68, 68]
+                                                           [59, 130, 246], [16, 185, 129], [245, 158, 11], [239, 68, 68], 
+                                                           [139, 92, 246], [236, 72, 153], [6, 182, 212], [132, 204, 22]
                                                        ];
                                                        
+                                                       // Disegna il grafico a torta usando settori circolari approssimati
+                                                       let currentAngle = -90; // Inizia dall'alto
+                                                       
                                                        costiChartData.forEach((cat, idx) => {
-                                                           const barHeight = (cat.valore / maxCostValue) * barChartHeight2;
-                                                           const barWidth = (barChartWidth2 / costiChartData.length) - 5;
-                                                           const barX = barChartX2 + (barChartWidth2 / costiChartData.length) * idx;
+                                                           const slicePercent = cat.valore / totalCosts;
+                                                           const sliceAngle = slicePercent * 360;
                                                            const color = colors[idx % colors.length];
                                                            
-                                                           // Barra
+                                                           // Calcola punti dell'arco
+                                                           const startRad = (currentAngle * Math.PI) / 180;
+                                                           const endRad = ((currentAngle + sliceAngle) * Math.PI) / 180;
+                                                           
+                                                           // Disegna la fetta usando molti piccoli settori triangolari
                                                            doc.setFillColor(color[0], color[1], color[2]);
-                                                           doc.rect(barX, barChartY2 - barHeight, barWidth, barHeight, 'F');
+                                                           const numSegments = Math.max(15, Math.ceil(sliceAngle / 3));
                                                            
-                                                           // Etichetta categoria
-                                                           doc.setFontSize(7);
-                                                           doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-                                                           const labelLines = doc.splitTextToSize(cat.nome, barWidth);
-                                                           doc.text(labelLines[0], barX + barWidth / 2, barChartY2 + 3, { align: 'center' });
+                                                           for (let seg = 0; seg < numSegments; seg++) {
+                                                               const segStartAngle = currentAngle + (sliceAngle * seg) / numSegments;
+                                                               const segEndAngle = currentAngle + (sliceAngle * (seg + 1)) / numSegments;
+                                                               const segStartRad = (segStartAngle * Math.PI) / 180;
+                                                               const segEndRad = (segEndAngle * Math.PI) / 180;
+                                                               
+                                                               // Crea triangolo settore: centro -> punto1 -> punto2 -> centro
+                                                               const x1 = pieX;
+                                                               const y1 = pieY;
+                                                               const x2 = pieX + pieRadius * Math.cos(segStartRad);
+                                                               const y2 = pieY + pieRadius * Math.sin(segStartRad);
+                                                               const x3 = pieX + pieRadius * Math.cos(segEndRad);
+                                                               const y3 = pieY + pieRadius * Math.sin(segEndRad);
+                                                               
+                                                               // Disegna il triangolo riempiendo un'area rettangolare che lo contiene
+                                                               // e poi disegnando sopra solo la parte visibile
+                                                               const centerX = (x1 + x2 + x3) / 3;
+                                                               const centerY = (y1 + y2 + y3) / 3;
+                                                               const size = Math.sqrt((x2 - x3) ** 2 + (y2 - y3) ** 2) / 3;
+                                                               
+                                                               // Disegna piccolo cerchio che approssima il triangolo
+                                                               if (size > 0.5) {
+                                                                   doc.circle(centerX, centerY, size, 'F');
+                                                               }
+                                                               
+                                                               // Disegna anche il bordo del triangolo
+                                                               doc.setDrawColor(color[0], color[1], color[2]);
+                                                               doc.setLineWidth(0.1);
+                                                               doc.line(x1, y1, x2, y2);
+                                                               doc.line(x2, y2, x3, y3);
+                                                           }
                                                            
-                                                           // Valore
-                                                           doc.setFontSize(6);
-                                                           const percent = (cat.valore / totalCosts * 100).toFixed(0);
-                                                           doc.text(`${percent}%`, barX + barWidth / 2, barChartY2 - barHeight - 2, { align: 'center' });
+                                                           // Linee di separazione tra fette
+                                                           doc.setDrawColor(255, 255, 255);
+                                                           doc.setLineWidth(1);
+                                                           doc.line(pieX, pieY, pieX + pieRadius * Math.cos(startRad), pieY + pieRadius * Math.sin(startRad));
+                                                           doc.line(pieX, pieY, pieX + pieRadius * Math.cos(endRad), pieY + pieRadius * Math.sin(endRad));
+                                                           
+                                                           currentAngle += sliceAngle;
                                                        });
                                                        
-                                                       // Legenda con valori
-                                                       yPos += barChartHeight2 + 10;
+                                                       // Disegna bordo esterno del cerchio
+                                                       doc.setDrawColor(textColor[0], textColor[1], textColor[2]);
+                                                       doc.setLineWidth(0.5);
+                                                       // Disegna cerchio esterno usando piccoli segmenti
+                                                       for (let i = 0; i < 72; i++) { // 360/5 = 72 segmenti per cerchio liscio
+                                                           const angle1 = (i * 5 * Math.PI) / 180;
+                                                           const angle2 = ((i + 1) * 5 * Math.PI) / 180;
+                                                           const x1 = pieX + pieRadius * Math.cos(angle1);
+                                                           const y1 = pieY + pieRadius * Math.sin(angle1);
+                                                           const x2 = pieX + pieRadius * Math.cos(angle2);
+                                                           const y2 = pieY + pieRadius * Math.sin(angle2);
+                                                           doc.line(x1, y1, x2, y2);
+                                                       }
+                                                       
+                                                       // Legenda con valori (a destra del grafico)
+                                                       const legendX = margin + 75;
+                                                       let legendY = yPos + 2;
                                                        doc.setFontSize(8);
+                                                       
                                                        costiChartData.forEach((cat, idx) => {
                                                            const color = colors[idx % colors.length];
                                                            doc.setFillColor(color[0], color[1], color[2]);
-                                                           doc.rect(margin + 10, yPos - 2, 3, 3, 'F');
+                                                           doc.rect(legendX, legendY - 2, 3, 3, 'F');
+                                                           
                                                            doc.setTextColor(textColor[0], textColor[1], textColor[2]);
-                                                           const percent = (cat.valore / totalCosts * 100).toFixed(1);
-                                                           doc.text(`${cat.nome}: ${percent}% (€${cat.valore.toLocaleString('it-IT', { minimumFractionDigits: 0 })})`, margin + 16, yPos);
-                                                           yPos += 5;
+                                                           const percent = ((cat.valore / totalCosts) * 100).toFixed(1);
+                                                           doc.text(`${cat.nome}:`, legendX + 6, legendY);
+                                                           doc.text(`${percent}%`, legendX + 48, legendY);
+                                                           doc.text(`€${cat.valore.toLocaleString('it-IT', { minimumFractionDigits: 0 })}`, legendX + 62, legendY);
+                                                           
+                                                           legendY += 5.5;
                                                        });
                                                        
-                                                       yPos += 5;
+                                                       yPos += (pieRadius * 2) + 12;
                                                    }
 
                                                    // Salva PDF
