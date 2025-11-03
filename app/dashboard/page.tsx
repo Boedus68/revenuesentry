@@ -2248,6 +2248,312 @@ return (
                                        >
                                            Esporta Riepilogo Costi (TXT)
                                        </button>
+                                       <button
+                                           onClick={async () => {
+                                               try {
+                                                   // Import dinamico di jsPDF
+                                                   const { jsPDF } = await import('jspdf');
+                                                   const doc = new jsPDF({
+                                                       orientation: 'portrait',
+                                                       unit: 'mm',
+                                                       format: 'a4'
+                                                   });
+
+                                                   const pageWidth = doc.internal.pageSize.getWidth();
+                                                   const pageHeight = doc.internal.pageSize.getHeight();
+                                                   const margin = 15;
+                                                   let yPos = margin;
+                                                   
+                                                   // Colori del tema
+                                                   const primaryColor = [59, 130, 246]; // blue-500
+                                                   const secondaryColor = [147, 197, 253]; // blue-300
+                                                   const darkColor = [31, 41, 55]; // gray-800
+                                                   const textColor = [17, 24, 39]; // gray-900
+                                                   const lightGray = [229, 231, 235]; // gray-200
+                                                   const greenColor = [16, 185, 129]; // green-500
+                                                   const redColor = [239, 68, 68]; // red-500
+
+                                                   // Helper per aggiungere nuova pagina se necessario
+                                                   const checkPageBreak = (requiredSpace: number) => {
+                                                       if (yPos + requiredSpace > pageHeight - margin) {
+                                                           doc.addPage();
+                                                           yPos = margin;
+                                                           return true;
+                                                       }
+                                                       return false;
+                                                   };
+
+                                                   // Header con logo e titolo
+                                                   doc.setFillColor(...primaryColor);
+                                                   doc.rect(0, 0, pageWidth, 40, 'F');
+                                                   
+                                                   doc.setTextColor(255, 255, 255);
+                                                   doc.setFontSize(24);
+                                                   doc.setFont('helvetica', 'bold');
+                                                   doc.text('Revenue', margin, 18);
+                                                   
+                                                   doc.setFontSize(18);
+                                                   doc.setTextColor(...secondaryColor);
+                                                   doc.text('Sentry', margin, 26);
+                                                   
+                                                   doc.setFontSize(20);
+                                                   doc.setTextColor(255, 255, 255);
+                                                   doc.text('Report Completo', pageWidth - margin, 20, { align: 'right' });
+                                                   
+                                                   doc.setFontSize(10);
+                                                   doc.setTextColor(...secondaryColor);
+                                                   const dataGen = new Date().toLocaleDateString('it-IT', { 
+                                                       day: '2-digit', 
+                                                       month: '2-digit', 
+                                                       year: 'numeric',
+                                                       hour: '2-digit',
+                                                       minute: '2-digit'
+                                                   });
+                                                   doc.text(`Generato il: ${dataGen}`, pageWidth - margin, 30, { align: 'right' });
+                                                   doc.text(`Hotel: ${hotelName}`, pageWidth - margin, 35, { align: 'right' });
+
+                                                   yPos = 50;
+
+                                                   // ========== SEZIONE 1: PANORAMICA (KPI) ==========
+                                                   doc.setFontSize(16);
+                                                   doc.setFont('helvetica', 'bold');
+                                                   doc.setTextColor(...textColor);
+                                                   doc.text('1. PANORAMICA - INDICATORI CHIAVE', margin, yPos);
+                                                   yPos += 8;
+
+                                                   // Box per KPI
+                                                   checkPageBreak(40);
+                                                   doc.setFillColor(...lightGray);
+                                                   doc.roundedRect(margin, yPos - 5, pageWidth - (margin * 2), 35, 3, 3, 'F');
+                                                   yPos += 5;
+
+                                                   doc.setFontSize(10);
+                                                   doc.setFont('helvetica', 'normal');
+                                                   doc.setTextColor(...textColor);
+
+                                                   if (kpi) {
+                                                       const kpiData = [
+                                                           [`RevPAR: €${kpi.revpar.toFixed(2)}`, `Occupazione: ${kpi.occupazione.toFixed(1)}%`],
+                                                           [`ADR: €${kpi.adr.toFixed(2)}`, `TRevPAR: €${kpi.trevpar?.toFixed(2) || '0.00'}`],
+                                                           [`GOP: €${kpi.gop.toLocaleString('it-IT')}`, `GOP Margin: ${kpi.gopMargin.toFixed(1)}%`],
+                                                           [`CPOR: €${kpi.cpor?.toFixed(2) || '0.00'}`, kpi.goppar ? `GOPPAR: €${kpi.goppar.toFixed(2)}` : '']
+                                                       ];
+
+                                                       kpiData.forEach((row, idx) => {
+                                                           if (row[0]) doc.text(row[0], margin + 5, yPos);
+                                                           if (row[1]) doc.text(row[1], margin + 100, yPos);
+                                                           if (idx < kpiData.length - 1) yPos += 6;
+                                                       });
+                                                   }
+
+                                                   yPos += 15;
+
+                                                   // ========== SEZIONE 2: CONSIGLI AI ==========
+                                                   checkPageBreak(30);
+                                                   doc.setFontSize(16);
+                                                   doc.setFont('helvetica', 'bold');
+                                                   doc.text('2. CONSIGLI AI', margin, yPos);
+                                                   yPos += 8;
+
+                                                   if (recommendations && recommendations.length > 0) {
+                                                       recommendations.slice(0, 5).forEach((rec, idx) => {
+                                                           checkPageBreak(25);
+                                                           
+                                                           doc.setFillColor(idx % 2 === 0 ? lightGray : [255, 255, 255]);
+                                                           doc.roundedRect(margin, yPos - 5, pageWidth - (margin * 2), 20, 3, 3, 'F');
+                                                           
+                                                           doc.setFontSize(11);
+                                                           doc.setFont('helvetica', 'bold');
+                                                           doc.setTextColor(...primaryColor);
+                                                           const titleLines = doc.splitTextToSize(rec.titolo || `Consiglio ${idx + 1}`, pageWidth - (margin * 2) - 10);
+                                                           doc.text(titleLines[0], margin + 5, yPos);
+                                                           
+                                                           yPos += 6;
+                                                           doc.setFontSize(9);
+                                                           doc.setFont('helvetica', 'normal');
+                                                           doc.setTextColor(...textColor);
+                                                           const descLines = doc.splitTextToSize(rec.descrizione || '', pageWidth - (margin * 2) - 10);
+                                                           doc.text(descLines.slice(0, 2), margin + 5, yPos);
+                                                           
+                                                           yPos += 12;
+                                                       });
+                                                   } else {
+                                                       doc.setFontSize(10);
+                                                       doc.setTextColor(128, 128, 128);
+                                                       doc.text('Nessun consiglio disponibile. Inserisci dati e ricalcola le analisi.', margin, yPos);
+                                                       yPos += 8;
+                                                   }
+
+                                                   yPos += 10;
+
+                                                   // ========== SEZIONE 3: REPORT SPESE ==========
+                                                   checkPageBreak(50);
+                                                   doc.setFontSize(16);
+                                                   doc.setFont('helvetica', 'bold');
+                                                   doc.text('3. REPORT SPESE PER CATEGORIA', margin, yPos);
+                                                   yPos += 8;
+
+                                                   // Calcola costi per categoria
+                                                   const ristorazioneTotale = Array.isArray(monthlyCosts) && monthlyCosts.length > 0
+                                                       ? monthlyCosts.reduce((sum, mc) => sum + (mc.costs.ristorazione?.reduce((s, item) => s + (item.importo || 0), 0) || 0), 0)
+                                                       : (costs.ristorazione?.reduce((sum, item) => sum + (item.importo || 0), 0) || 0);
+                                                   
+                                                   const utenzeTotale = Array.isArray(monthlyCosts) && monthlyCosts.length > 0
+                                                       ? monthlyCosts.reduce((sum, mc) => {
+                                                           const ut = mc.costs.utenze;
+                                                           return sum + (ut?.energia?.importo || 0) + (ut?.gas?.importo || 0) + (ut?.acqua?.importo || 0);
+                                                       }, 0)
+                                                       : ((costs.utenze?.energia?.importo || 0) + (costs.utenze?.gas?.importo || 0) + (costs.utenze?.acqua?.importo || 0));
+                                                   
+                                                   const personaleTotale = Array.isArray(monthlyCosts) && monthlyCosts.length > 0
+                                                       ? monthlyCosts.reduce((sum, mc) => {
+                                                           const pers = mc.costs.personale;
+                                                           return sum + (pers?.bustePaga || 0) + (pers?.sicurezza || 0);
+                                                       }, 0)
+                                                       : ((costs.personale?.bustePaga || 0) + (costs.personale?.sicurezza || 0));
+                                                   
+                                                   const marketingTotale = Array.isArray(monthlyCosts) && monthlyCosts.length > 0
+                                                       ? monthlyCosts.reduce((sum, mc) => {
+                                                           const mark = mc.costs.marketing;
+                                                           return sum + (mark?.costiMarketing || 0) + (mark?.commissioniOTA || 0);
+                                                       }, 0)
+                                                       : ((costs.marketing?.costiMarketing || 0) + (costs.marketing?.commissioniOTA || 0));
+                                                   
+                                                   const altriCostiTotale = Array.isArray(monthlyCosts) && monthlyCosts.length > 0
+                                                       ? monthlyCosts.reduce((sum, mc) => sum + (mc.costs.altriCosti ? Object.values(mc.costs.altriCosti).reduce((s, v) => s + (v || 0), 0) : 0), 0)
+                                                       : (costs.altriCosti ? Object.values(costs.altriCosti).reduce((sum, val) => sum + (val || 0), 0) : 0);
+                                                   
+                                                   const totaleGenerale = kpi?.totaleSpese || 0;
+                                                   const percentualeRistorazione = totaleGenerale > 0 ? (ristorazioneTotale / totaleGenerale * 100).toFixed(1) : '0.0';
+                                                   const percentualeUtenze = totaleGenerale > 0 ? (utenzeTotale / totaleGenerale * 100).toFixed(1) : '0.0';
+                                                   const percentualePersonale = totaleGenerale > 0 ? (personaleTotale / totaleGenerale * 100).toFixed(1) : '0.0';
+                                                   const percentualeMarketing = totaleGenerale > 0 ? (marketingTotale / totaleGenerale * 100).toFixed(1) : '0.0';
+                                                   const percentualeAltri = totaleGenerale > 0 ? (altriCostiTotale / totaleGenerale * 100).toFixed(1) : '0.0';
+
+                                                   // Header tabella
+                                                   checkPageBreak(40);
+                                                   doc.setFillColor(...darkColor);
+                                                   doc.rect(margin, yPos - 5, pageWidth - (margin * 2), 7, 'F');
+                                                   doc.setTextColor(255, 255, 255);
+                                                   doc.setFontSize(9);
+                                                   doc.setFont('helvetica', 'bold');
+                                                   doc.text('Categoria', margin + 5, yPos);
+                                                   doc.text('Importo', margin + 100, yPos, { align: 'right' });
+                                                   doc.text('%', pageWidth - margin - 5, yPos, { align: 'right' });
+                                                   yPos += 5;
+
+                                                   // Dati tabella
+                                                   doc.setFont('helvetica', 'normal');
+                                                   doc.setFontSize(9);
+                                                   const categorie = [
+                                                       { nome: 'Ristorazione', valore: ristorazioneTotale, percentuale: percentualeRistorazione },
+                                                       { nome: 'Utenze', valore: utenzeTotale, percentuale: percentualeUtenze },
+                                                       { nome: 'Personale', valore: personaleTotale, percentuale: percentualePersonale },
+                                                       { nome: 'Marketing', valore: marketingTotale, percentuale: percentualeMarketing },
+                                                       { nome: 'Altri Costi', valore: altriCostiTotale, percentuale: percentualeAltri },
+                                                   ].filter(cat => cat.valore > 0).sort((a, b) => b.valore - a.valore);
+
+                                                   categorie.forEach((cat, idx) => {
+                                                       checkPageBreak(7);
+                                                       doc.setFillColor(idx % 2 === 0 ? lightGray : [255, 255, 255]);
+                                                       doc.rect(margin, yPos - 4, pageWidth - (margin * 2), 5, 'F');
+                                                       
+                                                       doc.setTextColor(...textColor);
+                                                       doc.text(cat.nome, margin + 5, yPos);
+                                                       doc.text(`€${cat.valore.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, margin + 100, yPos, { align: 'right' });
+                                                       doc.text(`${cat.percentuale}%`, pageWidth - margin - 5, yPos, { align: 'right' });
+                                                       yPos += 6;
+                                                   });
+
+                                                   // Totale
+                                                   checkPageBreak(8);
+                                                   doc.setDrawColor(...primaryColor);
+                                                   doc.setLineWidth(0.5);
+                                                   doc.line(margin, yPos, pageWidth - margin, yPos);
+                                                   yPos += 3;
+                                                   doc.setFont('helvetica', 'bold');
+                                                   doc.setFontSize(10);
+                                                   doc.text('TOTALE', margin + 5, yPos);
+                                                   doc.text(`€${totaleGenerale.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, margin + 100, yPos, { align: 'right' });
+                                                   yPos += 10;
+
+                                                   // ========== SEZIONE 4: REPORT RICAVI ==========
+                                                   checkPageBreak(50);
+                                                   doc.setFontSize(16);
+                                                   doc.setFont('helvetica', 'bold');
+                                                   doc.text('4. REPORT RICAVI MENSILI', margin, yPos);
+                                                   yPos += 8;
+
+                                                   if (revenues && revenues.length > 0) {
+                                                       // Header tabella ricavi
+                                                       checkPageBreak(30);
+                                                       doc.setFillColor(...darkColor);
+                                                       doc.rect(margin, yPos - 5, pageWidth - (margin * 2), 7, 'F');
+                                                       doc.setTextColor(255, 255, 255);
+                                                       doc.setFontSize(8);
+                                                       doc.setFont('helvetica', 'bold');
+                                                       doc.text('Mese', margin + 5, yPos);
+                                                       doc.text('Ricavi', margin + 50, yPos);
+                                                       doc.text('Occup.', margin + 80, yPos);
+                                                       doc.text('ADR', margin + 100, yPos);
+                                                       doc.text('Camere', pageWidth - margin - 5, yPos, { align: 'right' });
+                                                       yPos += 5;
+
+                                                       // Dati ricavi (ultimi 6 mesi o tutti)
+                                                       doc.setFont('helvetica', 'normal');
+                                                       doc.setFontSize(8);
+                                                       revenues.slice().reverse().slice(0, 6).forEach((rev, idx) => {
+                                                           checkPageBreak(6);
+                                                           doc.setFillColor(idx % 2 === 0 ? lightGray : [255, 255, 255]);
+                                                           doc.rect(margin, yPos - 4, pageWidth - (margin * 2), 5, 'F');
+                                                           
+                                                           doc.setTextColor(...textColor);
+                                                           const meseFormatted = new Date(rev.mese + '-01').toLocaleDateString('it-IT', { month: 'short', year: 'numeric' });
+                                                           doc.text(meseFormatted, margin + 5, yPos);
+                                                           doc.text(`€${rev.entrateTotali.toLocaleString('it-IT', { minimumFractionDigits: 0 })}`, margin + 50, yPos);
+                                                           doc.text(`${rev.occupazione.toFixed(1)}%`, margin + 80, yPos);
+                                                           doc.text(`€${rev.prezzoMedioCamera.toFixed(0)}`, margin + 100, yPos);
+                                                           doc.text(rev.camereVendute.toString(), pageWidth - margin - 5, yPos, { align: 'right' });
+                                                           yPos += 6;
+                                                       });
+                                                   } else {
+                                                       doc.setFontSize(10);
+                                                       doc.setTextColor(128, 128, 128);
+                                                       doc.text('Nessun dato ricavi disponibile.', margin, yPos);
+                                                       yPos += 8;
+                                                   }
+
+                                                   // Footer
+                                                   const totalPages = doc.internal.pages.length - 1;
+                                                   for (let i = 1; i <= totalPages; i++) {
+                                                       doc.setPage(i);
+                                                       doc.setFontSize(8);
+                                                       doc.setTextColor(128, 128, 128);
+                                                       doc.text(
+                                                           `Pagina ${i} di ${totalPages} - RevenueSentry Report`,
+                                                           pageWidth / 2,
+                                                           pageHeight - 10,
+                                                           { align: 'center' }
+                                                       );
+                                                   }
+
+                                                   // Salva PDF
+                                                   doc.save(`report-completo-${hotelName.replace(/\s+/g, '-')}-${new Date().toISOString().split('T')[0]}.pdf`);
+                                                   
+                                                   setToastMessage('PDF generato con successo!');
+                                                   setShowToast(true);
+                                                   setTimeout(() => setShowToast(false), 3000);
+                                               } catch (error) {
+                                                   console.error('Errore generazione PDF:', error);
+                                                   setToastMessage('Errore durante la generazione del PDF. Riprova.');
+                                                   setShowToast(true);
+                                                   setTimeout(() => setShowToast(false), 4000);
+                                               }
+                                           }}
+                                           className="bg-red-600 hover:bg-red-500 text-white font-bold py-3 px-6 rounded-lg transition"
+                                       >
+                                           📑 Esporta Report Completo (PDF)
+                                       </button>
                                    </div>
                                </div>
                            </div>
