@@ -2265,13 +2265,13 @@ return (
                                                    let yPos = margin;
                                                    
                                                    // Colori del tema
-                                                   const primaryColor = [59, 130, 246]; // blue-500
-                                                   const secondaryColor = [147, 197, 253]; // blue-300
-                                                   const darkColor = [31, 41, 55]; // gray-800
-                                                   const textColor = [17, 24, 39]; // gray-900
-                                                   const lightGray = [229, 231, 235]; // gray-200
-                                                   const greenColor = [16, 185, 129]; // green-500
-                                                   const redColor = [239, 68, 68]; // red-500
+                                                   const primaryColor: [number, number, number] = [59, 130, 246]; // blue-500
+                                                   const secondaryColor: [number, number, number] = [147, 197, 253]; // blue-300
+                                                   const darkColor: [number, number, number] = [31, 41, 55]; // gray-800
+                                                   const textColor: [number, number, number] = [17, 24, 39]; // gray-900
+                                                   const lightGray: [number, number, number] = [229, 231, 235]; // gray-200
+                                                   const greenColor: [number, number, number] = [16, 185, 129]; // green-500
+                                                   const redColor: [number, number, number] = [239, 68, 68]; // red-500
 
                                                    // Helper per aggiungere nuova pagina se necessario
                                                    const checkPageBreak = (requiredSpace: number) => {
@@ -2284,7 +2284,7 @@ return (
                                                    };
 
                                                    // Header con logo e titolo
-                                                   doc.setFillColor(...primaryColor);
+                                                   doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
                                                    doc.rect(0, 0, pageWidth, 40, 'F');
                                                    
                                                    doc.setTextColor(255, 255, 255);
@@ -2293,7 +2293,7 @@ return (
                                                    doc.text('Revenue', margin, 18);
                                                    
                                                    doc.setFontSize(18);
-                                                   doc.setTextColor(...secondaryColor);
+                                                   doc.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
                                                    doc.text('Sentry', margin, 26);
                                                    
                                                    doc.setFontSize(20);
@@ -2301,7 +2301,7 @@ return (
                                                    doc.text('Report Completo', pageWidth - margin, 20, { align: 'right' });
                                                    
                                                    doc.setFontSize(10);
-                                                   doc.setTextColor(...secondaryColor);
+                                                   doc.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
                                                    const dataGen = new Date().toLocaleDateString('it-IT', { 
                                                        day: '2-digit', 
                                                        month: '2-digit', 
@@ -2317,19 +2317,19 @@ return (
                                                    // ========== SEZIONE 1: PANORAMICA (KPI) ==========
                                                    doc.setFontSize(16);
                                                    doc.setFont('helvetica', 'bold');
-                                                   doc.setTextColor(...textColor);
+                                                   doc.setTextColor(textColor[0], textColor[1], textColor[2]);
                                                    doc.text('1. PANORAMICA - INDICATORI CHIAVE', margin, yPos);
                                                    yPos += 8;
 
                                                    // Box per KPI
                                                    checkPageBreak(40);
-                                                   doc.setFillColor(...lightGray);
+                                                   doc.setFillColor(lightGray[0], lightGray[1], lightGray[2]);
                                                    doc.roundedRect(margin, yPos - 5, pageWidth - (margin * 2), 35, 3, 3, 'F');
                                                    yPos += 5;
 
                                                    doc.setFontSize(10);
                                                    doc.setFont('helvetica', 'normal');
-                                                   doc.setTextColor(...textColor);
+                                                   doc.setTextColor(textColor[0], textColor[1], textColor[2]);
 
                                                    if (kpi) {
                                                        const kpiData = [
@@ -2359,19 +2359,23 @@ return (
                                                        recommendations.slice(0, 5).forEach((rec, idx) => {
                                                            checkPageBreak(25);
                                                            
-                                                           doc.setFillColor(idx % 2 === 0 ? lightGray : [255, 255, 255]);
+                                                           if (idx % 2 === 0) {
+                                                               doc.setFillColor(lightGray[0], lightGray[1], lightGray[2]);
+                                                           } else {
+                                                               doc.setFillColor(255, 255, 255);
+                                                           }
                                                            doc.roundedRect(margin, yPos - 5, pageWidth - (margin * 2), 20, 3, 3, 'F');
                                                            
                                                            doc.setFontSize(11);
                                                            doc.setFont('helvetica', 'bold');
-                                                           doc.setTextColor(...primaryColor);
+                                                           doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
                                                            const titleLines = doc.splitTextToSize(rec.titolo || `Consiglio ${idx + 1}`, pageWidth - (margin * 2) - 10);
                                                            doc.text(titleLines[0], margin + 5, yPos);
                                                            
                                                            yPos += 6;
                                                            doc.setFontSize(9);
                                                            doc.setFont('helvetica', 'normal');
-                                                           doc.setTextColor(...textColor);
+                                                           doc.setTextColor(textColor[0], textColor[1], textColor[2]);
                                                            const descLines = doc.splitTextToSize(rec.descrizione || '', pageWidth - (margin * 2) - 10);
                                                            doc.text(descLines.slice(0, 2), margin + 5, yPos);
                                                            
@@ -2432,7 +2436,7 @@ return (
 
                                                    // Header tabella
                                                    checkPageBreak(40);
-                                                   doc.setFillColor(...darkColor);
+                                                   doc.setFillColor(darkColor[0], darkColor[1], darkColor[2]);
                                                    doc.rect(margin, yPos - 5, pageWidth - (margin * 2), 7, 'F');
                                                    doc.setTextColor(255, 255, 255);
                                                    doc.setFontSize(9);
@@ -2455,10 +2459,14 @@ return (
 
                                                    categorie.forEach((cat, idx) => {
                                                        checkPageBreak(7);
-                                                       doc.setFillColor(idx % 2 === 0 ? lightGray : [255, 255, 255]);
+                                                       if (idx % 2 === 0) {
+                                                           doc.setFillColor(lightGray[0], lightGray[1], lightGray[2]);
+                                                       } else {
+                                                           doc.setFillColor(255, 255, 255);
+                                                       }
                                                        doc.rect(margin, yPos - 4, pageWidth - (margin * 2), 5, 'F');
                                                        
-                                                       doc.setTextColor(...textColor);
+                                                       doc.setTextColor(textColor[0], textColor[1], textColor[2]);
                                                        doc.text(cat.nome, margin + 5, yPos);
                                                        doc.text(`€${cat.valore.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, margin + 100, yPos, { align: 'right' });
                                                        doc.text(`${cat.percentuale}%`, pageWidth - margin - 5, yPos, { align: 'right' });
@@ -2467,7 +2475,7 @@ return (
 
                                                    // Totale
                                                    checkPageBreak(8);
-                                                   doc.setDrawColor(...primaryColor);
+                                                   doc.setDrawColor(primaryColor[0], primaryColor[1], primaryColor[2]);
                                                    doc.setLineWidth(0.5);
                                                    doc.line(margin, yPos, pageWidth - margin, yPos);
                                                    yPos += 3;
@@ -2487,7 +2495,7 @@ return (
                                                    if (revenues && revenues.length > 0) {
                                                        // Header tabella ricavi
                                                        checkPageBreak(30);
-                                                       doc.setFillColor(...darkColor);
+                                                       doc.setFillColor(darkColor[0], darkColor[1], darkColor[2]);
                                                        doc.rect(margin, yPos - 5, pageWidth - (margin * 2), 7, 'F');
                                                        doc.setTextColor(255, 255, 255);
                                                        doc.setFontSize(8);
@@ -2504,10 +2512,14 @@ return (
                                                        doc.setFontSize(8);
                                                        revenues.slice().reverse().slice(0, 6).forEach((rev, idx) => {
                                                            checkPageBreak(6);
-                                                           doc.setFillColor(idx % 2 === 0 ? lightGray : [255, 255, 255]);
+                                                           if (idx % 2 === 0) {
+                                                               doc.setFillColor(lightGray[0], lightGray[1], lightGray[2]);
+                                                           } else {
+                                                               doc.setFillColor(255, 255, 255);
+                                                           }
                                                            doc.rect(margin, yPos - 4, pageWidth - (margin * 2), 5, 'F');
                                                            
-                                                           doc.setTextColor(...textColor);
+                                                           doc.setTextColor(textColor[0], textColor[1], textColor[2]);
                                                            const meseFormatted = new Date(rev.mese + '-01').toLocaleDateString('it-IT', { month: 'short', year: 'numeric' });
                                                            doc.text(meseFormatted, margin + 5, yPos);
                                                            doc.text(`€${rev.entrateTotali.toLocaleString('it-IT', { minimumFractionDigits: 0 })}`, margin + 50, yPos);

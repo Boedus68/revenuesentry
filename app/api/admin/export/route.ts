@@ -103,14 +103,14 @@ export async function GET(request: NextRequest) {
       const pageHeight = doc.internal.pageSize.getHeight();
       
       // Colori del tema
-      const primaryColor = [59, 130, 246]; // blue-500
-      const secondaryColor = [147, 197, 253]; // blue-300
-      const darkColor = [31, 41, 55]; // gray-800
-      const textColor = [17, 24, 39]; // gray-900
-      const lightGray = [229, 231, 235]; // gray-200
+      const primaryColor: [number, number, number] = [59, 130, 246]; // blue-500
+      const secondaryColor: [number, number, number] = [147, 197, 253]; // blue-300
+      const darkColor: [number, number, number] = [31, 41, 55]; // gray-800
+      const textColor: [number, number, number] = [17, 24, 39]; // gray-900
+      const lightGray: [number, number, number] = [229, 231, 235]; // gray-200
 
       // Header con logo e titolo
-      doc.setFillColor(...primaryColor);
+      doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
       doc.rect(0, 0, pageWidth, 30, 'F');
       
       // Testo logo
@@ -120,7 +120,7 @@ export async function GET(request: NextRequest) {
       doc.text('Revenue', 20, 15);
       
       doc.setFontSize(18);
-      doc.setTextColor(...secondaryColor);
+      doc.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
       doc.text('Sentry', 20, 22);
       
       // Titolo report
@@ -130,7 +130,7 @@ export async function GET(request: NextRequest) {
       
       // Data generazione
       doc.setFontSize(10);
-      doc.setTextColor(...secondaryColor);
+      doc.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
       const dataGen = new Date().toLocaleDateString('it-IT', { 
         day: '2-digit', 
         month: '2-digit', 
@@ -141,14 +141,14 @@ export async function GET(request: NextRequest) {
       doc.text(`Generato il: ${dataGen}`, pageWidth - 20, 25, { align: 'right' });
 
       // Separatore
-      doc.setDrawColor(...primaryColor);
+      doc.setDrawColor(primaryColor[0], primaryColor[1], primaryColor[2]);
       doc.setLineWidth(0.5);
       doc.line(0, 32, pageWidth, 32);
 
       // Statistiche riassuntive
       let yPos = 40;
       doc.setFontSize(12);
-      doc.setTextColor(...textColor);
+      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
       doc.setFont('helvetica', 'bold');
       doc.text('Statistiche Riepilogative', 10, yPos);
       
@@ -172,13 +172,13 @@ export async function GET(request: NextRequest) {
       yPos += 10;
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(11);
-      doc.setTextColor(...textColor);
+      doc.setTextColor(textColor[0], textColor[1], textColor[2]);
       doc.text('Dettaglio Utenti', 10, yPos);
       
       yPos += 8;
       
       // Intestazione tabella
-      doc.setFillColor(...darkColor);
+      doc.setFillColor(darkColor[0], darkColor[1], darkColor[2]);
       doc.rect(10, yPos - 5, pageWidth - 20, 6, 'F');
       doc.setTextColor(255, 255, 255);
       doc.setFontSize(8);
@@ -207,7 +207,7 @@ export async function GET(request: NextRequest) {
           rowCount = 0;
           
           // Ripeti header
-          doc.setFillColor(...darkColor);
+          doc.setFillColor(darkColor[0], darkColor[1], darkColor[2]);
           doc.rect(10, yPos - 5, pageWidth - 20, 6, 'F');
           doc.setTextColor(255, 255, 255);
           doc.setFont('helvetica', 'bold');
@@ -222,11 +222,11 @@ export async function GET(request: NextRequest) {
 
         // Alterna colore righe
         if (index % 2 === 0) {
-          doc.setFillColor(...lightGray);
+          doc.setFillColor(lightGray[0], lightGray[1], lightGray[2]);
           doc.rect(10, yPos - 4, pageWidth - 20, 4, 'F');
         }
         
-        doc.setTextColor(...textColor);
+        doc.setTextColor(textColor[0], textColor[1], textColor[2]);
         xPos = 12;
         
         // Hotel Name (troncato se troppo lungo)
