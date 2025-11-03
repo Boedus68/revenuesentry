@@ -2341,7 +2341,10 @@ return (
                                                    doc.text(`Generato il: ${dataGen}`, pageWidth - margin, 30, { align: 'right' });
                                                    doc.text(`Hotel: ${hotelName}`, pageWidth - margin, 35, { align: 'right' });
 
-                                                   yPos = 50;
+                                                   yPos = 50; // Spazio dopo header
+                                                   
+                                                   // Aggiungi spazio extra per evitare sovrapposizioni
+                                                   checkPageBreak(30);
 
                                                    // ========== SEZIONE 1: PANORAMICA (KPI) ==========
                                                    doc.setFontSize(16);
@@ -2587,12 +2590,13 @@ return (
 
                                                    // Grafico 1: Ricavi e Spese nel Tempo (LineChart)
                                                    if (revenues && revenues.length > 0) {
-                                                       checkPageBreak(50);
+                                                       checkPageBreak(60);
+                                                       yPos += 5; // Spazio extra prima del titolo
                                                        doc.setFontSize(12);
                                                        doc.setFont('helvetica', 'bold');
                                                        doc.setTextColor(textColor[0], textColor[1], textColor[2]);
                                                        doc.text('Ricavi e Spese nel Tempo', margin, yPos);
-                                                       yPos += 5;
+                                                       yPos += 8; // Spazio dopo titolo prima del grafico
 
                                                        // Prepara dati
                                                        const chartData: Array<{ mese: string; ricavi: number; spese: number }> = [];
@@ -2696,11 +2700,12 @@ return (
 
                                                    // Grafico 2: Comparazione KPI vs Benchmark
                                                    if (kpi) {
-                                                       checkPageBreak(50);
+                                                       checkPageBreak(60);
+                                                       yPos += 5; // Spazio extra prima del titolo
                                                        doc.setFontSize(12);
                                                        doc.setFont('helvetica', 'bold');
                                                        doc.text('Comparazione KPI vs Benchmark Settore', margin, yPos);
-                                                       yPos += 5;
+                                                       yPos += 8; // Spazio dopo titolo prima del grafico
 
                                                        const benchmarkRevpar = 60;
                                                        const benchmarkOccupazione = 65;
@@ -2763,11 +2768,12 @@ return (
                                                    }
 
                                                    // Grafico 3: Distribuzione Costi (Pie Chart semplificato con approccio alternativo)
-                                                   checkPageBreak(60);
+                                                   checkPageBreak(70);
+                                                   yPos += 5; // Spazio extra prima del titolo
                                                    doc.setFontSize(12);
                                                    doc.setFont('helvetica', 'bold');
                                                    doc.text('Distribuzione Costi per Categoria (Grafico a Torta)', margin, yPos);
-                                                   yPos += 8;
+                                                   yPos += 8; // Spazio dopo titolo prima del grafico
 
                                                    // Calcola costi per il grafico
                                                    const ristorazioneTotaleChart = Array.isArray(monthlyCosts) && monthlyCosts.length > 0
@@ -2821,6 +2827,10 @@ return (
                                                            const sliceAngle = slicePercent * 360;
                                                            const color = colors[idx % colors.length];
                                                            
+                                                           // Calcola angolo medio della fetta per l'etichetta
+                                                           const midAngle = currentAngle + sliceAngle / 2;
+                                                           const midRad = (midAngle * Math.PI) / 180;
+                                                           
                                                            // Calcola punti dell'arco
                                                            const startRad = (currentAngle * Math.PI) / 180;
                                                            const endRad = ((currentAngle + sliceAngle) * Math.PI) / 180;
@@ -2866,6 +2876,38 @@ return (
                                                            doc.setLineWidth(1);
                                                            doc.line(pieX, pieY, pieX + pieRadius * Math.cos(startRad), pieY + pieRadius * Math.sin(startRad));
                                                            doc.line(pieX, pieY, pieX + pieRadius * Math.cos(endRad), pieY + pieRadius * Math.sin(endRad));
+                                                           
+                                                           // Aggiungi etichetta sulla fetta (solo se la fetta è abbastanza grande)
+                                                           if (slicePercent > 0.05) { // Solo se rappresenta almeno il 5%
+                                                               const labelDistance = pieRadius * 1.25; // Punto fuori dal cerchio
+                                                               const labelX = pieX + labelDistance * Math.cos(midRad);
+                                                               const labelY = pieY + labelDistance * Math.sin(midRad);
+                                                               
+                                                               // Linea guida dal centro verso l'etichetta
+                                                               doc.setDrawColor(textColor[0], textColor[1], textColor[2]);
+                                                               doc.setLineWidth(0.3);
+                                                               const guideStartX = pieX + pieRadius * Math.cos(midRad);
+                                                               const guideStartY = pieY + pieRadius * Math.sin(midRad);
+                                                               doc.line(guideStartX, guideStartY, labelX, labelY);
+                                                               
+                                                               // Testo dell'etichetta
+                                                               doc.setFontSize(7);
+                                                               doc.setTextColor(color[0], color[1], color[2]);
+                                                               doc.setFont('helvetica', 'bold');
+                                                               
+                                                               // Posiziona il testo vicino alla fine della linea guida
+                                                               const percent = (slicePercent * 100).toFixed(0);
+                                                               const labelText = `${cat.nome} ${percent}%`;
+                                                               
+                                                               // Allinea il testo in base alla posizione
+                                                               if (Math.cos(midRad) > 0) {
+                                                                   // Fetta a destra - testo allineato a sinistra
+                                                                   doc.text(labelText, labelX + 2, labelY);
+                                                               } else {
+                                                                   // Fetta a sinistra - testo allineato a destra
+                                                                   doc.text(labelText, labelX - 2, labelY, { align: 'right' });
+                                                               }
+                                                           }
                                                            
                                                            currentAngle += sliceAngle;
                                                        });
