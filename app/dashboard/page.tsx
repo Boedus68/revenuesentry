@@ -2582,21 +2582,22 @@ return (
                                                    }
 
                                                    // ========== SEZIONE 5: GRAFICI ==========
-                                                   checkPageBreak(60);
+                                                   checkPageBreak(80);
+                                                   yPos += 10; // Spazio extra prima della sezione grafici
                                                    doc.setFontSize(16);
                                                    doc.setFont('helvetica', 'bold');
                                                    doc.text('5. GRAFICI ANALITICI', margin, yPos);
-                                                   yPos += 10;
+                                                   yPos += 15; // Spazio dopo titolo sezione
 
                                                    // Grafico 1: Ricavi e Spese nel Tempo (LineChart)
                                                    if (revenues && revenues.length > 0) {
-                                                       checkPageBreak(60);
-                                                       yPos += 5; // Spazio extra prima del titolo
+                                                       checkPageBreak(70); // Controlla spazio per titolo + grafico + legenda
+                                                       yPos += 8; // Spazio extra prima del titolo
                                                        doc.setFontSize(12);
                                                        doc.setFont('helvetica', 'bold');
                                                        doc.setTextColor(textColor[0], textColor[1], textColor[2]);
                                                        doc.text('Ricavi e Spese nel Tempo', margin, yPos);
-                                                       yPos += 8; // Spazio dopo titolo prima del grafico
+                                                       yPos += 10; // Spazio dopo titolo prima del grafico
 
                                                        // Prepara dati
                                                        const chartData: Array<{ mese: string; ricavi: number; spese: number }> = [];
@@ -2618,7 +2619,9 @@ return (
                                                            const chartWidth = pageWidth - (margin * 2);
                                                            const chartHeight = 40;
                                                            const chartX = margin;
-                                                           const chartY = yPos;
+                                                           // Assicura che il grafico non vada sopra
+                                                           checkPageBreak(chartHeight + 15); // Grafico + etichette + legenda
+                                                           const chartY = yPos + chartHeight; // Grafico disegnato verso l'alto da yPos
                                                            
                                                            // Trova valori max per scala
                                                            const maxValue = Math.max(
@@ -2630,10 +2633,10 @@ return (
                                                            // Disegna assi
                                                            doc.setDrawColor(textColor[0], textColor[1], textColor[2]);
                                                            doc.setLineWidth(0.5);
-                                                           doc.line(chartX, chartY, chartX + chartWidth, chartY); // X axis
-                                                           doc.line(chartX, chartY, chartX, chartY - chartHeight); // Y axis
+                                                           doc.line(chartX, chartY, chartX + chartWidth, chartY); // X axis (linea base)
+                                                           doc.line(chartX, chartY - chartHeight, chartX, chartY); // Y axis
                                                            
-                                                           // Etichette Y
+                                                           // Etichette Y (a sinistra dell'asse Y)
                                                            doc.setFontSize(7);
                                                            doc.setTextColor(textColor[0], textColor[1], textColor[2]);
                                                            for (let i = 0; i <= 4; i++) {
@@ -2649,6 +2652,7 @@ return (
                                                            
                                                            // Linea Ricavi
                                                            doc.setDrawColor(blueColor[0], blueColor[1], blueColor[2]);
+                                                           doc.setFillColor(blueColor[0], blueColor[1], blueColor[2]);
                                                            doc.setLineWidth(1.5);
                                                            for (let i = 0; i < chartData.length - 1; i++) {
                                                                const x1 = chartX + stepX * i;
@@ -2666,6 +2670,8 @@ return (
                                                            
                                                            // Linea Spese
                                                            doc.setDrawColor(redColorChart[0], redColorChart[1], redColorChart[2]);
+                                                           doc.setFillColor(redColorChart[0], redColorChart[1], redColorChart[2]);
+                                                           doc.setLineWidth(1.5);
                                                            for (let i = 0; i < chartData.length - 1; i++) {
                                                                const x1 = chartX + stepX * i;
                                                                const y1 = chartY - chartData[i].spese * scale;
@@ -2675,15 +2681,16 @@ return (
                                                                doc.circle(x1, y1, 1, 'F');
                                                            }
                                                            
-                                                           // Etichette X
+                                                           // Etichette X (mesi sotto il grafico)
                                                            doc.setFontSize(8);
+                                                           doc.setTextColor(textColor[0], textColor[1], textColor[2]);
                                                            chartData.forEach((d, i) => {
                                                                const x = chartX + stepX * i;
                                                                doc.text(d.mese, x, chartY + 5, { align: 'center' });
                                                            });
                                                            
-                                                           // Legenda (sotto il grafico)
-                                                           yPos += chartHeight + 10;
+                                                           // Legenda (sotto le etichette X)
+                                                           yPos = chartY + 18; // Aggiorna yPos dopo etichette X
                                                            doc.setFontSize(8);
                                                            doc.setFillColor(blueColor[0], blueColor[1], blueColor[2]);
                                                            doc.rect(chartX + 10, yPos - 2, 3, 3, 'F');
@@ -2694,18 +2701,19 @@ return (
                                                            doc.rect(chartX + 40, yPos - 2, 3, 3, 'F');
                                                            doc.text('Spese', chartX + 45, yPos);
                                                            
-                                                           yPos += 10;
+                                                           yPos += 12; // Spazio dopo il grafico completo
                                                        }
                                                    }
 
                                                    // Grafico 2: Comparazione KPI vs Benchmark
                                                    if (kpi) {
-                                                       checkPageBreak(60);
-                                                       yPos += 5; // Spazio extra prima del titolo
+                                                       checkPageBreak(70); // Controlla spazio per titolo + grafico + legenda
+                                                       yPos += 10; // Spazio extra prima del titolo
                                                        doc.setFontSize(12);
                                                        doc.setFont('helvetica', 'bold');
+                                                       doc.setTextColor(textColor[0], textColor[1], textColor[2]);
                                                        doc.text('Comparazione KPI vs Benchmark Settore', margin, yPos);
-                                                       yPos += 8; // Spazio dopo titolo prima del grafico
+                                                       yPos += 10; // Spazio dopo titolo prima del grafico
 
                                                        const benchmarkRevpar = 60;
                                                        const benchmarkOccupazione = 65;
@@ -2719,8 +2727,9 @@ return (
 
                                                        const barChartWidth = pageWidth - (margin * 2);
                                                        const barChartHeight = 35;
+                                                       checkPageBreak(barChartHeight + 20); // Grafico + etichette + legenda
                                                        const barChartX = margin;
-                                                       const barChartY = yPos;
+                                                       const barChartY = yPos + barChartHeight; // Barre verso l'alto da yPos
                                                        const maxBarValue = Math.max(...kpiComparisons.map(k => Math.max(k.tuo, k.benchmark)));
                                                        
                                                        kpiComparisons.forEach((comp, idx) => {
@@ -2752,8 +2761,8 @@ return (
                                                            doc.text(`${comp.tuo.toFixed(1)}${comp.nome === 'Occupazione' || comp.nome === 'GOP Margin' ? '%' : '€'}`, barX + barWidth / 2, barChartY - tuoHeight - 2, { align: 'center' });
                                                        });
                                                        
-                                                       // Legenda (sotto il grafico)
-                                                       yPos += barChartHeight + 10;
+                                                           // Legenda (sotto il grafico)
+                                                       yPos = barChartY + 15; // Aggiorna yPos dopo il grafico
                                                        doc.setFontSize(8);
                                                        doc.setFillColor(lightGray[0], lightGray[1], lightGray[2]);
                                                        doc.rect(barChartX + 10, yPos - 2, 3, 3, 'F');
@@ -2764,16 +2773,17 @@ return (
                                                        doc.rect(barChartX + 50, yPos - 2, 3, 3, 'F');
                                                        doc.text('Il Tuo Hotel', barChartX + 55, yPos);
                                                        
-                                                       yPos += 10;
+                                                       yPos += 12; // Spazio dopo il grafico completo
                                                    }
 
                                                    // Grafico 3: Distribuzione Costi (Pie Chart semplificato con approccio alternativo)
-                                                   checkPageBreak(70);
-                                                   yPos += 5; // Spazio extra prima del titolo
+                                                   checkPageBreak(90); // Controlla spazio per titolo + pie chart + etichette + legenda
+                                                   yPos += 10; // Spazio extra prima del titolo
                                                    doc.setFontSize(12);
                                                    doc.setFont('helvetica', 'bold');
+                                                   doc.setTextColor(textColor[0], textColor[1], textColor[2]);
                                                    doc.text('Distribuzione Costi per Categoria (Grafico a Torta)', margin, yPos);
-                                                   yPos += 8; // Spazio dopo titolo prima del grafico
+                                                   yPos += 12; // Spazio dopo titolo prima del grafico
 
                                                    // Calcola costi per il grafico
                                                    const ristorazioneTotaleChart = Array.isArray(monthlyCosts) && monthlyCosts.length > 0
@@ -2812,7 +2822,10 @@ return (
                                                        const totalCosts = costiChartData.reduce((sum, c) => sum + c.valore, 0);
                                                        const pieRadius = 22;
                                                        const pieX = margin + 35;
-                                                       const pieY = yPos + pieRadius + 5;
+                                                       // Controlla che il pie chart e le etichette non vadano oltre la pagina
+                                                       const pieChartHeight = pieRadius * 2 + 30; // Raggio * 2 + spazio per etichette
+                                                       checkPageBreak(pieChartHeight);
+                                                       const pieY = yPos + pieRadius + 10; // Spazio sopra il grafico
                                                        
                                                        const colors = [
                                                            [59, 130, 246], [16, 185, 129], [245, 158, 11], [239, 68, 68], 
@@ -2928,7 +2941,7 @@ return (
                                                        
                                                        // Legenda con valori (a destra del grafico)
                                                        const legendX = margin + 75;
-                                                       let legendY = yPos + 2;
+                                                       let legendY = pieY - pieRadius + 5; // Allinea con il top del pie chart
                                                        doc.setFontSize(8);
                                                        
                                                        costiChartData.forEach((cat, idx) => {
@@ -2945,7 +2958,8 @@ return (
                                                            legendY += 5.5;
                                                        });
                                                        
-                                                       yPos += (pieRadius * 2) + 12;
+                                                       // Aggiorna yPos dopo il grafico a torta completo
+                                                       yPos = pieY + pieRadius + 25; // Sotto il grafico + spazio extra per etichette
                                                    }
 
                                                    // Salva PDF
