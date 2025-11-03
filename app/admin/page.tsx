@@ -102,6 +102,7 @@ export default function AdminPage() {
       
       // Verifica se l'utente è admin
       try {
+        // Forza il fetch senza cache
         const userDocRef = doc(db, 'users', currentUser.uid);
         const userDocSnap = await getDoc(userDocRef);
         
@@ -115,30 +116,42 @@ export default function AdminPage() {
             uid: currentUser.uid,
             role: userData?.role,
             adminStatus,
-            email: userData?.email,
-            timestamp: new Date().toISOString()
+            email: userData?.email || currentUser.email,
+            timestamp: new Date().toISOString(),
+            fullData: userData
           });
           
           setIsAdmin(adminStatus);
           
           if (!adminStatus) {
-            console.log('[Admin Panel] Utente non admin, reindirizzamento a dashboard');
+            console.warn('[Admin Panel] Utente non admin!', {
+              uid: currentUser.uid,
+              role: userData?.role,
+              email: userData?.email || currentUser.email
+            });
+            console.warn('[Admin Panel] Per abilitare l\'accesso admin:');
+            console.warn('[Admin Panel] 1. Vai su Firebase Console > Firestore Database');
+            console.warn('[Admin Panel] 2. Apri il documento users/' + currentUser.uid);
+            console.warn('[Admin Panel] 3. Aggiungi/modifica il campo "role" e imposta il valore a "admin"');
             setLoading(false);
             adminVerifiedRef.current = null;
-            // Reindirizza immediatamente ma usa replace per non aggiungere alla history
+            // Mostra messaggio più chiaro all'utente
+            alert(`Accesso negato.\n\nIl tuo account (${currentUser.email}) non ha i permessi admin.\n\nPer abilitare l'accesso:\n1. Vai su Firebase Console\n2. Apri Firestore Database\n3. Cerca il documento users/${currentUser.uid}\n4. Aggiungi il campo "role" con valore "admin"`);
             router.replace('/dashboard');
             return;
           }
           
           // Se è admin, marca come verificato e mostra il pannello
-          console.log('[Admin Panel] Utente admin verificato, mostra pannello');
+          console.log('[Admin Panel] ✅ Utente admin verificato, mostra pannello');
           adminVerifiedRef.current = currentUser.uid; // Salva l'uid verificato
           setStatsFetched(false); // Reset per permettere il fetch
           setLoading(false);
         } else {
+          console.error('[Admin Panel] Documento utente non trovato in Firestore:', currentUser.uid);
           setLoading(false);
           setIsAdmin(false);
           adminVerifiedRef.current = null;
+          alert('Errore: Il tuo documento utente non è stato trovato in Firestore. Contatta il supporto.');
           router.replace('/login');
           return;
         }
@@ -173,19 +186,29 @@ export default function AdminPage() {
   const fetchStats = async () => {
     if (!user?.uid) {
       console.warn('[Admin Panel] fetchStats: uid mancante');
+      alert('Errore: UID utente mancante. Effettua il logout e il login di nuovo.');
       return;
     }
     
     // Verifica di nuovo che sia admin prima di fare la chiamata
     if (!isAdmin) {
       console.warn('[Admin Panel] fetchStats: Tentativo senza permessi admin');
+      alert('Errore: Non hai i permessi admin. Verifica che il tuo ruolo sia impostato correttamente in Firestore.');
       return;
     }
     
     console.log('[Admin Panel] fetchStats: Inizio fetch con uid:', user.uid);
     setLoadingStats(true);
     try {
-      const response = await fetch(`/api/admin/stats?uid=${user.uid}`);
+      // Aggiungi timestamp per evitare cache
+      const timestamp = new Date().getTime();
+      const response = await fetch(`/api/admin/stats?uid=${user.uid}&t=${timestamp}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        cache: 'no-store',
+      });
       const data = await response.json();
       
       console.log('[Admin Panel] fetchStats: Response status:', response.status, 'ok:', response.ok);
@@ -256,7 +279,14 @@ export default function AdminPage() {
     if (!user?.uid) return;
     
     try {
-      const response = await fetch(`/api/admin/logs?uid=${user.uid}`);
+      const timestamp = new Date().getTime();
+      const response = await fetch(`/api/admin/logs?uid=${user.uid}&t=${timestamp}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        cache: 'no-store',
+      });
       const data = await response.json();
       
       if (response.ok) {
@@ -268,10 +298,17 @@ export default function AdminPage() {
   };
 
   const handleExport = async (format: 'csv' | 'json' | 'pdf') => {
-    if (!user?.uid) return;
+    if (!user?.uid) {
+      alert('Errore: UID utente mancante. Effettua il logout e il login di nuovo.');
+      return;
+    }
     
     try {
-      const response = await fetch(`/api/admin/export?format=${format}&uid=${user.uid}`);
+      const timestamp = new Date().getTime();
+      const response = await fetch(`/api/admin/export?format=${format}&uid=${user.uid}&t=${timestamp}`, {
+        method: 'GET',
+        cache: 'no-store',
+      });
       
       if (response.ok) {
         const blob = await response.blob();
