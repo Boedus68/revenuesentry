@@ -7,13 +7,19 @@ service cloud.firestore {
       // NOTA: Per ora permettiamo agli admin di leggere tutti i documenti users
       // In produzione, considera di usare Cloud Functions per gestire gli admin
       return request.auth != null && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
     
     // Regole per la collezione users
     match /users/{userId} {
-      // Admin possono leggere tutti i documenti users
-      allow read: if request.auth != null && (request.auth.uid == userId || isAdmin());
+      // Admin possono leggere tutti i documenti users (incluso per verificare se sono admin)
+      // Ogni utente può leggere il proprio documento
+      allow read: if request.auth != null && (
+        request.auth.uid == userId || 
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+      );
       
       // Ogni utente può scrivere solo il proprio documento
       // Admin possono aggiornare anche altri documenti (utile per gestione)
