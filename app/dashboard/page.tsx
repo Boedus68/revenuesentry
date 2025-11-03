@@ -14,6 +14,31 @@ import CategorizeCostsDialog from './components/CategorizeCostsDialog';
 import MonthPicker from './components/MonthPicker';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, Label, LabelList } from 'recharts';
 
+// Helper per calcolare i giorni massimi di un mese
+const getMaxDaysInMonth = (yearMonth: string): number => {
+    if (!yearMonth || !yearMonth.match(/^\d{4}-\d{2}$/)) {
+        return 31; // Default se formato non valido
+    }
+    
+    const [year, month] = yearMonth.split('-').map(Number);
+    const monthIndex = month - 1; // JavaScript months are 0-indexed
+    
+    // Mesi con 31 giorni
+    const monthsWith31Days = [0, 2, 4, 6, 7, 9, 11]; // Gen, Mar, Mag, Lug, Ago, Ott, Dic
+    // Mesi con 30 giorni
+    const monthsWith30Days = [3, 5, 8, 10]; // Apr, Giu, Set, Nov
+    
+    if (monthsWith31Days.includes(monthIndex)) {
+        return 31;
+    } else if (monthsWith30Days.includes(monthIndex)) {
+        return 30;
+    } else {
+        // Febbraio - controlla se è bisestile
+        const isLeapYear = (year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0);
+        return isLeapYear ? 29 : 28;
+    }
+};
+
 // Helper per calcolare il totale costi di un mese
 const calculateTotalCostsForMonth = (costs: Partial<CostsData>): number => {
     if (!costs || Object.keys(costs).length === 0) return 0;
@@ -1790,11 +1815,22 @@ return (
                                                 <input
                                                     type="number"
                                                     min="1"
-                                                    max="31"
+                                                    max={getMaxDaysInMonth(revenue.mese)}
                                                     value={revenue.giorniAperturaMese || ''}
                                                     onChange={(e) => {
                                                         const updated = [...revenues];
-                                                        const giorniAperturaMese = parseInt(e.target.value) || undefined;
+                                                        const inputValue = e.target.value;
+                                                        const giorniAperturaMese = inputValue ? parseInt(inputValue) : undefined;
+                                                        
+                                                        // Validazione: non può superare i giorni del mese
+                                                        const maxDays = getMaxDaysInMonth(revenue.mese);
+                                                        if (giorniAperturaMese && giorniAperturaMese > maxDays) {
+                                                            setToastMessage(`Il mese selezionato ha un massimo di ${maxDays} giorni. Inserisci un valore valido (1-${maxDays}).`);
+                                                            setShowToast(true);
+                                                            setTimeout(() => setShowToast(false), 4000);
+                                                            return; // Non aggiornare se il valore non è valido
+                                                        }
+                                                        
                                                         const revenueUpdated = { ...revenue, giorniAperturaMese };
                                                         
                                                         // Calcola automaticamente l'occupazione se abbiamo i dati necessari (usa CAMERE, non posti letto)
@@ -1824,7 +1860,10 @@ return (
                                                     className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white"
                                                     placeholder="Es. 28"
                                                 />
-                                                <p className="text-xs text-gray-400 mt-1">Giorni di apertura effettivi in questo mese (fondamentale per calcolo occupazione corretto)</p>
+                                                <p className="text-xs text-gray-400 mt-1">
+                                                    Giorni di apertura effettivi in questo mese (fondamentale per calcolo occupazione corretto). 
+                                                    Massimo: {getMaxDaysInMonth(revenue.mese)} giorni per {new Date(revenue.mese + '-01').toLocaleDateString('it-IT', { month: 'long', year: 'numeric' })}.
+                                                </p>
                                             </div>
                                         </div>
                                     </div>
