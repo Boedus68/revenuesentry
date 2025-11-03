@@ -2549,6 +2549,278 @@ return (
                                                        );
                                                    }
 
+                                                   // ========== SEZIONE 5: GRAFICI ==========
+                                                   checkPageBreak(60);
+                                                   doc.setFontSize(16);
+                                                   doc.setFont('helvetica', 'bold');
+                                                   doc.text('5. GRAFICI ANALITICI', margin, yPos);
+                                                   yPos += 10;
+
+                                                   // Grafico 1: Ricavi e Spese nel Tempo (LineChart)
+                                                   if (revenues && revenues.length > 0) {
+                                                       checkPageBreak(50);
+                                                       doc.setFontSize(12);
+                                                       doc.setFont('helvetica', 'bold');
+                                                       doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+                                                       doc.text('Ricavi e Spese nel Tempo', margin, yPos);
+                                                       yPos += 5;
+
+                                                       // Prepara dati
+                                                       const chartData: Array<{ mese: string; ricavi: number; spese: number }> = [];
+                                                       const recentRevenues = revenues.slice(-6);
+                                                       
+                                                       recentRevenues.forEach(revenue => {
+                                                           const monthKey = revenue.mese;
+                                                           const monthCosts = monthlyCosts.find(mc => mc.mese === monthKey);
+                                                           const speseMese = monthCosts ? calculateTotalCostsForMonth(monthCosts.costs) : 0;
+                                                           
+                                                           chartData.push({
+                                                               mese: new Date(monthKey + '-01').toLocaleDateString('it-IT', { month: 'short' }),
+                                                               ricavi: revenue.entrateTotali || 0,
+                                                               spese: speseMese,
+                                                           });
+                                                       });
+
+                                                       if (chartData.length > 0) {
+                                                           const chartWidth = pageWidth - (margin * 2);
+                                                           const chartHeight = 40;
+                                                           const chartX = margin;
+                                                           const chartY = yPos;
+                                                           
+                                                           // Trova valori max per scala
+                                                           const maxValue = Math.max(
+                                                               ...chartData.map(d => Math.max(d.ricavi, d.spese)),
+                                                               1000
+                                                           );
+                                                           const scale = chartHeight / maxValue;
+                                                           
+                                                           // Disegna assi
+                                                           doc.setDrawColor(textColor[0], textColor[1], textColor[2]);
+                                                           doc.setLineWidth(0.5);
+                                                           doc.line(chartX, chartY, chartX + chartWidth, chartY); // X axis
+                                                           doc.line(chartX, chartY, chartX, chartY - chartHeight); // Y axis
+                                                           
+                                                           // Etichette Y
+                                                           doc.setFontSize(7);
+                                                           doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+                                                           for (let i = 0; i <= 4; i++) {
+                                                               const value = (maxValue / 4) * i;
+                                                               const y = chartY - (chartHeight / 4) * i;
+                                                               doc.text(`€${Math.round(value / 1000)}k`, chartX - 8, y, { align: 'right' });
+                                                           }
+                                                           
+                                                           // Disegna linee
+                                                           const stepX = chartWidth / (chartData.length - 1 || 1);
+                                                           const blueColor: [number, number, number] = [59, 130, 246];
+                                                           const redColorChart: [number, number, number] = [239, 68, 68];
+                                                           
+                                                           // Linea Ricavi
+                                                           doc.setDrawColor(blueColor[0], blueColor[1], blueColor[2]);
+                                                           doc.setLineWidth(1.5);
+                                                           for (let i = 0; i < chartData.length - 1; i++) {
+                                                               const x1 = chartX + stepX * i;
+                                                               const y1 = chartY - chartData[i].ricavi * scale;
+                                                               const x2 = chartX + stepX * (i + 1);
+                                                               const y2 = chartY - chartData[i + 1].ricavi * scale;
+                                                               doc.line(x1, y1, x2, y2);
+                                                               doc.circle(x1, y1, 1, 'F');
+                                                           }
+                                                           if (chartData.length > 0) {
+                                                               const lastX = chartX + stepX * (chartData.length - 1);
+                                                               const lastY = chartY - chartData[chartData.length - 1].ricavi * scale;
+                                                               doc.circle(lastX, lastY, 1, 'F');
+                                                           }
+                                                           
+                                                           // Linea Spese
+                                                           doc.setDrawColor(redColorChart[0], redColorChart[1], redColorChart[2]);
+                                                           for (let i = 0; i < chartData.length - 1; i++) {
+                                                               const x1 = chartX + stepX * i;
+                                                               const y1 = chartY - chartData[i].spese * scale;
+                                                               const x2 = chartX + stepX * (i + 1);
+                                                               const y2 = chartY - chartData[i + 1].spese * scale;
+                                                               doc.line(x1, y1, x2, y2);
+                                                               doc.circle(x1, y1, 1, 'F');
+                                                           }
+                                                           
+                                                           // Etichette X
+                                                           doc.setFontSize(8);
+                                                           chartData.forEach((d, i) => {
+                                                               const x = chartX + stepX * i;
+                                                               doc.text(d.mese, x, chartY + 5, { align: 'center' });
+                                                           });
+                                                           
+                                                           // Legenda
+                                                           doc.setFontSize(8);
+                                                           doc.setFillColor(blueColor[0], blueColor[1], blueColor[2]);
+                                                           doc.rect(chartX + 10, chartY - chartHeight - 8, 3, 3, 'F');
+                                                           doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+                                                           doc.text('Ricavi', chartX + 15, chartY - chartHeight - 6);
+                                                           
+                                                           doc.setFillColor(redColorChart[0], redColorChart[1], redColorChart[2]);
+                                                           doc.rect(chartX + 40, chartY - chartHeight - 8, 3, 3, 'F');
+                                                           doc.text('Spese', chartX + 45, chartY - chartHeight - 6);
+                                                           
+                                                           yPos += chartHeight + 15;
+                                                       }
+                                                   }
+
+                                                   // Grafico 2: Comparazione KPI vs Benchmark
+                                                   if (kpi) {
+                                                       checkPageBreak(50);
+                                                       doc.setFontSize(12);
+                                                       doc.setFont('helvetica', 'bold');
+                                                       doc.text('Comparazione KPI vs Benchmark Settore', margin, yPos);
+                                                       yPos += 5;
+
+                                                       const benchmarkRevpar = 60;
+                                                       const benchmarkOccupazione = 65;
+                                                       const benchmarkGOPMargin = 25;
+                                                       
+                                                       const kpiComparisons = [
+                                                           { nome: 'RevPAR', tuo: kpi.revpar, benchmark: benchmarkRevpar },
+                                                           { nome: 'Occupazione', tuo: kpi.occupazione, benchmark: benchmarkOccupazione },
+                                                           { nome: 'GOP Margin', tuo: kpi.gopMargin, benchmark: benchmarkGOPMargin },
+                                                       ];
+
+                                                       const barChartWidth = pageWidth - (margin * 2);
+                                                       const barChartHeight = 35;
+                                                       const barChartX = margin;
+                                                       const barChartY = yPos;
+                                                       const maxBarValue = Math.max(...kpiComparisons.map(k => Math.max(k.tuo, k.benchmark)));
+                                                       
+                                                       kpiComparisons.forEach((comp, idx) => {
+                                                           const barX = barChartX + (barChartWidth / kpiComparisons.length) * idx + 5;
+                                                           const barWidth = (barChartWidth / kpiComparisons.length) - 10;
+                                                           const scale = barChartHeight / maxBarValue;
+                                                           
+                                                           // Barra Benchmark
+                                                           doc.setFillColor(lightGray[0], lightGray[1], lightGray[2]);
+                                                           const benchHeight = comp.benchmark * scale;
+                                                           doc.rect(barX, barChartY - benchHeight, barWidth / 2 - 2, benchHeight, 'F');
+                                                           
+                                                           // Barra Tuo
+                                                           const tuoHeight = comp.tuo * scale;
+                                                           const colorRatio = comp.tuo / comp.benchmark;
+                                                           if (colorRatio >= 1) {
+                                                               doc.setFillColor(greenColor[0], greenColor[1], greenColor[2]);
+                                                           } else if (colorRatio >= 0.7) {
+                                                               doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+                                                           } else {
+                                                               doc.setFillColor(redColor[0], redColor[1], redColor[2]);
+                                                           }
+                                                           doc.rect(barX + barWidth / 2 + 2, barChartY - tuoHeight, barWidth / 2 - 2, tuoHeight, 'F');
+                                                           
+                                                           // Valori
+                                                           doc.setFontSize(7);
+                                                           doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+                                                           doc.text(comp.nome, barX + barWidth / 2, barChartY + 3, { align: 'center' });
+                                                           doc.text(`${comp.tuo.toFixed(1)}${comp.nome === 'Occupazione' || comp.nome === 'GOP Margin' ? '%' : '€'}`, barX + barWidth / 2, barChartY - tuoHeight - 2, { align: 'center' });
+                                                       });
+                                                       
+                                                       // Legenda
+                                                       doc.setFontSize(8);
+                                                       doc.setFillColor(lightGray[0], lightGray[1], lightGray[2]);
+                                                       doc.rect(barChartX + 10, barChartY - barChartHeight - 8, 3, 3, 'F');
+                                                       doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+                                                       doc.text('Benchmark', barChartX + 15, barChartY - barChartHeight - 6);
+                                                       
+                                                       doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+                                                       doc.rect(barChartX + 50, barChartY - barChartHeight - 8, 3, 3, 'F');
+                                                       doc.text('Il Tuo Hotel', barChartX + 55, barChartY - barChartHeight - 6);
+                                                       
+                                                       yPos += barChartHeight + 15;
+                                                   }
+
+                                                   // Grafico 3: Distribuzione Costi (Bar Chart)
+                                                   checkPageBreak(50);
+                                                   doc.setFontSize(12);
+                                                   doc.setFont('helvetica', 'bold');
+                                                   doc.text('Distribuzione Costi per Categoria', margin, yPos);
+                                                   yPos += 5;
+
+                                                   // Calcola costi per il grafico (riutilizzando stessa logica della sezione 3)
+                                                   const ristorazioneTotaleChart = Array.isArray(monthlyCosts) && monthlyCosts.length > 0
+                                                       ? monthlyCosts.reduce((sum, mc) => sum + (mc.costs.ristorazione?.reduce((s, item) => s + (item.importo || 0), 0) || 0), 0)
+                                                       : (costs.ristorazione?.reduce((sum, item) => sum + (item.importo || 0), 0) || 0);
+                                                   
+                                                   const utenzeTotaleChart = Array.isArray(monthlyCosts) && monthlyCosts.length > 0
+                                                       ? monthlyCosts.reduce((sum, mc) => {
+                                                           const ut = mc.costs.utenze;
+                                                           return sum + (ut?.energia?.importo || 0) + (ut?.gas?.importo || 0) + (ut?.acqua?.importo || 0);
+                                                       }, 0)
+                                                       : ((costs.utenze?.energia?.importo || 0) + (costs.utenze?.gas?.importo || 0) + (costs.utenze?.acqua?.importo || 0));
+                                                   
+                                                   const personaleTotaleChart = Array.isArray(monthlyCosts) && monthlyCosts.length > 0
+                                                       ? monthlyCosts.reduce((sum, mc) => {
+                                                           const pers = mc.costs.personale;
+                                                           return sum + (pers?.bustePaga || 0) + (pers?.sicurezza || 0);
+                                                       }, 0)
+                                                       : ((costs.personale?.bustePaga || 0) + (costs.personale?.sicurezza || 0));
+                                                   
+                                                   const marketingTotaleChart = Array.isArray(monthlyCosts) && monthlyCosts.length > 0
+                                                       ? monthlyCosts.reduce((sum, mc) => {
+                                                           const mark = mc.costs.marketing;
+                                                           return sum + (mark?.costiMarketing || 0) + (mark?.commissioniOTA || 0);
+                                                       }, 0)
+                                                       : ((costs.marketing?.costiMarketing || 0) + (costs.marketing?.commissioniOTA || 0));
+
+                                                   const costiChartData = [
+                                                       { nome: 'Ristorazione', valore: ristorazioneTotaleChart },
+                                                       { nome: 'Utenze', valore: utenzeTotaleChart },
+                                                       { nome: 'Personale', valore: personaleTotaleChart },
+                                                       { nome: 'Marketing', valore: marketingTotaleChart },
+                                                   ].filter(c => c.valore > 0);
+
+                                                   if (costiChartData.length > 0) {
+                                                       const totalCosts = costiChartData.reduce((sum, c) => sum + c.valore, 0);
+                                                       const barChartWidth2 = pageWidth - (margin * 2);
+                                                       const barChartHeight2 = 30;
+                                                       const barChartX2 = margin;
+                                                       const barChartY2 = yPos;
+                                                       const maxCostValue = Math.max(...costiChartData.map(c => c.valore));
+                                                       
+                                                       const colors = [
+                                                           [59, 130, 246], [16, 185, 129], [245, 158, 11], [239, 68, 68]
+                                                       ];
+                                                       
+                                                       costiChartData.forEach((cat, idx) => {
+                                                           const barHeight = (cat.valore / maxCostValue) * barChartHeight2;
+                                                           const barWidth = (barChartWidth2 / costiChartData.length) - 5;
+                                                           const barX = barChartX2 + (barChartWidth2 / costiChartData.length) * idx;
+                                                           const color = colors[idx % colors.length];
+                                                           
+                                                           // Barra
+                                                           doc.setFillColor(color[0], color[1], color[2]);
+                                                           doc.rect(barX, barChartY2 - barHeight, barWidth, barHeight, 'F');
+                                                           
+                                                           // Etichetta categoria
+                                                           doc.setFontSize(7);
+                                                           doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+                                                           const labelLines = doc.splitTextToSize(cat.nome, barWidth);
+                                                           doc.text(labelLines[0], barX + barWidth / 2, barChartY2 + 3, { align: 'center' });
+                                                           
+                                                           // Valore
+                                                           doc.setFontSize(6);
+                                                           const percent = (cat.valore / totalCosts * 100).toFixed(0);
+                                                           doc.text(`${percent}%`, barX + barWidth / 2, barChartY2 - barHeight - 2, { align: 'center' });
+                                                       });
+                                                       
+                                                       // Legenda con valori
+                                                       yPos += barChartHeight2 + 10;
+                                                       doc.setFontSize(8);
+                                                       costiChartData.forEach((cat, idx) => {
+                                                           const color = colors[idx % colors.length];
+                                                           doc.setFillColor(color[0], color[1], color[2]);
+                                                           doc.rect(margin + 10, yPos - 2, 3, 3, 'F');
+                                                           doc.setTextColor(textColor[0], textColor[1], textColor[2]);
+                                                           const percent = (cat.valore / totalCosts * 100).toFixed(1);
+                                                           doc.text(`${cat.nome}: ${percent}% (€${cat.valore.toLocaleString('it-IT', { minimumFractionDigits: 0 })})`, margin + 16, yPos);
+                                                           yPos += 5;
+                                                       });
+                                                       
+                                                       yPos += 5;
+                                                   }
+
                                                    // Salva PDF
                                                    doc.save(`report-completo-${hotelName.replace(/\s+/g, '-')}-${new Date().toISOString().split('T')[0]}.pdf`);
                                                    
