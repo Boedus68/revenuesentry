@@ -88,3 +88,19 @@ export async function getAdminLogsForUser(adminUid: string, count: number = 50):
   }
 }
 
+/**
+ * Funzione di logging semplice per API e servizi
+ * Usa console.log in sviluppo, può essere estesa per salvare in Firestore
+ */
+export function logAdmin(message: string, details?: Record<string, any>): void {
+  if (process.env.NODE_ENV === 'development' || process.env.VERCEL_ENV === 'development') {
+    if (details) {
+      console.log(`[AdminLog] ${message}`, details);
+    } else {
+      console.log(`[AdminLog] ${message}`);
+    }
+  }
+  // In produzione, potresti voler salvare anche in Firestore
+  // Per ora manteniamo solo console.log per semplicità
+}
+
