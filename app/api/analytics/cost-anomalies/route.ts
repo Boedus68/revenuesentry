@@ -112,6 +112,8 @@ export async function GET(request: NextRequest) {
         const batch = adminDb.batch();
         
         highSeverityAlerts.forEach((alert, idx) => {
+          if (!adminDb) return; // TypeScript guard
+          
           const actionData: Partial<AgentAction> = {
             hotelId,
             action_type: 'cost_alert',

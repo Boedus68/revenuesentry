@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
             };
 
             const validated = validateAgentAction(actionData);
-            if (validated) {
+            if (validated && adminDb) {
               const actionRef = adminDb.collection('agent_actions').doc();
               await actionRef.set(validated);
               logAdmin(`[API] Alert salvato in agent_actions`);

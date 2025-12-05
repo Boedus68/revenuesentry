@@ -83,7 +83,7 @@ export async function GET(request: NextRequest) {
     const today = new Date().toISOString().split('T')[0];
     const todayForecast = forecast.find(f => f.date === today);
     
-    if (todayForecast) {
+    if (todayForecast && adminDb) {
       try {
         const predictionData: Partial<MLPrediction> = {
           hotelId,
