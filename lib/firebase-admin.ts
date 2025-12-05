@@ -140,6 +140,8 @@ try {
   // Inizializza Firestore anche se l'app non è stata inizializzata (potrebbe essere già inizializzata)
   try {
     adminDb = getFirestore();
+    // Configura Firestore per ignorare valori undefined (evita errori durante il salvataggio)
+    adminDb.settings({ ignoreUndefinedProperties: true });
     console.log('[Firebase Admin] Firestore Admin inizializzato');
   } catch (dbError: any) {
     console.warn('[Firebase Admin] Errore inizializzazione Firestore Admin:', dbError.message);

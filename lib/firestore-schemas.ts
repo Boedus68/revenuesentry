@@ -85,18 +85,23 @@ export function validateCompetitorData(data: Partial<CompetitorData>): Competito
     return null;
   }
 
-  return {
+  // Costruisce oggetto senza campi undefined (Firestore non li accetta)
+  const validated: any = {
     hotelId: data.hotelId,
     competitor_name: data.competitor_name,
     location: data.location ?? '',
     date: data.date,
     price: data.price ?? 0,
-    rating: data.rating,
-    availability: data.availability,
-    room_type: data.room_type,
     scraped_at: data.scraped_at ?? new Date(),
-    cache_ttl: data.cache_ttl,
   };
+
+  // Aggiunge solo campi opzionali se definiti
+  if (data.rating !== undefined) validated.rating = data.rating;
+  if (data.availability !== undefined) validated.availability = data.availability;
+  if (data.room_type !== undefined && data.room_type !== null) validated.room_type = data.room_type;
+  if (data.cache_ttl !== undefined) validated.cache_ttl = data.cache_ttl;
+
+  return validated as CompetitorData;
 }
 
 /**

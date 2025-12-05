@@ -3,7 +3,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { CompetitorScraper } from '../../../../lib/services/scraper-service';
 import { adminDb } from '../../../../lib/firebase-admin';
 import { logAdmin } from '../../../../lib/admin-log';
-import { AgentAction, validateAgentAction } from '../../../../lib/firestore-schemas';
+import { AgentAction } from '../../../../lib/types';
+import { validateAgentAction } from '../../../../lib/firestore-schemas';
 
 export async function POST(request: NextRequest) {
   try {
