@@ -12,6 +12,9 @@ import RecommendationCard from './components/RecommendationCard';
 import ImportCostsDialog from './components/ImportCostsDialog';
 import CategorizeCostsDialog from './components/CategorizeCostsDialog';
 import MonthPicker from './components/MonthPicker';
+import CompetitorAlerts from './components/CompetitorAlerts';
+import RevenueForecastCard from './components/RevenueForecastCard';
+import CostAnomaliesAlert from './components/CostAnomaliesAlert';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, Label, LabelList } from 'recharts';
 
 // Helper per calcolare i giorni massimi di un mese
@@ -882,6 +885,21 @@ return (
                                     Aggiorna
                                 </button>
                             </div>
+                        </div>
+
+                        {/* Competitor Alerts - Quick Win 1 */}
+                        <div className="mb-6">
+                            <CompetitorAlerts />
+                        </div>
+
+                        {/* Revenue Forecast - Quick Win 2 */}
+                        <div className="mb-6">
+                            <RevenueForecastCard />
+                        </div>
+
+                        {/* Cost Anomalies - Quick Win 3 */}
+                        <div className="mb-6">
+                            <CostAnomaliesAlert />
                         </div>
 
                         {kpi ? (

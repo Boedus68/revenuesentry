@@ -138,3 +138,116 @@ export interface UserData {
   updatedAt?: any;
 }
 
+// ==========================================
+// ML & AI Agent Types
+// ==========================================
+
+// Dati storici giornalieri per ML
+export interface HistoricalData {
+  hotelId: string;
+  date: string; // formato "YYYY-MM-DD"
+  occupancy_rate: number; // percentuale occupazione giornaliera
+  adr: number; // Average Daily Rate
+  revpar: number; // Revenue Per Available Room
+  total_revenue: number; // Ricavi totali giornata
+  total_costs: number; // Costi totali giornata
+  weather_condition?: string; // "excellent" | "good" | "fair" | "poor"
+  weather_score?: number; // 0-10
+  local_events?: string[]; // Array di eventi locali
+  event_impact_score?: number; // 0-10
+  competitor_prices?: {
+    [competitorName: string]: number; // Prezzo competitor per quella data
+  };
+  competitor_avg_price?: number;
+  competitor_min_price?: number;
+  competitor_max_price?: number;
+  is_weekend?: boolean;
+  is_holiday?: boolean;
+  day_of_week?: number; // 0-6
+  month?: number; // 1-12
+  createdAt?: any;
+  updatedAt?: any;
+}
+
+// Predizioni ML
+export interface MLPrediction {
+  hotelId: string;
+  prediction_date: string; // formato "YYYY-MM-DD"
+  predicted_occupancy: number; // percentuale prevista
+  suggested_price: number; // Prezzo suggerito
+  confidence_score: number; // 0-1
+  reasoning: string; // Spiegazione predizione
+  factors?: {
+    weather?: number;
+    events?: number;
+    demand?: number;
+    competitor?: number;
+  };
+  competitor_analysis?: {
+    avg_price: number;
+    min_price: number;
+    max_price: number;
+    market_position: 'above' | 'below' | 'average';
+  };
+  created_at: any;
+}
+
+// Azioni agent eseguite
+export interface AgentAction {
+  hotelId: string;
+  action_type: 'price_suggestion' | 'cost_alert' | 'revenue_prediction' | 'competitor_alert' | 'weather_alert' | 'event_alert';
+  action_data: {
+    [key: string]: any; // Dati specifici per tipo azione
+  };
+  status: 'pending' | 'accepted' | 'rejected' | 'modified';
+  reasoning?: string; // Perché l'agente ha suggerito questa azione
+  impact_estimate?: number; // Impatto stimato in €
+  created_at: any;
+  updated_at?: any;
+  user_feedback?: string; // Feedback utente se modificato/rifiutato
+}
+
+// Dati competitor scraped
+export interface CompetitorData {
+  hotelId: string;
+  competitor_name: string;
+  location: string;
+  date: string; // formato "YYYY-MM-DD"
+  price: number;
+  rating?: number;
+  availability?: boolean;
+  room_type?: string;
+  scraped_at: any;
+  cache_ttl?: any; // Timestamp scadenza cache (24h)
+}
+
+// Eventi locali
+export interface LocalEvent {
+  hotelId: string;
+  event_name: string;
+  event_date: string; // formato "YYYY-MM-DD"
+  event_type: 'concert' | 'fair' | 'festival' | 'sports' | 'other';
+  impact_level: 'high' | 'medium' | 'low';
+  description?: string;
+  location?: string;
+  expected_attendance?: number;
+  created_at: any;
+  source?: 'manual' | 'scraped' | 'api';
+}
+
+// Modello ML serializzato
+export interface MLModel {
+  hotelId: string;
+  model_type: 'pricing' | 'demand_forecast' | 'cost_optimizer';
+  model_version: string;
+  model_data: string; // JSON serializzato del modello
+  training_date: any;
+  accuracy_score?: number;
+  features_used: string[];
+  performance_metrics?: {
+    mae?: number; // Mean Absolute Error
+    rmse?: number; // Root Mean Squared Error
+    r2?: number; // R-squared
+  };
+}
+
