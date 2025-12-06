@@ -4,7 +4,7 @@
  * Aggrega e prepara tutti i dati necessari per il Reasoning Engine
  */
 
-import { HotelData, KPIData, HistoricalData, RevenueData, CostsData } from '../types';
+import { HotelData, KPIData, HistoricalData, RevenueData, CostsData, MonthlyCostsData } from '../types';
 import { HotelContext, TrendAnalysis, TrendMetrics, Anomaly, BenchmarkComparison, SeasonalityPattern } from './reasoning-engine';
 import { calculateKPI, getBenchmarkValues } from '../calculations';
 import { CostAnalyzer } from '../ml/cost-analyzer';
@@ -24,8 +24,28 @@ export class ContextBuilder {
   }): HotelContext {
     const { hotelId, currentMonth, hotelData, revenueData, costsData, historicalData } = params;
     
+    // Converti CostsData[] in MonthlyCostsData[] per calculateKPI
+    // calculateKPI accetta Partial<CostsData> | MonthlyCostsData[]
+    let costsForKPI: Partial<CostsData> | MonthlyCostsData[];
+    if (costsData.length === 0) {
+      costsForKPI = {};
+    } else if (costsData.length === 1) {
+      // Se c'è un solo elemento, passa direttamente come Partial<CostsData>
+      costsForKPI = costsData[0];
+    } else {
+      // Se ci sono più elementi, converti in MonthlyCostsData[]
+      costsForKPI = costsData.map((cost, index) => {
+        // Se il costo ha già un campo mese, usalo, altrimenti usa il mese corrente o un mese calcolato
+        const mese = (cost as any).mese || this.getMonthFromIndex(index, currentMonth);
+        return {
+          mese,
+          costs: cost
+        };
+      });
+    }
+    
     // Calcola KPI
-    const kpis = calculateKPI(costsData, revenueData, hotelData);
+    const kpis = calculateKPI(costsForKPI, revenueData, hotelData);
     
     // Analizza trend
     const trends = this.analyzeTrends(revenueData, costsData, historicalData);
@@ -415,6 +435,15 @@ export class ContextBuilder {
     }
     
     return total;
+  }
+  
+  /**
+   * Helper: calcola mese da indice (fallback)
+   */
+  private getMonthFromIndex(index: number, currentMonth: string): string {
+    const date = new Date(currentMonth + '-01');
+    date.setMonth(date.getMonth() - index);
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
   }
   
   /**
