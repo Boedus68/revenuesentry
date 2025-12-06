@@ -1,0 +1,681 @@
+================================================================================
+                    REVENUESENTRY - RIEPILOGO IMPLEMENTAZIONE
+                         Sistema di Revenue Management AI
+================================================================================
+
+Data: Novembre 2025
+Versione: 0.1.0
+
+================================================================================
+1. PANORAMICA DEL PROGETTO
+================================================================================
+
+RevenueSentry è un'applicazione web completa per la gestione del revenue 
+management negli hotel, dotata di funzionalità di Machine Learning e AI per:
+- Analisi predittiva dei ricavi
+- Dynamic Pricing intelligente
+- Monitoraggio competitor
+- Analisi costi e anomalie
+- Raccomandazioni automatizzate
+- Integrazione con sistemi esterni (Fatture in Cloud)
+
+================================================================================
+2. STACK TECNOLOGICO
+================================================================================
+
+FRONTEND:
+- Next.js 14.2.4 (App Router)
+- React 18
+- TypeScript 5
+- TailwindCSS 3.4.1
+- Recharts 3.3.0 (grafici e visualizzazioni)
+
+BACKEND:
+- Next.js API Routes (Serverless Functions)
+- Firebase Admin SDK 13.5.0
+- Firebase Client SDK 10.12.2
+
+DATABASE:
+- Firebase Firestore (NoSQL)
+- Firebase Authentication
+
+INTEGRAZIONI:
+- Fatture in Cloud API (OAuth 2.0)
+- Resend API (email)
+- PDF.js 4.0.379 (parsing buste paga)
+- XLSX 0.18.5 (parsing file Excel)
+
+DEPLOYMENT:
+- Vercel (Serverless Functions)
+- Firebase Hosting (opzionale)
+
+================================================================================
+3. AUTENTICAZIONE E GESTIONE UTENTI
+================================================================================
+
+FUNZIONALITÀ IMPLEMENTATE:
+✓ Registrazione utenti con email/password
+✓ Login/Logout
+✓ Gestione profilo hotel
+✓ Ruoli utente (user/admin)
+✓ Protezione route con middleware
+✓ Email di benvenuto automatica
+
+FILE:
+- app/login/page.tsx
+- app/register/page.tsx
+- lib/middleware.ts
+- lib/firebase.ts
+- lib/firebase-admin.ts
+
+================================================================================
+4. DASHBOARD PRINCIPALE
+================================================================================
+
+FUNZIONALITÀ IMPLEMENTATE:
+✓ Visualizzazione KPI principali (ADR, RevPAR, Occupancy, GOPPAR)
+✓ Grafici interattivi (linee, barre, torta)
+✓ Selezione mese per visualizzazione dati
+✓ Gestione dati hotel (camere, stelle, località, tipo)
+✓ Export dati in PDF/Excel
+✓ Visualizzazione raccomandazioni AI
+✓ Alert e notifiche
+
+COMPONENTI UI:
+- KPICard.tsx - Card per visualizzazione KPI
+- RecommendationCard.tsx - Card per raccomandazioni
+- MonthPicker.tsx - Selettore mese
+- RevenueForecastCard.tsx - Previsioni revenue
+- CostAnomaliesAlert.tsx - Alert anomalie costi
+- DynamicPricingCard.tsx - Raccomandazioni pricing dinamico
+- HistoricalDataInput.tsx - Inserimento dati storici giornalieri
+- CompetitorAlerts.tsx - Alert competitor
+- CompetitorManager.tsx - Gestione competitor
+
+FILE PRINCIPALE:
+- app/dashboard/page.tsx (3160+ righe)
+
+================================================================================
+5. GESTIONE COSTI
+================================================================================
+
+FUNZIONALITÀ IMPLEMENTATE:
+✓ Inserimento manuale costi per categoria:
+  - Ristorazione (array di voci)
+  - Utenze (energia, gas, acqua)
+  - Personale (buste paga, sicurezza, contributi INPS)
+  - Marketing (pubblicità, social media, eventi)
+  - Manutenzione (ordinaria, straordinaria)
+  - Altri costi (generici)
+✓ Import da file Excel (.xls, .xlsx)
+✓ Categorizzazione automatica costi
+✓ Upload e parsing buste paga PDF
+✓ Estrazione automatica "NETTO BUSTA" da PDF
+✓ Prevenzione duplicati
+✓ Calcolo costi totali per mese
+✓ Analisi costi per categoria
+
+COMPONENTI:
+- ImportCostsDialog.tsx - Dialog importazione Excel
+- CategorizeCostsDialog.tsx - Dialog categorizzazione
+- UploadPayrollDialog.tsx - Upload buste paga PDF
+
+LIBRERIE:
+- lib/xls-parser.ts - Parser Excel avanzato
+- lib/pdf-payroll-parser.ts - Parser PDF buste paga
+
+API:
+- /api/analytics/costs - Analisi costi
+- /api/analytics/cost-anomalies - Rilevamento anomalie
+
+================================================================================
+6. GESTIONE RICAVI
+================================================================================
+
+FUNZIONALITÀ IMPLEMENTATE:
+✓ Inserimento ricavi mensili
+✓ Calcolo automatico metriche:
+  - Entrate totali
+  - Prezzo medio camera (ADR)
+  - Occupazione (%)
+  - RevPAR
+  - Giorni apertura mese
+✓ Visualizzazione storico ricavi
+✓ Grafici trend ricavi
+✓ Calcolo KPI derivati
+
+DATI STORICI GIORNALIERI:
+✓ Inserimento manuale dati giornalieri
+✓ Conversione automatica dati mensili → giornalieri
+✓ Salvataggio in collection historical_data
+✓ Supporto per:
+  - Occupancy rate
+  - ADR
+  - RevPAR
+  - Total revenue
+  - Total costs
+  - Rooms sold
+  - Guests
+
+API:
+- /api/ml/save-historical-data - Salvataggio dati giornalieri
+- /api/ml/convert-revenues-to-historical - Conversione mensili→giornalieri
+
+================================================================================
+7. KPI E ANALYTICS
+================================================================================
+
+KPI CALCOLATI:
+✓ ADR (Average Daily Rate)
+✓ RevPAR (Revenue per Available Room)
+✓ Occupancy Rate (%)
+✓ GOPPAR (Gross Operating Profit per Available Room)
+✓ Cost per Guest
+✓ Revenue per Guest
+✓ Profit Margin
+✓ Cost Ratio per categoria
+
+ANALYTICS:
+✓ Analisi trend mensili
+✓ Confronto periodi
+✓ Benchmark settore (basato su stelle hotel)
+✓ Analisi costi per categoria
+✓ Identificazione anomalie costi
+✓ Forecast revenue (previsioni)
+
+API:
+- /api/analytics/kpi - Calcolo KPI
+- /api/analytics/recommendations - Generazione raccomandazioni
+- /api/analytics/cost-anomalies - Analisi anomalie
+
+LIBRERIA:
+- lib/calculations.ts - Funzioni di calcolo KPI e analytics
+
+================================================================================
+8. RACCOMANDAZIONI AI
+================================================================================
+
+FUNZIONALITÀ IMPLEMENTATE:
+✓ Generazione raccomandazioni basate su:
+  - Analisi costi vs benchmark
+  - Trend ricavi
+  - Performance KPI
+  - Anomalie rilevate
+✓ Alert automatici per:
+  - Costi anomali
+  - Performance sotto benchmark
+  - Opportunità di miglioramento
+✓ Categorizzazione raccomandazioni:
+  - Riduzione costi
+  - Ottimizzazione pricing
+  - Miglioramento occupazione
+  - Gestione personale
+
+LIBRERIA:
+- lib/ai-recommendations.ts - Logica generazione raccomandazioni
+
+API:
+- /api/analytics/recommendations - Endpoint raccomandazioni
+- /api/email/recommendations - Invio email raccomandazioni
+
+================================================================================
+9. MACHINE LEARNING / AI FEATURES
+================================================================================
+
+9.1 SIMPLE FORECAST (Quick Win 2)
+----------------------------------
+✓ Previsioni revenue basate su:
+  - Media mobile
+  - Stagionalità
+  - Trend storici
+✓ Forecast occupazione
+✓ Confidence score
+✓ Statistiche forecast
+
+FILE:
+- lib/ml/simple-forecaster.ts
+- app/api/ml/forecast-revenue/route.ts
+- app/dashboard/components/RevenueForecastCard.tsx
+
+9.2 COST ANALYZER (Quick Win 3)
+--------------------------------
+✓ Rilevamento anomalie costi usando z-score
+✓ Alert automatici per costi anomali
+✓ Analisi cost per guest
+
+FILE:
+- lib/ml/cost-analyzer.ts
+- app/api/analytics/cost-anomalies/route.ts
+- app/dashboard/components/CostAnomaliesAlert.tsx
+
+9.3 DYNAMIC PRICING MODEL (FASE 2)
+----------------------------------
+✓ Calcolo prezzo ottimale basato su:
+  - Livello domanda (occupazione storica)
+  - Prezzi competitor
+  - Fattore stagionalità
+  - Trend occupazione
+  - Weekend/festività
+  - Weather score (opzionale)
+  - Event impact score (opzionale)
+✓ Range prezzo consigliato (min/max)
+✓ Confidence score
+✓ Reasoning dettagliato
+✓ Fattori di pricing visualizzati
+
+FILE:
+- lib/ml/pricing-model.ts
+- app/api/ml/predict-price/route.ts
+- app/dashboard/components/DynamicPricingCard.tsx
+
+9.4 FEATURE ENGINEERING
+-----------------------
+✓ Estrazione features ML da dati storici:
+  - Moving averages (7d, 30d)
+  - Trend indicators
+  - Seasonality factors
+  - Demand levels
+  - Price elasticity
+✓ Normalizzazione features
+✓ Batch feature extraction
+
+FILE:
+- lib/ml/feature-engineering.ts
+
+9.5 DEMAND FORECAST
+-------------------
+✓ Previsioni occupazione (demand)
+✓ Features estratte per ogni giorno forecast
+✓ Statistiche forecast
+
+FILE:
+- app/api/ml/forecast-demand/route.ts
+
+9.6 COMPETITOR PRICE ALERTS (Quick Win 1)
+------------------------------------------
+✓ Monitoraggio cambiamenti prezzi competitor
+✓ Alert per variazioni significative:
+  - Medium: >= 8% variazione
+  - High: >= 15% variazione
+✓ Classificazione alert (increase/decrease)
+✓ Messaggi descrittivi
+
+FILE:
+- app/api/ml/competitor-price-alerts/route.ts
+- app/dashboard/components/CompetitorAlerts.tsx
+
+COLLECTIONS FIRESTORE:
+- historical_data - Dati storici giornalieri
+- ml_predictions - Predizioni ML salvate
+- competitor_data - Dati competitor storici
+
+================================================================================
+10. INTEGRAZIONI ESTERNE
+================================================================================
+
+10.1 FATTURE IN CLOUD
+---------------------
+✓ OAuth 2.0 Authorization Code Flow
+✓ Configurazione account
+✓ Sincronizzazione automatica spese
+✓ Import costi da Fatture in Cloud
+✓ Gestione token refresh
+✓ Paginazione risultati API
+
+COMPONENTI:
+- FattureInCloudIntegration.tsx - UI integrazione
+- lib/services/fattureincloud-service.ts - Service layer
+
+API:
+- /api/integrations/fattureincloud/auth - Inizio OAuth
+- /api/integrations/fattureincloud/callback - Callback OAuth
+- /api/integrations/fattureincloud/config - Gestione configurazione
+- /api/integrations/fattureincloud/sync - Sincronizzazione dati
+
+COLLECTION FIRESTORE:
+- fattureInCloudConfig - Configurazione integrazione per utente
+
+10.2 EMAIL (RESEND)
+-------------------
+✓ Email di benvenuto
+✓ Email raccomandazioni
+✓ Template HTML
+
+API:
+- /api/email/welcome - Email benvenuto
+- /api/email/recommendations - Email raccomandazioni
+
+LIBRERIA:
+- lib/email.ts - Logica invio email
+
+================================================================================
+11. GESTIONE COMPETITOR
+================================================================================
+
+FUNZIONALITÀ IMPLEMENTATE:
+✓ Aggiunta/rimozione competitor
+✓ Configurazione URL competitor
+✓ Prezzo unitario competitor
+✓ Monitoraggio prezzi (framework scraping)
+✓ Alert cambiamenti prezzi
+✓ Visualizzazione storico prezzi
+
+COMPONENTI:
+- CompetitorManager.tsx - Gestione lista competitor
+- CompetitorAlerts.tsx - Visualizzazione alert
+
+API:
+- /api/competitors - CRUD competitor
+- /api/competitors/[id] - Operazioni su singolo competitor
+- /api/scraper/competitor-prices - Scraping prezzi (mockato)
+
+COLLECTION FIRESTORE:
+- competitors - Lista competitor per hotel
+- competitor_data - Storico prezzi competitor
+
+================================================================================
+12. ADMIN PANEL
+================================================================================
+
+FUNZIONALITÀ IMPLEMENTATE:
+✓ Log sistema (adminLogs)
+✓ Statistiche utenti
+✓ Export dati
+✓ Debug utenti
+✓ Visualizzazione log
+
+API:
+- /api/admin/logs - Visualizzazione log
+- /api/admin/stats - Statistiche sistema
+- /api/admin/export - Export dati
+- /api/admin/debug-user - Debug utente
+
+PAGE:
+- app/admin/page.tsx - Dashboard admin
+
+LIBRERIA:
+- lib/admin-log.ts - Logging admin
+- lib/admin.ts - Utility admin
+
+================================================================================
+13. STRUTTURA DATABASE FIRESTORE
+================================================================================
+
+COLLECTIONS:
+
+users/{userId}
+  - hotelName: string
+  - email: string
+  - role: 'user' | 'admin'
+  - revenues: RevenueData[]
+  - costs: CostsData (per mese)
+  - hotelData: HotelData
+  - fattureInCloudConfig: FattureInCloudConfig
+  - createdAt: Timestamp
+  - updatedAt: Timestamp
+
+historical_data/{hotelId}_{date}
+  - hotelId: string
+  - date: string (YYYY-MM-DD)
+  - occupancy_rate: number
+  - adr: number
+  - revpar: number
+  - total_revenue: number
+  - total_costs: number
+  - competitor_prices: object
+  - competitor_avg_price: number
+  - competitor_min_price: number
+  - competitor_max_price: number
+  - weather_score: number (opzionale)
+  - event_impact_score: number (opzionale)
+  - is_weekend: boolean
+  - is_holiday: boolean
+  - day_of_week: number
+  - month: number
+  - createdAt: Timestamp
+  - updatedAt: Timestamp
+
+ml_predictions/{hotelId}_{date}
+  - hotelId: string
+  - prediction_date: string
+  - predicted_occupancy: number
+  - suggested_price: number
+  - confidence_score: number
+  - reasoning: string
+  - factors: object
+  - competitor_analysis: object
+  - created_at: Timestamp
+
+competitors/{competitorId}
+  - hotelId: string
+  - name: string
+  - url: string
+  - priceUnit: 'per_notte' | 'per_persona'
+  - isActive: boolean
+  - createdAt: Timestamp
+
+competitor_data/{docId}
+  - hotelId: string
+  - competitorName: string
+  - date: string
+  - price: number
+  - createdAt: Timestamp
+
+adminLogs/{logId}
+  - message: string
+  - level: 'info' | 'warn' | 'error'
+  - metadata: object
+  - timestamp: Timestamp
+  - userId: string (opzionale)
+
+================================================================================
+14. SICUREZZA E PERMESSI
+================================================================================
+
+FIRESTORE RULES:
+✓ Utenti possono leggere/scrivere solo propri dati
+✓ Admin possono leggere tutti i dati users
+✓ historical_data: accesso solo ai propri dati (hotelId)
+✓ ml_predictions: lettura solo propri dati, scrittura solo server-side
+✓ competitor_data: lettura solo propri dati, scrittura solo server-side
+✓ adminLogs: accesso solo admin
+
+FILE:
+- firestore.rules
+
+MIDDLEWARE:
+✓ Protezione route dashboard
+✓ Redirect se non autenticato
+
+FILE:
+- lib/middleware.ts
+
+================================================================================
+15. TIPI E INTERFACCE TYPESCRIPT
+================================================================================
+
+PRINCIPALI INTERFACCE (lib/types.ts):
+- CostsData - Struttura costi mensili
+- RevenueData - Struttura ricavi mensili
+- HotelData - Dati hotel
+- KPIData - Metriche KPI
+- HistoricalData - Dati storici giornalieri
+- Recommendation - Raccomandazioni AI
+- Alert - Alert sistema
+- CompetitorData - Dati competitor
+- PriceRecommendation - Raccomandazione pricing
+- MLFeatures - Features ML
+
+================================================================================
+16. UTILITY E HELPERS
+================================================================================
+
+- lib/calculations.ts - Calcoli KPI, analytics, benchmark
+- lib/xls-parser.ts - Parser Excel avanzato con categorizzazione
+- lib/pdf-payroll-parser.ts - Parser PDF buste paga
+- lib/firebase-admin.ts - Inizializzazione Firebase Admin (lazy)
+- lib/admin-log.ts - Sistema logging admin
+
+================================================================================
+17. CONFIGURAZIONE E SETUP
+================================================================================
+
+FILE DI SETUP:
+- ADMIN_SETUP.md - Setup admin
+- DEPLOYMENT.md - Guida deployment
+- EMAIL_SETUP.md - Configurazione email
+- FIREBASE_ADMIN_SETUP.md - Setup Firebase Admin
+- FIRESTORE_SETUP.md - Setup Firestore
+- SETUP_SERVICE_ACCOUNT.md - Setup service account
+- DOVE_METTERE_SERVICE_ACCOUNT.md - Posizionamento service account
+- FATTUREINCLOUD_SETUP.md - Setup integrazione Fatture in Cloud
+- CHECK_ENV.md - Verifica variabili ambiente
+
+CONFIGURAZIONE:
+- next.config.mjs - Config Next.js (webpack per PDF.js worker)
+- tailwind.config.ts - Config TailwindCSS
+- tsconfig.json - Config TypeScript
+- firestore.rules - Regole sicurezza Firestore
+
+================================================================================
+18. STATO IMPLEMENTAZIONE - FASI COMPLETATE
+================================================================================
+
+✓ FASE 0: Setup Base
+  - Autenticazione
+  - Dashboard base
+  - Gestione costi/ricavi
+  - KPI base
+
+✓ QUICK WIN 1: Competitor Price Alert
+  - Monitoraggio competitor
+  - Alert cambiamenti prezzi
+  - UI gestione competitor
+
+✓ QUICK WIN 2: Simple Revenue Forecast
+  - Modello forecast semplice
+  - UI visualizzazione forecast
+  - Confidence scoring
+
+✓ QUICK WIN 3: Cost per Guest Anomaly Detection
+  - Rilevamento anomalie
+  - Alert automatici
+  - Analisi z-score
+
+✓ FASE 2: Dynamic Pricing Agent
+  - Modello pricing ML
+  - Feature engineering
+  - API predict-price
+  - UI Dynamic Pricing Card
+  - Demand forecast
+  - Competitor price alerts avanzati
+
+✓ INTEGRAZIONI
+  - Fatture in Cloud (OAuth + sync)
+  - Email (Resend)
+  - PDF parsing buste paga
+  - Excel import costi
+
+✓ GESTIONE DATI STORICI
+  - Inserimento manuale dati giornalieri
+  - Conversione automatica mensili→giornalieri
+  - Salvataggio in historical_data
+
+================================================================================
+19. API ENDPOINTS COMPLETI
+================================================================================
+
+AUTHENTICATION:
+- (Gestito da Firebase Client SDK)
+
+ANALYTICS:
+- GET/POST /api/analytics/kpi
+- POST /api/analytics/recommendations
+- POST /api/analytics/costs
+- GET /api/analytics/cost-anomalies
+
+MACHINE LEARNING:
+- GET /api/ml/forecast-revenue
+- GET /api/ml/forecast-demand
+- GET /api/ml/predict-price
+- GET /api/ml/competitor-price-alerts
+- POST /api/ml/save-historical-data
+- GET /api/ml/convert-revenues-to-historical
+
+INTEGRATIONS:
+- GET /api/integrations/fattureincloud/auth
+- GET /api/integrations/fattureincloud/callback
+- GET/POST /api/integrations/fattureincloud/config
+- POST /api/integrations/fattureincloud/sync
+
+COMPETITORS:
+- GET/POST /api/competitors
+- GET/PUT/DELETE /api/competitors/[id]
+
+SCRAPER:
+- GET /api/scraper/competitor-prices
+
+EMAIL:
+- POST /api/email/welcome
+- POST /api/email/recommendations
+
+ADMIN:
+- GET /api/admin/logs
+- GET /api/admin/stats
+- GET /api/admin/export
+- GET /api/admin/debug-user
+
+================================================================================
+20. PROSSIMI SVILUPPI SUGGERITI
+================================================================================
+
+POSSIBILI MIGLIORAMENTI:
+- [ ] Implementazione scraping reale competitor (attualmente mockato)
+- [ ] Integrazione API meteo per weather_score
+- [ ] Integrazione calendario eventi locali per event_impact_score
+- [ ] Logica festività italiana per is_holiday
+- [ ] Export avanzato (PDF personalizzato, Excel con formattazione)
+- [ ] Notifiche push per alert importanti
+- [ ] Dashboard mobile responsive migliorata
+- [ ] Multi-hotel support (utente può gestire più hotel)
+- [ ] Report automatici periodici via email
+- [ ] Integrazione con PMS (Property Management System)
+- [ ] Modelli ML più avanzati (XGBoost, Neural Networks)
+- [ ] A/B testing per pricing strategies
+- [ ] Backtesting modelli ML
+
+================================================================================
+21. NOTE TECNICHE IMPORTANTI
+================================================================================
+
+- Firebase Admin SDK usa lazy initialization per evitare errori hot-reload
+- PDF.js worker configurato per funzionare sia in dev che in produzione
+- Tutte le API routes sono serverless functions su Vercel
+- I dati storici giornalieri sono necessari per Dynamic Pricing (minimo 7-14 giorni)
+- Le regole Firestore devono essere pubblicate manualmente nella console Firebase
+- Il service account Firebase deve essere configurato per le API server-side
+- Le variabili ambiente devono essere configurate in Vercel per produzione
+
+================================================================================
+22. COMANDI UTILI
+================================================================================
+
+SVILUPPO:
+  npm run dev          - Avvia server sviluppo
+  npm run build        - Build produzione
+  npm run start        - Avvia server produzione
+  npm run lint         - Esegue linter
+
+DEPLOYMENT:
+  vercel deploy        - Deploy su Vercel
+  vercel --prod        - Deploy produzione
+
+FIRESTORE:
+  firebase deploy --only firestore:rules  - Deploy regole Firestore
+
+================================================================================
+FINE RIEPILOGO
+================================================================================
+
+Ultimo aggiornamento: Novembre 2025
+Versione documento: 1.0

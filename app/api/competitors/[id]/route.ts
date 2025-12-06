@@ -59,7 +59,22 @@ export async function PUT(
       );
     }
 
-    await docRef.update(validated);
+    // Converti in oggetto plain per Firebase Admin SDK
+    const updateData: any = {
+      hotelId: validated.hotelId,
+      competitor_name: validated.competitor_name,
+      location: validated.location,
+      isActive: validated.isActive,
+      priority: validated.priority,
+      updated_at: validated.updated_at,
+    };
+    
+    if (validated.bookingUrl !== undefined) updateData.bookingUrl = validated.bookingUrl;
+    if (validated.bookingId !== undefined) updateData.bookingId = validated.bookingId;
+    if (validated.notes !== undefined) updateData.notes = validated.notes;
+    if (validated.created_at) updateData.created_at = validated.created_at;
+
+    await docRef.update(updateData);
 
     logAdmin(`[API] Competitor aggiornato: ${competitorId}`);
 
