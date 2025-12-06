@@ -19,6 +19,7 @@ import RevenueForecastCard from './components/RevenueForecastCard';
 import CostAnomaliesAlert from './components/CostAnomaliesAlert';
 import DynamicPricingCard from './components/DynamicPricingCard';
 import HistoricalDataInput from './components/HistoricalDataInput';
+import SentryAgent from './components/SentryAgent';
 import FattureInCloudIntegration from './components/FattureInCloudIntegration';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, Label, LabelList } from 'recharts';
 
@@ -912,6 +913,13 @@ return (
                         <div className="mb-6">
                             <RevenueForecastCard />
                         </div>
+
+                        {/* Sentry AI Agent - Analista Autonomo */}
+                        {user && (
+                            <div className="mb-6">
+                                <SentryAgent />
+                            </div>
+                        )}
 
                         {/* Historical Data Input - Per Dynamic Pricing */}
                         {user && (
