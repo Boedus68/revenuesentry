@@ -254,6 +254,7 @@ function calculateTotalCostsForUser(costs: any): number {
   if (costs.personale) {
     total += (costs.personale.bustePaga || 0);
     total += (costs.personale.sicurezza || 0);
+    total += (costs.personale.contributiINPS || 0);
   }
   
   // Marketing

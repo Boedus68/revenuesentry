@@ -1,6 +1,6 @@
 // Schema validators e helper per collezioni Firestore ML
 
-import { HistoricalData, MLPrediction, AgentAction, CompetitorData, LocalEvent, MLModel, RevenueData, HotelData } from './types';
+import { HistoricalData, MLPrediction, AgentAction, CompetitorData, CompetitorConfig, LocalEvent, MLModel, RevenueData, HotelData } from './types';
 
 /**
  * Valida e normalizza HistoricalData
@@ -92,6 +92,7 @@ export function validateCompetitorData(data: Partial<CompetitorData>): Competito
     location: data.location ?? '',
     date: data.date,
     price: data.price ?? 0,
+    price_unit: data.price_unit ?? 'per_camera', // Default: per camera
     scraped_at: data.scraped_at ?? new Date(),
   };
 
@@ -99,9 +100,35 @@ export function validateCompetitorData(data: Partial<CompetitorData>): Competito
   if (data.rating !== undefined) validated.rating = data.rating;
   if (data.availability !== undefined) validated.availability = data.availability;
   if (data.room_type !== undefined && data.room_type !== null) validated.room_type = data.room_type;
+  if (data.treatment !== undefined && data.treatment !== null) validated.treatment = data.treatment;
+  if (data.guests !== undefined) validated.guests = data.guests;
+  if (data.nights !== undefined) validated.nights = data.nights;
+  if (data.source !== undefined && data.source !== null) validated.source = data.source;
   if (data.cache_ttl !== undefined) validated.cache_ttl = data.cache_ttl;
 
   return validated as CompetitorData;
+}
+
+/**
+ * Valida CompetitorConfig
+ */
+export function validateCompetitorConfig(data: Partial<CompetitorConfig>): CompetitorConfig | null {
+  if (!data.hotelId || !data.competitor_name || !data.location) {
+    return null;
+  }
+
+  return {
+    hotelId: data.hotelId,
+    competitor_name: data.competitor_name,
+    location: data.location,
+    bookingUrl: data.bookingUrl,
+    bookingId: data.bookingId,
+    isActive: data.isActive ?? true,
+    priority: data.priority ?? 'medium',
+    notes: data.notes,
+    created_at: data.created_at ?? new Date(),
+    updated_at: data.updated_at ?? new Date(),
+  };
 }
 
 /**

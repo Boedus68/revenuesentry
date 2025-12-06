@@ -30,9 +30,10 @@ export function calculateKPI(
       }
       // Personale: somma i valori
       if (monthCosts.personale) {
-        if (!totalCostsData.personale) totalCostsData.personale = { bustePaga: 0, sicurezza: 0 };
+        if (!totalCostsData.personale) totalCostsData.personale = { bustePaga: 0, sicurezza: 0, contributiINPS: 0 };
         totalCostsData.personale.bustePaga = (totalCostsData.personale.bustePaga || 0) + (monthCosts.personale.bustePaga || 0);
         totalCostsData.personale.sicurezza = (totalCostsData.personale.sicurezza || 0) + (monthCosts.personale.sicurezza || 0);
+        totalCostsData.personale.contributiINPS = (totalCostsData.personale.contributiINPS || 0) + (monthCosts.personale.contributiINPS || 0);
       }
       // Marketing: somma i valori
       if (monthCosts.marketing) {
@@ -429,6 +430,7 @@ export function calculateTotalCosts(costs: Partial<CostsData>): number {
   if (costs.personale) {
     totale += (costs.personale.bustePaga || 0);
     totale += (costs.personale.sicurezza || 0);
+    totale += (costs.personale.contributiINPS || 0);
   }
 
   // Marketing
@@ -525,9 +527,9 @@ export function analyzeCosts(
   // Analisi Personale
   if (currentCosts.personale) {
     const personaleTotale =
-      (currentCosts.personale.bustePaga || 0) + (currentCosts.personale.sicurezza || 0);
+      (currentCosts.personale.bustePaga || 0) + (currentCosts.personale.sicurezza || 0) + (currentCosts.personale.contributiINPS || 0);
     const personalePrec = previousCosts?.personale
-      ? (previousCosts.personale.bustePaga || 0) + (previousCosts.personale.sicurezza || 0)
+      ? (previousCosts.personale.bustePaga || 0) + (previousCosts.personale.sicurezza || 0) + (previousCosts.personale.contributiINPS || 0)
       : undefined;
 
     const variazione = personalePrec ? ((personaleTotale - personalePrec) / personalePrec) * 100 : undefined;

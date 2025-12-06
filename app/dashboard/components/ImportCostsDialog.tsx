@@ -67,7 +67,10 @@ export default function ImportCostsDialog({
     onClose();
   };
 
-  const totalAmount = importedCosts.reduce((sum, cost) => sum + cost.importo, 0);
+  const totalAmount = importedCosts.reduce((sum, cost) => {
+    const importo = cost.importo != null && !isNaN(cost.importo) ? cost.importo : 0;
+    return sum + importo;
+  }, 0);
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -166,7 +169,9 @@ export default function ImportCostsDialog({
                             </span>
                           </td>
                           <td className="px-4 py-3 text-sm text-right text-white font-semibold">
-                            €{cost.importo.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            €{cost.importo != null && !isNaN(cost.importo)
+                              ? cost.importo.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                              : '0,00'}
                           </td>
                           <td className="px-4 py-3 text-sm text-gray-400 max-w-xs truncate" title={cost.descrizione}>
                             {cost.descrizione || '-'}
@@ -183,7 +188,8 @@ export default function ImportCostsDialog({
                 {Object.entries(
                   importedCosts.reduce((acc, cost) => {
                     if (cost.categoria) {
-                      acc[cost.categoria] = (acc[cost.categoria] || 0) + cost.importo;
+                      const importo = cost.importo != null && !isNaN(cost.importo) ? cost.importo : 0;
+                      acc[cost.categoria] = (acc[cost.categoria] || 0) + importo;
                     }
                     return acc;
                   }, {} as Record<string, number>)

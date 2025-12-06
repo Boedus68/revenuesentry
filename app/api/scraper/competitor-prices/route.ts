@@ -1,7 +1,7 @@
 // API endpoint per scraping competitor prices
 import { NextRequest, NextResponse } from 'next/server';
 import { CompetitorScraper } from '../../../../lib/services/scraper-service';
-import { adminDb } from '../../../../lib/firebase-admin';
+import { getAdminDb } from '../../../../lib/firebase-admin';
 import { logAdmin } from '../../../../lib/admin-log';
 import { AgentAction } from '../../../../lib/types';
 import { validateAgentAction } from '../../../../lib/firestore-schemas';
@@ -25,13 +25,47 @@ export async function POST(request: NextRequest) {
     const checkin = new Date(checkinDate);
     const checkout = new Date(checkoutDate);
 
+    // Verifica se ci sono competitor configurati
+    const configuredCompetitors = await scraper.getConfiguredCompetitors(hotelId);
+    
     // Verifica cache prima di scrapare
     const isCached = await scraper.isCached(hotelId, checkin);
     
     let competitors;
-    if (isCached) {
+    let shouldRefreshCache = false;
+    
+    if (isCached && configuredCompetitors.length > 0) {
+      // Se ci sono competitor configurati, verifica che la cache li contenga tutti
+      logAdmin(`[API] Verifica cache con ${configuredCompetitors.length} competitor configurati`);
+      const cached = await scraper.getFromCache(hotelId, location, checkin);
+      
+      if (cached && cached.length > 0) {
+        const cachedNames = new Set(cached.map(c => c.competitor_name));
+        const configuredNames = new Set(configuredCompetitors.map((c: any) => c.competitor_name));
+        
+        // Verifica se tutti i competitor configurati sono nella cache
+        const allConfiguredInCache = Array.from(configuredNames).every(name => cachedNames.has(name));
+        
+        if (allConfiguredInCache && cached.length === configuredCompetitors.length) {
+          // Cache valida, usa i dati cached
+          logAdmin(`[API] Usando dati cached (${cached.length} competitor)`);
+          competitors = cached.map(c => ({
+            hotel_name: c.competitor_name,
+            price: c.price,
+            rating: c.rating,
+            availability: c.availability,
+          }));
+        } else {
+          // Cache non contiene tutti i competitor configurati, forza refresh
+          logAdmin(`[API] Cache non completa (cached: ${cached.length}, configurati: ${configuredCompetitors.length}), forzo refresh`);
+          shouldRefreshCache = true;
+        }
+      } else {
+        shouldRefreshCache = true;
+      }
+    } else if (isCached) {
+      // Nessun competitor configurato, usa cache se disponibile
       logAdmin(`[API] Usando dati cached`);
-      // Recupera da cache
       const cached = await scraper.getFromCache(hotelId, location, checkin);
       competitors = cached?.map(c => ({
         hotel_name: c.competitor_name,
@@ -39,8 +73,11 @@ export async function POST(request: NextRequest) {
         rating: c.rating,
         availability: c.availability,
       })) || [];
-    } else {
-      // Scrapa nuovi dati
+    }
+    
+    // Se non c'è cache valida o serve refresh, scrapa nuovi dati
+    if (!competitors || shouldRefreshCache) {
+      logAdmin(`[API] Scraping nuovi dati competitor`);
       competitors = await scraper.scrapeBookingPrices(location, checkin, checkout, hotelId);
     }
 
@@ -63,6 +100,7 @@ export async function POST(request: NextRequest) {
         });
 
         // Salva alert in agent_actions
+        const adminDb = getAdminDb();
         if (adminDb) {
           try {
             const actionData: Partial<AgentAction> = {
@@ -82,7 +120,7 @@ export async function POST(request: NextRequest) {
             };
 
             const validated = validateAgentAction(actionData);
-            if (validated && adminDb) {
+            if (validated) {
               const actionRef = adminDb.collection('agent_actions').doc();
               await actionRef.set(validated);
               logAdmin(`[API] Alert salvato in agent_actions`);
@@ -100,10 +138,10 @@ export async function POST(request: NextRequest) {
           alerts.push({
             type: 'specific_competitor_lower',
             severity: 'medium',
-            message: `${competitor.hotel_name} ha un prezzo del ${competitorDiff.toFixed(1)}% più basso (€${competitor.price} vs tuo €${currentPrice})`,
+            message: `${competitor.hotel_name} ha un prezzo del ${competitorDiff.toFixed(1)}% più basso (€${competitor.price.toFixed(2)} vs tuo €${currentPrice.toFixed(2)})`,
             competitor: competitor.hotel_name,
-            competitorPrice: competitor.price,
-            yourPrice: currentPrice,
+            competitorPrice: parseFloat(competitor.price.toFixed(2)),
+            yourPrice: parseFloat(currentPrice.toFixed(2)),
           });
         }
       }
@@ -113,7 +151,7 @@ export async function POST(request: NextRequest) {
       competitors,
       stats,
       alerts,
-      cached: isCached,
+      cached: isCached && !shouldRefreshCache,
     }, { status: 200 });
 
   } catch (error: any) {

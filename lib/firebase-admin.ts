@@ -137,19 +137,73 @@ try {
     console.log('[Firebase Admin] App già inizializzata, riutilizzo istanza esistente');
   }
   
-  // Inizializza Firestore anche se l'app non è stata inizializzata (potrebbe essere già inizializzata)
+  // Inizializza Firestore solo se l'app è stata inizializzata correttamente
   try {
-    adminDb = getFirestore();
-    // Configura Firestore per ignorare valori undefined (evita errori durante il salvataggio)
-    adminDb.settings({ ignoreUndefinedProperties: true });
-    console.log('[Firebase Admin] Firestore Admin inizializzato');
+    const apps = getApps();
+    if (apps.length > 0) {
+      adminDb = getFirestore();
+      // Configura Firestore per ignorare valori undefined (solo se non già configurato)
+      // Evita errore "settings() can only be called once"
+      try {
+        adminDb.settings({ ignoreUndefinedProperties: true });
+        console.log('[Firebase Admin] ✅ Firestore Admin inizializzato correttamente');
+      } catch (settingsError: any) {
+        // Se settings() è già stato chiamato, ignora l'errore (è normale in hot reload)
+        if (settingsError.message?.includes('already been initialized') || 
+            settingsError.message?.includes('settings()')) {
+          console.log('[Firebase Admin] ✅ Firestore Admin già inizializzato (hot reload)');
+        } else {
+          throw settingsError;
+        }
+      }
+    } else {
+      console.warn('[Firebase Admin] ⚠️ App non inizializzata, Firestore Admin non disponibile');
+      adminDb = null;
+    }
   } catch (dbError: any) {
-    console.warn('[Firebase Admin] Errore inizializzazione Firestore Admin:', dbError.message);
+    console.warn('[Firebase Admin] ❌ Errore inizializzazione Firestore Admin:', dbError.message);
     adminDb = null;
   }
 } catch (error: any) {
   console.error('[Firebase Admin] Errore generale inizializzazione:', error.message);
   adminDb = null;
+}
+
+/**
+ * Funzione helper per ottenere adminDb, inizializzandolo se necessario
+ * Usa questa funzione invece di importare direttamente adminDb nelle API routes
+ */
+export function getAdminDb() {
+  // Se già inizializzato, ritorna
+  if (adminDb) {
+    return adminDb;
+  }
+
+  // Prova a inizializzare se l'app esiste
+  try {
+    const apps = getApps();
+    if (apps.length > 0) {
+      adminDb = getFirestore();
+      // Configura settings solo se non già configurato (evita errore in hot reload)
+      try {
+        adminDb.settings({ ignoreUndefinedProperties: true });
+        console.log('[Firebase Admin] ✅ Firestore Admin inizializzato (lazy)');
+      } catch (settingsError: any) {
+        // Se settings() è già stato chiamato, ignora (normale in hot reload)
+        if (settingsError.message?.includes('already been initialized') || 
+            settingsError.message?.includes('settings()')) {
+          console.log('[Firebase Admin] ✅ Firestore Admin già inizializzato (lazy, hot reload)');
+        } else {
+          throw settingsError;
+        }
+      }
+      return adminDb;
+    }
+  } catch (error: any) {
+    console.error('[Firebase Admin] ❌ Errore inizializzazione lazy:', error.message);
+  }
+
+  return null;
 }
 
 export { adminDb };

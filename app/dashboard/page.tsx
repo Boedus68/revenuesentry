@@ -11,10 +11,15 @@ import KPICard from './components/KPICard';
 import RecommendationCard from './components/RecommendationCard';
 import ImportCostsDialog from './components/ImportCostsDialog';
 import CategorizeCostsDialog from './components/CategorizeCostsDialog';
+import UploadPayrollDialog from './components/UploadPayrollDialog';
 import MonthPicker from './components/MonthPicker';
 import CompetitorAlerts from './components/CompetitorAlerts';
+import CompetitorManager from './components/CompetitorManager';
 import RevenueForecastCard from './components/RevenueForecastCard';
 import CostAnomaliesAlert from './components/CostAnomaliesAlert';
+import DynamicPricingCard from './components/DynamicPricingCard';
+import HistoricalDataInput from './components/HistoricalDataInput';
+import FattureInCloudIntegration from './components/FattureInCloudIntegration';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, Label, LabelList } from 'recharts';
 
 // Helper per calcolare i giorni massimi di un mese
@@ -68,6 +73,7 @@ const calculateTotalCostsForMonth = (costs: Partial<CostsData>): number => {
     if (costs.personale) {
         totale += (costs.personale.bustePaga || 0);
         totale += (costs.personale.sicurezza || 0);
+        totale += (costs.personale.contributiINPS || 0);
     }
     
     // Marketing
@@ -109,6 +115,7 @@ const [analyzing, setAnalyzing] = useState(false);
 const [showToast, setShowToast] = useState(false);
 const [toastMessage, setToastMessage] = useState('');
 const [showImportDialog, setShowImportDialog] = useState(false);
+const [showPayrollDialog, setShowPayrollDialog] = useState(false);
 const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 const [showMonthPicker, setShowMonthPicker] = useState(false);
 const [monthPickerType, setMonthPickerType] = useState<'costi' | 'ricavi'>('costi');
@@ -133,6 +140,7 @@ const altriCostiFields = useMemo(() => [
     { id: 'ascensore', placeholder: 'Manutenzione Ascensore' },
     { id: 'parcheggio', placeholder: 'Costo Parcheggio Esterno' },
 ], []);
+
 
 useEffect(() => {
     let isMounted = true;
@@ -383,6 +391,7 @@ const handleSaveCosts = async (e: React.FormEvent) => {
             personale: {
                 bustePaga: (cleanedCosts.personale?.bustePaga || 0) + (categorizedCosts.personale?.bustePaga || 0),
                 sicurezza: (cleanedCosts.personale?.sicurezza || 0) + (categorizedCosts.personale?.sicurezza || 0),
+                contributiINPS: (cleanedCosts.personale?.contributiINPS || 0) + (categorizedCosts.personale?.contributiINPS || 0),
             },
             altriCosti: {
                 ...(cleanedCosts.altriCosti || {}),
@@ -608,6 +617,12 @@ const applyCategorizedCosts = (categorizedCosts: any[]): Partial<CostsData> => {
                 }
                 break;
                 
+            case 'Personale - Contributi INPS':
+                if (costsData.personale) {
+                    costsData.personale.contributiINPS = (costsData.personale.contributiINPS || 0) + cost.importo;
+                }
+                break;
+                
             default:
                 // Altri costi
                 if (!costsData.altriCosti) costsData.altriCosti = {};
@@ -808,6 +823,7 @@ return (
                 <NavLink id="panoramica" text="Panoramica" icon={<svg className="h-6 w-6 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>} />
                 <NavLink id="ricavi" text="Ricavi" icon={<svg className="h-6 w-6 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>} />
                 <NavLink id="costi" text="Costi" icon={<svg className="h-6 w-6 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 17v-2a4 4 0 00-4-4H3V9h2a4 4 0 004-4V3l4 4-4 4zM15 17v-2a4 4 0 014-4h2V9h-2a4 4 0 01-4-4V3l-4 4 4 4z"/></svg>} />
+                <NavLink id="competitor" text="Competitor" icon={<svg className="h-6 w-6 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>} />
                 <NavLink id="raccomandazioni" text="Consigli AI" icon={<svg className="h-6 w-6 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>} />
                 <NavLink id="report" text="Report" icon={<svg className="h-6 w-6 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" /><path strokeLinecap="round" strokeLinejoin="round" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" /></svg>} />
             </nav>
@@ -896,6 +912,35 @@ return (
                         <div className="mb-6">
                             <RevenueForecastCard />
                         </div>
+
+                        {/* Historical Data Input - Per Dynamic Pricing */}
+                        {user && (
+                            <div className="mb-6">
+                                <HistoricalDataInput
+                                    onDataSaved={() => {
+                                        // Ricarica i dati dopo il salvataggio
+                                        if (user) {
+                                            // Potresti voler ricaricare i dati qui
+                                            console.log('Dati storici salvati, ricarica in corso...');
+                                        }
+                                    }}
+                                />
+                            </div>
+                        )}
+
+                        {/* Dynamic Pricing - FASE 2 */}
+                        {user && kpi && (
+                            <div className="mb-6">
+                                <DynamicPricingCard
+                                    hotelId={user.uid}
+                                    currentPrice={kpi.adr}
+                                    onPriceUpdate={(newPrice) => {
+                                        // TODO: Implementare aggiornamento prezzo
+                                        console.log('Nuovo prezzo suggerito:', newPrice);
+                                    }}
+                                />
+                            </div>
+                        )}
 
                         {/* Cost Anomalies - Quick Win 3 */}
                         <div className="mb-6">
@@ -1145,6 +1190,11 @@ return (
                                                                     aggiungiCategoria('Personale - Sicurezza', costData.personale.sicurezza);
                                                                 }
                                                                 
+                                                                // Personale - Contributi INPS
+                                                                if (costData.personale?.contributiINPS) {
+                                                                    aggiungiCategoria('Personale - Contributi INPS', costData.personale.contributiINPS);
+                                                                }
+                                                                
                                                                 // Marketing - Costi Marketing
                                                                 if (costData.marketing?.costiMarketing) {
                                                                     aggiungiCategoria('Marketing', costData.marketing.costiMarketing);
@@ -1228,6 +1278,7 @@ return (
                                                                     if (costData.utenze?.acqua?.importo) costiPerCategoria['Utenze - Acqua'] = (costiPerCategoria['Utenze - Acqua'] || 0) + costData.utenze.acqua.importo;
                                                                     if (costData.personale?.bustePaga) costiPerCategoria['Personale - Buste Paga'] = (costiPerCategoria['Personale - Buste Paga'] || 0) + costData.personale.bustePaga;
                                                                     if (costData.personale?.sicurezza) costiPerCategoria['Personale - Sicurezza'] = (costiPerCategoria['Personale - Sicurezza'] || 0) + costData.personale.sicurezza;
+                                                                    if (costData.personale?.contributiINPS) costiPerCategoria['Personale - Contributi INPS'] = (costiPerCategoria['Personale - Contributi INPS'] || 0) + costData.personale.contributiINPS;
                                                                     if (costData.marketing?.costiMarketing) costiPerCategoria['Marketing'] = (costiPerCategoria['Marketing'] || 0) + costData.marketing.costiMarketing;
                                                                     if (costData.marketing?.commissioniOTA) costiPerCategoria['Commissioni OTA'] = (costiPerCategoria['Commissioni OTA'] || 0) + costData.marketing.commissioniOTA;
                                                                     if (costData.altriCosti) {
@@ -1352,6 +1403,14 @@ return (
                             </div>
                         </div>
 
+                        {/* Integrazione Fatture in Cloud */}
+                        <div className="mb-6">
+                            <FattureInCloudIntegration
+                                selectedMonth={selectedMonth}
+                                onImport={handleImportCosts}
+                            />
+                        </div>
+
                         {selectedMonth ? (
                             <form onSubmit={handleSaveCosts} data-section="costi">
                                 <div className="flex justify-between items-center mb-6">
@@ -1421,8 +1480,18 @@ return (
                             <div className="bg-gray-800/50 border border-gray-700 rounded-2xl p-6">
                                 <h3 className="text-xl font-semibold text-white mb-4">Personale</h3>
                                 <div className="space-y-4">
-                                     <input type="number" step="0.01" value={costs.personale?.bustePaga || ''} onChange={(e) => handleInputChange('personale', 'bustePaga', '', e.target.value)} placeholder="Costo Totale Buste Paga €" className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"/>
+                                     <div className="flex gap-2">
+                                         <input type="number" step="0.01" value={costs.personale?.bustePaga || ''} onChange={(e) => handleInputChange('personale', 'bustePaga', '', e.target.value)} placeholder="Costo Totale Buste Paga €" className="flex-1 bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"/>
+                                         <button
+                                             onClick={() => setShowPayrollDialog(true)}
+                                             className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg transition text-sm whitespace-nowrap"
+                                             title="Carica PDF buste paga"
+                                         >
+                                             📄 PDF
+                                         </button>
+                                     </div>
                                      <input type="number" step="0.01" value={costs.personale?.sicurezza || ''} onChange={(e) => handleInputChange('personale', 'sicurezza', '', e.target.value)} placeholder="Aggiornamento Sicurezza Dipendenti €" className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"/>
+                                     <input type="number" step="0.01" value={costs.personale?.contributiINPS || ''} onChange={(e) => handleInputChange('personale', 'contributiINPS', '', e.target.value)} placeholder="Contributi INPS mensili €" className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 transition"/>
                                 </div>
                             </div>
                             <div className="bg-gray-800/50 border border-gray-700 rounded-2xl p-6">
@@ -1895,6 +1964,14 @@ return (
                         )}
                     </div>
                 )}
+                {activeSection === 'competitor' && (
+                    <div>
+                        <div className="flex justify-between items-center mb-6">
+                            <h2 className="text-3xl font-bold text-white">Gestione Competitor</h2>
+                        </div>
+                        <CompetitorManager />
+                    </div>
+                )}
                 {activeSection === 'raccomandazioni' && (
                     <div>
                         <div className="flex justify-between items-center mb-6">
@@ -2207,9 +2284,9 @@ return (
                                                const personaleTotale = Array.isArray(monthlyCosts) && monthlyCosts.length > 0
                                                    ? monthlyCosts.reduce((sum, mc) => {
                                                        const pers = mc.costs.personale;
-                                                       return sum + (pers?.bustePaga || 0) + (pers?.sicurezza || 0);
+                                                       return sum + (pers?.bustePaga || 0) + (pers?.sicurezza || 0) + (pers?.contributiINPS || 0);
                                                    }, 0)
-                                                   : ((costs.personale?.bustePaga || 0) + (costs.personale?.sicurezza || 0));
+                                                   : ((costs.personale?.bustePaga || 0) + (costs.personale?.sicurezza || 0) + (costs.personale?.contributiINPS || 0));
                                                
                                                const marketingTotale = Array.isArray(monthlyCosts) && monthlyCosts.length > 0
                                                    ? monthlyCosts.reduce((sum, mc) => {
@@ -2464,7 +2541,7 @@ return (
                                                            const pers = mc.costs.personale;
                                                            return sum + (pers?.bustePaga || 0) + (pers?.sicurezza || 0);
                                                        }, 0)
-                                                       : ((costs.personale?.bustePaga || 0) + (costs.personale?.sicurezza || 0));
+                                                       : ((costs.personale?.bustePaga || 0) + (costs.personale?.sicurezza || 0) + (costs.personale?.contributiINPS || 0));
                                                    
                                                    const marketingTotale = Array.isArray(monthlyCosts) && monthlyCosts.length > 0
                                                        ? monthlyCosts.reduce((sum, mc) => {
@@ -2818,9 +2895,9 @@ return (
                                                    const personaleTotaleChart = Array.isArray(monthlyCosts) && monthlyCosts.length > 0
                                                        ? monthlyCosts.reduce((sum, mc) => {
                                                            const pers = mc.costs.personale;
-                                                           return sum + (pers?.bustePaga || 0) + (pers?.sicurezza || 0);
+                                                           return sum + (pers?.bustePaga || 0) + (pers?.sicurezza || 0) + (pers?.contributiINPS || 0);
                                                        }, 0)
-                                                       : ((costs.personale?.bustePaga || 0) + (costs.personale?.sicurezza || 0));
+                                                       : ((costs.personale?.bustePaga || 0) + (costs.personale?.sicurezza || 0) + (costs.personale?.contributiINPS || 0));
                                                    
                                                    const marketingTotaleChart = Array.isArray(monthlyCosts) && monthlyCosts.length > 0
                                                        ? monthlyCosts.reduce((sum, mc) => {
@@ -3023,6 +3100,14 @@ return (
         <ImportCostsDialog
             isOpen={showImportDialog}
             onClose={() => setShowImportDialog(false)}
+            onImport={handleImportCosts}
+            selectedMonth={selectedMonth}
+        />
+        
+        {/* Upload Payroll Dialog */}
+        <UploadPayrollDialog
+            isOpen={showPayrollDialog}
+            onClose={() => setShowPayrollDialog(false)}
             onImport={handleImportCosts}
             selectedMonth={selectedMonth}
         />

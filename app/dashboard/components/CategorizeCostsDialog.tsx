@@ -17,6 +17,7 @@ const CATEGORIE_PREDEFINITE = [
   { value: 'Utenze - Acqua', label: 'Utenze - Acqua' },
   { value: 'Personale - Buste Paga', label: 'Personale - Buste Paga' },
   { value: 'Personale - Sicurezza', label: 'Personale - Sicurezza' },
+  { value: 'Personale - Contributi INPS', label: 'Personale - Contributi INPS' },
   { value: 'Manutenzione', label: 'Manutenzione' },
   { value: 'Pulizie', label: 'Pulizie' },
   { value: 'Marketing', label: 'Marketing' },
@@ -143,7 +144,9 @@ export default function CategorizeCostsDialog({
                   {/* Importo */}
                   <div className="col-span-2 text-right">
                     <div className="text-white font-bold text-lg">
-                      €{cost.importo.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      €{cost.importo != null && !isNaN(cost.importo) 
+                        ? cost.importo.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                        : '0,00'}
                     </div>
                   </div>
                   

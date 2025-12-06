@@ -1,7 +1,7 @@
 // Servizio scraping competitor prices
 // Gestisce scraping Booking.com e caching in Firestore
 
-import { adminDb } from '../firebase-admin';
+import { getAdminDb } from '../firebase-admin';
 import { validateCompetitorData, getCompetitorDataDocId } from '../firestore-schemas';
 import { CompetitorData } from '../types';
 import { logAdmin } from '../admin-log';
@@ -26,7 +26,31 @@ export class CompetitorScraper {
   private cacheTTL = 24 * 60 * 60 * 1000; // 24 ore in millisecondi
 
   /**
+   * Recupera lista competitor configurati dall'utente
+   */
+  async getConfiguredCompetitors(hotelId: string): Promise<any[]> {
+    const adminDb = getAdminDb();
+    if (!adminDb) {
+      return [];
+    }
+
+    try {
+      const snapshot = await adminDb
+        .collection('competitor_configs')
+        .where('hotelId', '==', hotelId)
+        .where('isActive', '==', true)
+        .get();
+
+      return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    } catch (error: any) {
+      logAdmin(`[Scraper] Errore recupero competitor configurati: ${error.message}`);
+      return [];
+    }
+  }
+
+  /**
    * Scrapa prezzi competitor da Booking.com
+   * Usa i competitor configurati dall'utente se disponibili, altrimenti usa lista di default
    * Nota: In produzione, usa Puppeteer/Playwright o API ufficiale
    * Per ora, simula con dati mock per sviluppo
    */
@@ -39,19 +63,39 @@ export class CompetitorScraper {
     try {
       logAdmin(`[Scraper] Inizio scraping competitor per ${location}`, { location, checkinDate, checkoutDate });
 
-      // TODO: Implementare scraping reale con Puppeteer/Playwright
-      // Per ora, usa dati mock per sviluppo
-      const mockCompetitors: CompetitorPrice[] = [
-        { hotel_name: 'Hotel Riviera', price: 120, rating: 4.2, availability: true },
-        { hotel_name: 'Grand Hotel Cattolica', price: 150, rating: 4.5, availability: true },
-        { hotel_name: 'Hotel Adriatico', price: 100, rating: 4.0, availability: true },
-      ];
+      // Recupera competitor configurati dall'utente
+      const configuredCompetitors = await this.getConfiguredCompetitors(hotelId);
+      
+      let competitorsToScrape: CompetitorPrice[] = [];
+
+      if (configuredCompetitors.length > 0) {
+        // Usa competitor configurati dall'utente
+        logAdmin(`[Scraper] Trovati ${configuredCompetitors.length} competitor configurati`);
+        
+        // TODO: Implementare scraping reale con Puppeteer/Playwright per ogni competitor configurato
+        // Per ora, simula con dati mock basati sui competitor configurati
+        competitorsToScrape = configuredCompetitors.map((comp: any) => ({
+          hotel_name: comp.competitor_name,
+          price: Math.round((100 + Math.random() * 50) * 100) / 100, // Mock: prezzo casuale tra 100-150, arrotondato a 2 decimali
+          rating: 4.0 + Math.random() * 1.0, // Mock: rating tra 4.0-5.0
+          availability: true,
+          room_type: 'doppia', // Mock
+        }));
+      } else {
+        // Fallback: usa lista di default (solo per sviluppo)
+        logAdmin(`[Scraper] Nessun competitor configurato, uso lista default`);
+        competitorsToScrape = [
+          { hotel_name: 'Hotel Riviera', price: 120, rating: 4.2, availability: true },
+          { hotel_name: 'Grand Hotel Cattolica', price: 150, rating: 4.5, availability: true },
+          { hotel_name: 'Hotel Adriatico', price: 100, rating: 4.0, availability: true },
+        ];
+      }
 
       // Salva in cache
-      await this.saveToCache(hotelId, location, checkinDate, checkoutDate, mockCompetitors);
+      await this.saveToCache(hotelId, location, checkinDate, checkoutDate, competitorsToScrape);
 
-      logAdmin(`[Scraper] Scraping completato: ${mockCompetitors.length} competitor trovati`);
-      return mockCompetitors;
+      logAdmin(`[Scraper] Scraping completato: ${competitorsToScrape.length} competitor trovati`);
+      return competitorsToScrape;
 
     } catch (error: any) {
       logAdmin(`[Scraper] Errore durante scraping: ${error.message}`, { error: error.stack });
@@ -100,8 +144,8 @@ export class CompetitorScraper {
 
     return {
       avgPrice: Math.round(avgPrice * 100) / 100,
-      minPrice,
-      maxPrice,
+      minPrice: Math.round(minPrice * 100) / 100,
+      maxPrice: Math.round(maxPrice * 100) / 100,
       medianPrice: Math.round(medianPrice * 100) / 100,
       count: data.length,
     };
@@ -117,8 +161,9 @@ export class CompetitorScraper {
     checkoutDate: Date,
     competitors: CompetitorPrice[]
   ): Promise<void> {
+    const adminDb = getAdminDb();
     if (!adminDb) {
-      throw new Error('Firebase Admin non inizializzato');
+      throw new Error('Firebase Admin non inizializzato. Verifica la configurazione FIREBASE_SERVICE_ACCOUNT_KEY.');
     }
 
     try {
@@ -167,6 +212,7 @@ export class CompetitorScraper {
     location: string,
     checkinDate: Date
   ): Promise<CompetitorData[] | null> {
+    const adminDb = getAdminDb();
     if (!adminDb) {
       return null;
     }

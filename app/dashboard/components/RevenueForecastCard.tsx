@@ -59,8 +59,26 @@ export default function RevenueForecastCard() {
       }
 
       const data = await response.json();
+      
+      // Se c'è un errore nella risposta, gestiscilo
+      if (data.error) {
+        throw new Error(data.message || data.error);
+      }
+      
       setForecast(data.forecast || []);
-      setStats(data);
+      
+      // Verifica che stats abbia tutte le proprietà necessarie
+      if (data.confidenceInterval && data.totalRevenue30d !== undefined) {
+        setStats({
+          totalRevenue30d: data.totalRevenue30d,
+          avgOccupancy: data.avgOccupancy || 0,
+          minRevenue: data.minRevenue || 0,
+          maxRevenue: data.maxRevenue || 0,
+          confidenceInterval: data.confidenceInterval,
+        });
+      } else {
+        setStats(null);
+      }
 
     } catch (err: any) {
       console.error('Errore fetch forecast:', err);
@@ -75,8 +93,8 @@ export default function RevenueForecastCard() {
     date: new Date(f.date).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' }),
     revenue: f.predictedRevenue,
     occupancy: f.predictedOccupancy,
-    min: stats ? stats.confidenceInterval.min : f.predictedRevenue * 0.9,
-    max: stats ? stats.confidenceInterval.max : f.predictedRevenue * 1.1,
+    min: stats?.confidenceInterval?.min ?? f.predictedRevenue * 0.9,
+    max: stats?.confidenceInterval?.max ?? f.predictedRevenue * 1.1,
   }));
 
   // Calcola trend (positivo/negativo)
@@ -140,9 +158,11 @@ export default function RevenueForecastCard() {
           <p className="text-2xl font-bold text-white">
             €{stats.totalRevenue30d.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </p>
-          <p className="text-xs text-gray-500 mt-1">
-            ±€{((stats.confidenceInterval.max - stats.confidenceInterval.min) / 2).toFixed(0)}
-          </p>
+          {stats.confidenceInterval && (
+            <p className="text-xs text-gray-500 mt-1">
+              ±€{((stats.confidenceInterval.max - stats.confidenceInterval.min) / 2).toFixed(0)}
+            </p>
+          )}
         </div>
         <div className="bg-gray-900/50 rounded-lg p-4">
           <p className="text-xs text-gray-400 mb-1">Occupancy Media</p>

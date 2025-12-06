@@ -15,6 +15,7 @@ export interface CostsData {
   personale: {
     bustePaga: number;
     sicurezza: number;
+    contributiINPS?: number; // Contributi INPS mensili
   };
   marketing?: {
     costiMarketing?: number; // Costi marketing totali
@@ -35,6 +36,14 @@ export interface HotelData {
   annoInizio?: number; // anno in cui è iniziato il monitoraggio
   tipoHotel?: 'annuale' | 'stagionale'; // carattere dell'hotel (annuale o stagionale)
   giorniApertura?: number; // numero di giorni di apertura (solo per hotel stagionali)
+  // Configurazione competitor monitoring
+  competitorMonitoring?: {
+    enabled: boolean;
+    priceUnit: 'per_camera' | 'per_persona' | 'per_camera_per_notte'; // Unità di misura prezzo
+    defaultTreatment?: string; // Trattamento di default (es. "BB", "HB", "FB", "solo pernottamento")
+    autoScraping?: boolean; // Abilita scraping automatico
+    scrapingFrequency?: 'daily' | 'weekly' | 'manual'; // Frequenza scraping
+  };
 }
 
 // Dati Ricavi (mensili)
@@ -207,18 +216,37 @@ export interface AgentAction {
   user_feedback?: string; // Feedback utente se modificato/rifiutato
 }
 
+// Competitor configurato dall'utente
+export interface CompetitorConfig {
+  hotelId: string;
+  competitor_name: string;
+  location: string;
+  bookingUrl?: string; // URL Booking.com o altro OTA per scraping
+  bookingId?: string; // ID hotel su Booking.com (se disponibile)
+  isActive: boolean;
+  priority: 'high' | 'medium' | 'low'; // Priorità nel monitoraggio
+  notes?: string; // Note utente sul competitor
+  created_at: any;
+  updated_at?: any;
+}
+
 // Dati competitor scraped
 export interface CompetitorData {
   hotelId: string;
   competitor_name: string;
   location: string;
   date: string; // formato "YYYY-MM-DD"
-  price: number;
+  price: number; // Prezzo nella unità configurata (per_camera, per_persona, etc.)
+  price_unit: 'per_camera' | 'per_persona' | 'per_camera_per_notte'; // Unità di misura del prezzo
+  treatment?: string; // Trattamento (BB, HB, FB, solo pernottamento)
+  room_type?: string; // Tipo camera (singola, doppia, suite, etc.)
   rating?: number;
   availability?: boolean;
-  room_type?: string;
+  guests?: number; // Numero ospiti per cui è valido il prezzo (se per_persona)
+  nights?: number; // Numero notti (se per_camera_per_notte)
   scraped_at: any;
   cache_ttl?: any; // Timestamp scadenza cache (24h)
+  source?: 'booking' | 'expedia' | 'manual' | 'other'; // Fonte dati
 }
 
 // Eventi locali

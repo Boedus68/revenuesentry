@@ -40,3 +40,18 @@ Questo documento descrive gli indici compositi necessari per le query Firestore 
   - `/api/ml/forecast-revenue` - Previsioni revenue
   - `/api/analytics/cost-anomalies` - Analisi anomalie costi
 - Se l'indice non è ancora stato creato, le query restituiranno un errore con il link diretto per crearlo
+
+---
+
+## Indice Richiesto: `competitor_configs` (OPZIONALE)
+
+### Query che richiede l'indice:
+- **Collection**: `competitor_configs`
+- **Filtri**: 
+  - `hotelId` (==)
+- **Ordinamento**: `competitor_name` (asc)
+
+### Nota:
+⚠️ **Questo indice NON è più necessario** - La query è stata modificata per ordinare in memoria invece che su Firestore, evitando la necessità di un indice composito.
+
+Se vedi ancora errori relativi a questo indice, segui il link nell'errore per crearlo automaticamente, oppure ignora l'errore se la query funziona comunque (ordinamento in memoria).

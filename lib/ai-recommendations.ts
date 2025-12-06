@@ -661,7 +661,8 @@ export function generateRecommendations(
   if (costs.personale) {
     const bustePaga = costs.personale.bustePaga || 0;
     const sicurezza = costs.personale.sicurezza || 0;
-    const personaleTotale = bustePaga + sicurezza;
+    const contributiINPS = costs.personale.contributiINPS || 0;
+    const personaleTotale = bustePaga + sicurezza + contributiINPS;
     const ricaviTotali = kpi.totaleRicavi;
     
     // Benchmark: personale dovrebbe essere 35-45% dei ricavi per hotel standard

@@ -937,6 +937,7 @@ export function mapImportedCostsToCostsData(costs: ImportedCost[], mese: string)
     personale: {
       bustePaga: 0,
       sicurezza: 0,
+      contributiINPS: 0,
     },
     altriCosti: {},
   };
@@ -1104,8 +1105,8 @@ export function mapImportedCostsToCostsData(costs: ImportedCost[], mese: string)
   
   // Rimuovi personale con valori zero
   if (costsData.personale) {
-    if (costsData.personale.bustePaga === 0 && costsData.personale.sicurezza === 0) {
-      costsData.personale = { bustePaga: 0, sicurezza: 0 };
+    if (costsData.personale.bustePaga === 0 && costsData.personale.sicurezza === 0 && (costsData.personale.contributiINPS || 0) === 0) {
+      costsData.personale = { bustePaga: 0, sicurezza: 0, contributiINPS: 0 };
     }
   }
   

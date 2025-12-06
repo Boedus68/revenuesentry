@@ -43,6 +43,9 @@ export async function GET(request: NextRequest) {
         forecast: [],
         totalRevenue30d: 0,
         avgOccupancy: 0,
+        minRevenue: 0,
+        maxRevenue: 0,
+        confidenceInterval: { min: 0, max: 0 },
         message: 'Nessun dato storico disponibile. Aggiungi dati revenue per generare previsioni.',
       }, { status: 200 });
     }
