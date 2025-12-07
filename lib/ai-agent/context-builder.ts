@@ -61,7 +61,7 @@ export class ContextBuilder {
     }
     
     // Identifica anomalie
-    let anomalies;
+    let anomalies: Anomaly[];
     try {
       anomalies = this.identifyAnomalies(costsData, revenueData, historicalData, kpis);
     } catch (err: any) {
