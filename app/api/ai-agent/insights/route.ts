@@ -220,7 +220,7 @@ export async function GET(request: NextRequest) {
           return {
             ...insight,
             naturalLanguage: insight.title || 'Insight generato',
-            formattedMessage: insight.summary || '',
+            formattedMessage: insight.description || '',
             briefNotification: insight.title || ''
           };
         }
@@ -231,7 +231,7 @@ export async function GET(request: NextRequest) {
       insightsWithMessages = insights.map(insight => ({
         ...insight,
         naturalLanguage: insight.title || 'Insight generato',
-        formattedMessage: insight.summary || '',
+        formattedMessage: insight.description || '',
         briefNotification: insight.title || ''
       }));
     }
@@ -290,14 +290,14 @@ export async function GET(request: NextRequest) {
           id: insight.id,
           category: insight.category,
           title: insight.title || '',
-          summary: insight.summary || '',
+          description: insight.description || '',
           priority: insight.priority,
           createdAt: new Date().toISOString(),
           reasoning: { observation: '', analysis: '', causes: [], consequences: [], logic: '' },
           recommendations: [],
           impact: { revenueImpact: 0, costImpact: 0, occupancyImpact: 0, confidence: 0.5 },
           naturalLanguage: insight.title || '',
-          formattedMessage: insight.summary || '',
+          formattedMessage: insight.description || '',
           briefNotification: insight.title || ''
         };
       }
