@@ -43,21 +43,40 @@ export async function GET(request: NextRequest) {
     logAdmin(`[AI Agent] User data loaded`, { 
       hasHotelData: !!hotelData.hotelName,
       revenuesCount: revenueData.length,
-      hasCosts: !!userData?.costs
+      hasCosts: !!userData?.costs,
+      hasMonthlyCosts: !!userData?.monthlyCosts
     });
     
-    // Fetch costs data (potrebbe essere strutturato diversamente)
-    if (userData?.costs) {
-      try {
-        // Se costs è un array di MonthlyCostsData, estrai solo i costs
+    // Fetch costs data - controlla prima monthlyCosts (formato nuovo), poi costs (formato vecchio)
+    try {
+      if (userData?.monthlyCosts && Array.isArray(userData.monthlyCosts)) {
+        // Formato nuovo: MonthlyCostsData[]
+        userData.monthlyCosts.forEach((mc: any) => {
+          if (mc && mc.costs) {
+            costsData.push(mc.costs as CostsData);
+          } else if (mc && typeof mc === 'object' && !mc.mese) {
+            // Se non ha campo mese, potrebbe essere già CostsData
+            costsData.push(mc as CostsData);
+          }
+        });
+      } else if (userData?.costs) {
+        // Formato vecchio: potrebbe essere array o oggetto
         if (Array.isArray(userData.costs)) {
           // Verifica se è array di MonthlyCostsData o CostsData
           if (userData.costs.length > 0 && 'costs' in userData.costs[0]) {
             // È MonthlyCostsData[]
-            costsData.push(...userData.costs.map((mc: any) => mc.costs || mc));
+            userData.costs.forEach((mc: any) => {
+              if (mc.costs) {
+                costsData.push(mc.costs as CostsData);
+              }
+            });
           } else {
             // È CostsData[]
-            costsData.push(...userData.costs);
+            userData.costs.forEach((cost: any) => {
+              if (cost && typeof cost === 'object') {
+                costsData.push(cost as CostsData);
+              }
+            });
           }
         } else if (typeof userData.costs === 'object') {
           // Se costs è un oggetto per mese, convertilo in array
@@ -65,13 +84,17 @@ export async function GET(request: NextRequest) {
             const monthCosts = userData.costs[month];
             if (monthCosts && typeof monthCosts === 'object') {
               // Se ha campo 'costs', estrailo
-              costsData.push(('costs' in monthCosts ? monthCosts.costs : monthCosts) as CostsData);
+              if ('costs' in monthCosts) {
+                costsData.push(monthCosts.costs as CostsData);
+              } else {
+                costsData.push(monthCosts as CostsData);
+              }
             }
           });
         }
-      } catch (err: any) {
-        logAdmin(`[AI Agent] Errore parsing costs: ${err.message}`);
       }
+    } catch (err: any) {
+      logAdmin(`[AI Agent] Errore parsing costs: ${err.message}`, { error: err.stack });
     }
     
     logAdmin(`[AI Agent] Costs data parsed`, { costsCount: costsData.length });
@@ -180,13 +203,38 @@ export async function GET(request: NextRequest) {
     }
     
     // Genera messaggi in linguaggio naturale
-    const nlg = new NaturalLanguageGenerator();
-    const insightsWithMessages = insights.map(insight => ({
-      ...insight,
-      naturalLanguage: nlg.generateMessage(insight),
-      formattedMessage: nlg.generateFormattedMessage(insight),
-      briefNotification: nlg.generateBriefNotification(insight)
-    }));
+    let insightsWithMessages;
+    try {
+      const nlg = new NaturalLanguageGenerator();
+      insightsWithMessages = insights.map(insight => {
+        try {
+          return {
+            ...insight,
+            naturalLanguage: nlg.generateMessage(insight),
+            formattedMessage: nlg.generateFormattedMessage(insight),
+            briefNotification: nlg.generateBriefNotification(insight)
+          };
+        } catch (nlgErr: any) {
+          logAdmin(`[AI Agent] Errore NLG per insight: ${nlgErr.message}`);
+          // Fallback: usa solo i dati base dell'insight
+          return {
+            ...insight,
+            naturalLanguage: insight.title || 'Insight generato',
+            formattedMessage: insight.summary || '',
+            briefNotification: insight.title || ''
+          };
+        }
+      });
+    } catch (err: any) {
+      logAdmin(`[AI Agent] Errore generazione messaggi NLG: ${err.message}`, { error: err.stack });
+      // Fallback: usa solo i dati base degli insights
+      insightsWithMessages = insights.map(insight => ({
+        ...insight,
+        naturalLanguage: insight.title || 'Insight generato',
+        formattedMessage: insight.summary || '',
+        briefNotification: insight.title || ''
+      }));
+    }
     
     // Salva insights in Firestore (opzionale, per tracking)
     try {
@@ -209,22 +257,51 @@ export async function GET(request: NextRequest) {
     }
     
     // Serializza insights rimuovendo eventuali campi non serializzabili
-    const serializedInsights = insightsWithMessages.map(insight => ({
-      ...insight,
-      createdAt: insight.createdAt instanceof Date ? insight.createdAt.toISOString() : insight.createdAt,
-      reasoning: {
-        ...insight.reasoning,
-        // Assicurati che tutti i campi siano serializzabili
-      },
-      recommendations: insight.recommendations.map(rec => ({
-        ...rec,
-        // Assicurati che tutti i campi siano serializzabili
-      })),
-      impact: {
-        ...insight.impact,
-        // Assicurati che tutti i campi siano numeri
+    const serializedInsights = insightsWithMessages.map(insight => {
+      try {
+        return {
+          ...insight,
+          createdAt: insight.createdAt instanceof Date ? insight.createdAt.toISOString() : (insight.createdAt || new Date().toISOString()),
+          reasoning: {
+            observation: insight.reasoning?.observation || '',
+            analysis: insight.reasoning?.analysis || '',
+            causes: insight.reasoning?.causes || [],
+            consequences: insight.reasoning?.consequences || [],
+            logic: insight.reasoning?.logic || ''
+          },
+          recommendations: (insight.recommendations || []).map(rec => ({
+            action: rec.action || '',
+            reasoning: rec.reasoning || '',
+            estimatedImpact: typeof rec.estimatedImpact === 'number' ? rec.estimatedImpact : 0,
+            urgency: rec.urgency || 'medium',
+            timeframe: rec.timeframe || 'short-term'
+          })),
+          impact: {
+            revenueImpact: typeof insight.impact?.revenueImpact === 'number' ? insight.impact.revenueImpact : 0,
+            costImpact: typeof insight.impact?.costImpact === 'number' ? insight.impact.costImpact : 0,
+            occupancyImpact: typeof insight.impact?.occupancyImpact === 'number' ? insight.impact.occupancyImpact : 0,
+            confidence: typeof insight.impact?.confidence === 'number' ? insight.impact.confidence : 0.5
+          }
+        };
+      } catch (serErr: any) {
+        logAdmin(`[AI Agent] Errore serializzazione insight: ${serErr.message}`);
+        // Fallback: ritorna solo i campi essenziali
+        return {
+          id: insight.id,
+          category: insight.category,
+          title: insight.title || '',
+          summary: insight.summary || '',
+          priority: insight.priority,
+          createdAt: new Date().toISOString(),
+          reasoning: { observation: '', analysis: '', causes: [], consequences: [], logic: '' },
+          recommendations: [],
+          impact: { revenueImpact: 0, costImpact: 0, occupancyImpact: 0, confidence: 0.5 },
+          naturalLanguage: insight.title || '',
+          formattedMessage: insight.summary || '',
+          briefNotification: insight.title || ''
+        };
       }
-    }));
+    });
     
     return NextResponse.json({
       success: true,

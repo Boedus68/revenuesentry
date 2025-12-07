@@ -40,11 +40,28 @@ export async function GET(request: NextRequest) {
 
     const competitors: (CompetitorConfig & { id: string })[] = [];
     snapshot.docs.forEach(doc => {
-      competitors.push({ ...doc.data(), id: doc.id } as CompetitorConfig & { id: string });
+      try {
+        const data = doc.data();
+        // Valida i dati prima di aggiungerli
+        if (data && data.hotelId && data.competitor_name && data.location) {
+          competitors.push({ 
+            ...data, 
+            id: doc.id,
+            isActive: data.isActive ?? true,
+            priority: data.priority ?? 'medium',
+            created_at: data.created_at || new Date(),
+            updated_at: data.updated_at || new Date()
+          } as CompetitorConfig & { id: string });
+        } else {
+          logAdmin(`[API] Competitor con dati incompleti saltato`, { docId: doc.id, data });
+        }
+      } catch (err: any) {
+        logAdmin(`[API] Errore parsing competitor doc: ${err.message}`, { docId: doc.id });
+      }
     });
 
     // Ordina in memoria per nome
-    competitors.sort((a, b) => a.competitor_name.localeCompare(b.competitor_name));
+    competitors.sort((a, b) => (a.competitor_name || '').localeCompare(b.competitor_name || ''));
 
     return NextResponse.json({ competitors }, { status: 200 });
 

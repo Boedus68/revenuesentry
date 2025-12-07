@@ -131,36 +131,75 @@ export class SentryReasoningEngine {
    * METODO PRINCIPALE: Genera insights completi
    */
   public async generateInsights(): Promise<Insight[]> {
+    // Verifica che ci siano dati minimi per generare insights
+    if (!this.context || !this.context.hotelData || !this.context.hotelData.hotelName) {
+      return [];
+    }
+    
+    // Se non ci sono né revenue né cost data, ritorna array vuoto
+    if ((!this.context.revenueData || this.context.revenueData.length === 0) && 
+        (!this.context.costsData || this.context.costsData.length === 0)) {
+      return [];
+    }
     const insights: Insight[] = [];
     
     // 1. ANALISI TREND - Identifica direzioni chiave
-    const trendInsights = this.analyzeTrends();
-    insights.push(...trendInsights);
+    try {
+      const trendInsights = this.analyzeTrends();
+      insights.push(...trendInsights);
+    } catch (err: any) {
+      console.error('[ReasoningEngine] Errore analisi trend:', err.message);
+    }
     
     // 2. ANALISI ANOMALIE - Identifica deviazioni significative
-    const anomalyInsights = this.analyzeAnomalies();
-    insights.push(...anomalyInsights);
+    try {
+      const anomalyInsights = this.analyzeAnomalies();
+      insights.push(...anomalyInsights);
+    } catch (err: any) {
+      console.error('[ReasoningEngine] Errore analisi anomalie:', err.message);
+    }
     
     // 3. ANALISI BENCHMARK - Confronta con standard settore
-    const benchmarkInsights = this.analyzeBenchmarks();
-    insights.push(...benchmarkInsights);
+    try {
+      const benchmarkInsights = this.analyzeBenchmarks();
+      insights.push(...benchmarkInsights);
+    } catch (err: any) {
+      console.error('[ReasoningEngine] Errore analisi benchmark:', err.message);
+    }
     
     // 4. ANALISI STAGIONALITÀ - Identifica pattern temporali
-    const seasonalInsights = this.analyzeSeasonality();
-    insights.push(...seasonalInsights);
+    try {
+      const seasonalInsights = this.analyzeSeasonality();
+      insights.push(...seasonalInsights);
+    } catch (err: any) {
+      console.error('[ReasoningEngine] Errore analisi stagionalità:', err.message);
+    }
     
     // 5. ANALISI OPPORTUNITÀ - Identifica growth opportunities
-    const opportunityInsights = this.identifyOpportunities();
-    insights.push(...opportunityInsights);
+    try {
+      const opportunityInsights = this.identifyOpportunities();
+      insights.push(...opportunityInsights);
+    } catch (err: any) {
+      console.error('[ReasoningEngine] Errore analisi opportunità:', err.message);
+    }
     
     // 6. ANALISI RISCHI - Identifica minacce potenziali
-    const riskInsights = this.identifyRisks();
-    insights.push(...riskInsights);
+    try {
+      const riskInsights = this.identifyRisks();
+      insights.push(...riskInsights);
+    } catch (err: any) {
+      console.error('[ReasoningEngine] Errore analisi rischi:', err.message);
+    }
     
     // 7. PRIORITIZZAZIONE - Ordina per impatto e urgenza
-    const prioritizedInsights = this.prioritizeInsights(insights);
-    
-    return prioritizedInsights;
+    try {
+      const prioritizedInsights = this.prioritizeInsights(insights);
+      return prioritizedInsights;
+    } catch (err: any) {
+      console.error('[ReasoningEngine] Errore prioritizzazione:', err.message);
+      // Ritorna insights non prioritizzati se la prioritizzazione fallisce
+      return insights;
+    }
   }
   
   /**
