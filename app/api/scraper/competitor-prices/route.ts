@@ -292,7 +292,7 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error: any) {
-    logAdmin('[Competitor Prices GET] ERRORE:', error.message, { error: error.stack });
+    logAdmin('[Competitor Prices GET] ERRORE', { message: error.message, stack: error.stack });
     
     return NextResponse.json(
       {
@@ -435,7 +435,7 @@ export async function POST(request: NextRequest) {
     }
 
   } catch (error: any) {
-    logAdmin('[Competitor Prices POST] ERRORE:', error.message, { error: error.stack });
+    logAdmin('[Competitor Prices POST] ERRORE', { message: error.message, stack: error.stack });
     
     return NextResponse.json(
       {
