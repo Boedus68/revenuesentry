@@ -7,35 +7,57 @@ import { getFirestore } from 'firebase-admin/firestore';
 // Inizializza Firebase Admin solo se non è già inizializzato
 let adminDb: ReturnType<typeof getFirestore> | null = null;
 
+// ============================================================================
+// CARICAMENTO SERVICE ACCOUNT KEY (supporta JSON e Base64)
+// ============================================================================
+
+let serviceAccountKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+let keySource = 'none';
+
+// Se non trovata in formato JSON, prova Base64
+if (!serviceAccountKey && process.env.FIREBASE_SERVICE_ACCOUNT_KEY_BASE64) {
+  try {
+    const base64 = process.env.FIREBASE_SERVICE_ACCOUNT_KEY_BASE64;
+    serviceAccountKey = Buffer.from(base64, 'base64').toString('utf-8');
+    keySource = 'base64';
+    console.log('[Firebase Admin] ✅ Service Account Key caricata da Base64');
+  } catch (error: any) {
+    console.error('[Firebase Admin] ❌ Errore decodifica Base64:', error.message);
+  }
+} else if (serviceAccountKey) {
+  keySource = 'json';
+}
+
 // Log quando il modulo viene caricato
 console.log('[Firebase Admin] ========================================');
 console.log('[Firebase Admin] Modulo caricato. Verifica configurazione...');
 console.log('[Firebase Admin] FIREBASE_SERVICE_ACCOUNT_KEY presente:', !!process.env.FIREBASE_SERVICE_ACCOUNT_KEY);
+console.log('[Firebase Admin] FIREBASE_SERVICE_ACCOUNT_KEY_BASE64 presente:', !!process.env.FIREBASE_SERVICE_ACCOUNT_KEY_BASE64);
+console.log('[Firebase Admin] Formato chiave rilevato:', keySource);
 console.log('[Firebase Admin] NODE_ENV:', process.env.NODE_ENV);
-if (process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
-  const keyLength = process.env.FIREBASE_SERVICE_ACCOUNT_KEY.length;
+
+if (serviceAccountKey) {
+  const keyLength = serviceAccountKey.length;
   console.log('[Firebase Admin] ✅ Lunghezza chiave:', keyLength, 'caratteri');
   // Mostra solo i primi e ultimi caratteri per sicurezza
   if (keyLength > 40) {
-    const preview = process.env.FIREBASE_SERVICE_ACCOUNT_KEY.substring(0, 20) + '...' + process.env.FIREBASE_SERVICE_ACCOUNT_KEY.substring(keyLength - 20);
+    const preview = serviceAccountKey.substring(0, 20) + '...' + serviceAccountKey.substring(keyLength - 20);
     console.log('[Firebase Admin] Preview chiave:', preview);
   }
   // Verifica se inizia con { (JSON valido)
-  const startsWithBrace = process.env.FIREBASE_SERVICE_ACCOUNT_KEY.trim().startsWith('{');
+  const startsWithBrace = serviceAccountKey.trim().startsWith('{');
   console.log('[Firebase Admin] Inizia con { (JSON valido):', startsWithBrace);
 } else {
-  console.log('[Firebase Admin] ❌ FIREBASE_SERVICE_ACCOUNT_KEY NON TROVATA');
+  console.log('[Firebase Admin] ❌ NESSUNA CHIAVE TROVATA');
   console.log('[Firebase Admin] Verifica che:');
-  console.log('[Firebase Admin] 1. Il file .env.local esista nella root del progetto');
-  console.log('[Firebase Admin] 2. Contenga la riga: FIREBASE_SERVICE_ACCOUNT_KEY=...');
-  console.log('[Firebase Admin] 3. Il server sia stato riavviato dopo aver aggiunto la variabile');
+  console.log('[Firebase Admin] 1. FIREBASE_SERVICE_ACCOUNT_KEY (JSON) oppure');
+  console.log('[Firebase Admin] 2. FIREBASE_SERVICE_ACCOUNT_KEY_BASE64 sia configurata su Vercel');
+  console.log('[Firebase Admin] 3. Il deployment sia stato fatto dopo aver aggiunto la variabile');
 }
 console.log('[Firebase Admin] ========================================');
 
 try {
   if (getApps().length === 0) {
-    const serviceAccountKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
-    
     // Alternativa: prova a leggere da file JSON diretto (per sviluppo locale)
     let serviceAccount: any = null;
     
@@ -43,11 +65,13 @@ try {
       try {
         // Prova a parsare come JSON
         serviceAccount = JSON.parse(serviceAccountKey);
-        console.log('[Firebase Admin] JSON parsato correttamente da variabile d\'ambiente');
-        console.log('[Firebase Admin] Inizializzazione con Service Account Key');
+        console.log('[Firebase Admin] ✅ JSON parsato correttamente');
+        console.log('[Firebase Admin] Project ID:', serviceAccount.project_id);
+        console.log('[Firebase Admin] Client Email:', serviceAccount.client_email);
       } catch (parseError: any) {
         console.error('[Firebase Admin] ❌ Errore parsing Service Account Key:', parseError.message);
-        console.warn('[Firebase Admin] Verifica che FIREBASE_SERVICE_ACCOUNT_KEY sia un JSON valido');
+        console.warn('[Firebase Admin] Verifica che la chiave sia un JSON valido');
+        console.warn('[Firebase Admin] Se usi Base64, verifica che la decodifica sia corretta');
       }
     }
     
@@ -115,8 +139,10 @@ try {
           projectId: 'revenuesentry',
         });
         console.log('[Firebase Admin] ✅ Inizializzato correttamente con Service Account');
+        console.log('[Firebase Admin] Fonte:', keySource === 'base64' ? 'FIREBASE_SERVICE_ACCOUNT_KEY_BASE64' : keySource === 'json' ? 'FIREBASE_SERVICE_ACCOUNT_KEY' : 'file locale');
       } catch (initError: any) {
         console.error('[Firebase Admin] ❌ Errore inizializzazione app:', initError.message);
+        console.error('[Firebase Admin] Stack:', initError.stack);
       }
     } else {
       // Fallback: usa Application Default Credentials se disponibili
@@ -130,7 +156,9 @@ try {
       } catch (error: any) {
         console.warn('[Firebase Admin] ❌ Inizializzazione fallita:', error.message);
         console.warn('[Firebase Admin] Le API admin useranno il fallback client SDK.');
-        console.warn('[Firebase Admin] Per funzionamento completo, configura FIREBASE_SERVICE_ACCOUNT_KEY nel file .env.local');
+        console.warn('[Firebase Admin] Per funzionamento completo, configura una delle seguenti variabili:');
+        console.warn('[Firebase Admin] - FIREBASE_SERVICE_ACCOUNT_KEY (JSON)');
+        console.warn('[Firebase Admin] - FIREBASE_SERVICE_ACCOUNT_KEY_BASE64 (Base64)');
       }
     }
   } else {
@@ -207,4 +235,3 @@ export function getAdminDb() {
 }
 
 export { adminDb };
-
