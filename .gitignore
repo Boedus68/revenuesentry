@@ -44,3 +44,5 @@ service-account-key.json
 next-env.d.ts
 
 .vercel
+*.json 
+firebase_key_*.txt 
