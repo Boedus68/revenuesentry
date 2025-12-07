@@ -15,6 +15,10 @@ interface CompetitorPrice {
   price: number;
   date: string;
   scrapedAt: string;
+  treatment?: string; // Trattamento (BB, HB, FB, solo pernottamento)
+  price_unit?: 'per_camera' | 'per_persona' | 'per_camera_per_notte';
+  guests?: number; // Numero ospiti per cui è valido il prezzo
+  nights?: number; // Numero notti
 }
 
 interface CompetitorAlert {
@@ -33,6 +37,10 @@ interface CompetitorDataDoc {
   competitorName?: string;
   price: number;
   date: string;
+  treatment?: string;
+  price_unit?: 'per_camera' | 'per_persona' | 'per_camera_per_notte';
+  guests?: number;
+  nights?: number;
   isMock?: boolean;
   scraped_at?: any;
   createdAt?: any;
@@ -220,7 +228,11 @@ export async function GET(request: NextRequest) {
             competitorName: competitorName,
             price: safeNumber(priceData.price, 0),
             date: priceData.date || checkinDateStr,
-            scrapedAt: priceData.createdAt?.toDate?.()?.toISOString() || new Date().toISOString()
+            scrapedAt: priceData.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
+            treatment: priceData.treatment || undefined,
+            price_unit: priceData.price_unit || 'per_camera',
+            guests: priceData.guests || undefined,
+            nights: priceData.nights || undefined
           });
 
           // Check per alert: confronta con prezzo precedente (più recente prima di questa data)
@@ -277,21 +289,35 @@ export async function GET(request: NextRequest) {
         const nameVariation = (nameHash % 30); // Variazione 0-29 basata sul nome
         const mockPrice = Math.round((basePrice + dateVariation + nameVariation) * 100) / 100; // €90-179 variabile per data e competitor
 
+        // Calcola numero di notti dalla differenza tra check-in e check-out
+        const nights = Math.ceil((checkoutDate.getTime() - checkinDate.getTime()) / (1000 * 60 * 60 * 24));
+        
         prices.push({
           competitorId: competitor.id,
           competitorName: competitorName,
           price: mockPrice,
           date: checkinDateStr,
-          scrapedAt: new Date().toISOString()
+          scrapedAt: new Date().toISOString(),
+          treatment: 'BB', // Default per mock data
+          price_unit: 'per_camera_per_notte',
+          guests: 2, // Default 2 ospiti per camera doppia
+          nights: nights
         });
 
         // Salva mock price in DB per questa data specifica
         try {
+          // Calcola numero di notti dalla differenza tra check-in e check-out
+          const nights = Math.ceil((checkoutDate.getTime() - checkinDate.getTime()) / (1000 * 60 * 60 * 24));
+          
           await adminDb.collection('competitor_data').add({
             hotelId: userId,
             competitor_name: competitorName,
             price: mockPrice,
             date: checkinDateStr,
+            treatment: 'BB',
+            price_unit: 'per_camera_per_notte',
+            guests: 2,
+            nights: nights,
             isMock: true,
             createdAt: FieldValue.serverTimestamp()
           });

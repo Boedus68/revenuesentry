@@ -12,6 +12,10 @@ interface CompetitorPrice {
   price: number;
   date: string;
   scrapedAt: string;
+  treatment?: string; // Trattamento (BB, HB, FB, solo pernottamento)
+  price_unit?: 'per_camera' | 'per_persona' | 'per_camera_per_notte';
+  guests?: number; // Numero ospiti per cui è valido il prezzo
+  nights?: number; // Numero notti
 }
 
 interface CompetitorAlert {
@@ -79,6 +83,44 @@ export default function CompetitorAlerts() {
 
     return () => clearInterval(interval);
   }, [user, checkinDate, checkoutDate]);
+
+  // Funzione helper per calcolare il prezzo a persona
+  const calculatePricePerPerson = (competitor: CompetitorPrice): number => {
+    const nights = competitor.nights || Math.ceil((checkoutDate.getTime() - checkinDate.getTime()) / (1000 * 60 * 60 * 24));
+    const guests = competitor.guests || 2; // Default 2 ospiti
+    
+    if (competitor.price_unit === 'per_persona') {
+      // Prezzo per persona per notte → moltiplica per le notti per ottenere il totale a persona
+      return competitor.price * nights;
+    } else if (competitor.price_unit === 'per_camera_per_notte') {
+      // Prezzo per camera per notte → moltiplica per notti e dividi per ospiti
+      return (competitor.price * nights) / guests;
+    } else {
+      // per_camera (totale per camera per tutto il soggiorno) → dividi per ospiti
+      return competitor.price / guests;
+    }
+  };
+
+  // Funzione helper per calcolare il prezzo netto (al netto della commissione del 15% di Booking)
+  const calculateNetPricePerPerson = (competitor: CompetitorPrice): number => {
+    const pricePerPerson = calculatePricePerPerson(competitor);
+    // Prezzo netto = prezzo - 15% commissione Booking
+    return pricePerPerson * 0.85;
+  };
+
+  // Funzione helper per formattare il trattamento
+  const formatTreatment = (treatment?: string): string => {
+    if (!treatment) return 'N/A';
+    const treatmentMap: Record<string, string> = {
+      'BB': 'B&B',
+      'HB': 'Mezza Pensione',
+      'FB': 'Pensione Completa',
+      'solo pernottamento': 'Solo Pernottamento',
+      'RO': 'Solo Pernottamento',
+      'SC': 'Solo Pernottamento'
+    };
+    return treatmentMap[treatment.toUpperCase()] || treatment;
+  };
 
   const fetchHotelPrice = async () => {
     if (!user) return;
@@ -313,24 +355,69 @@ export default function CompetitorAlerts() {
               <thead>
                 <tr className="border-b border-gray-700">
                   <th className="text-left py-2 px-3 text-gray-300 font-semibold">Competitor</th>
-                  <th className="text-right py-2 px-3 text-gray-300 font-semibold">Prezzo</th>
+                  <th className="text-center py-2 px-3 text-gray-300 font-semibold">Trattamento</th>
+                  <th className="text-right py-2 px-3 text-gray-300 font-semibold">Prezzo Totale</th>
+                  <th className="text-right py-2 px-3 text-gray-300 font-semibold">Prezzo a Persona</th>
+                  <th className="text-right py-2 px-3 text-gray-300 font-semibold">Prezzo Netto*</th>
                   <th className="text-right py-2 px-3 text-gray-300 font-semibold">Data</th>
                 </tr>
               </thead>
               <tbody>
-                {competitors.map((competitor, idx) => (
-                  <tr key={idx} className="border-b border-gray-700/50 hover:bg-gray-700/30">
-                    <td className="py-2 px-3 text-white">{competitor.competitorName}</td>
-                    <td className="py-2 px-3 text-right">
-                      <span className="text-white font-semibold">€{competitor.price.toFixed(2)}</span>
-                    </td>
-                    <td className="py-2 px-3 text-right text-gray-300 text-xs">
-                      {new Date(competitor.date).toLocaleDateString('it-IT')}
-                    </td>
-                  </tr>
-                ))}
+                {competitors.map((competitor, idx) => {
+                  const pricePerPerson = calculatePricePerPerson(competitor);
+                  const netPricePerPerson = calculateNetPricePerPerson(competitor);
+                  const nights = competitor.nights || Math.ceil((checkoutDate.getTime() - checkinDate.getTime()) / (1000 * 60 * 60 * 24));
+                  const guests = competitor.guests || 2;
+                  
+                  // Calcola prezzo totale in base all'unità
+                  let totalPrice = competitor.price;
+                  if (competitor.price_unit === 'per_camera_per_notte') {
+                    // Prezzo per camera per notte → moltiplica per le notti
+                    totalPrice = competitor.price * nights;
+                  } else if (competitor.price_unit === 'per_persona') {
+                    // Prezzo per persona per notte → moltiplica per ospiti e notti
+                    totalPrice = competitor.price * guests * nights;
+                  }
+                  // Se è 'per_camera', totalPrice è già corretto (è il totale per camera per tutto il soggiorno)
+                  
+                  return (
+                    <tr key={idx} className="border-b border-gray-700/50 hover:bg-gray-700/30">
+                      <td className="py-2 px-3 text-white font-medium">{competitor.competitorName}</td>
+                      <td className="py-2 px-3 text-center">
+                        <span className="text-gray-300 text-xs bg-gray-700/50 px-2 py-1 rounded">
+                          {formatTreatment(competitor.treatment)}
+                        </span>
+                      </td>
+                      <td className="py-2 px-3 text-right">
+                        <span className="text-white font-semibold">€{totalPrice.toFixed(2)}</span>
+                        {competitor.price_unit === 'per_camera_per_notte' && (
+                          <span className="text-gray-400 text-xs block">({nights} notte/i)</span>
+                        )}
+                      </td>
+                      <td className="py-2 px-3 text-right">
+                        <span className="text-white font-semibold">€{pricePerPerson.toFixed(2)}</span>
+                        <span className="text-gray-400 text-xs block">a persona</span>
+                      </td>
+                      <td className="py-2 px-3 text-right">
+                        <span className="text-green-400 font-semibold">€{netPricePerPerson.toFixed(2)}</span>
+                        <span className="text-gray-400 text-xs block">a persona</span>
+                      </td>
+                      <td className="py-2 px-3 text-right text-gray-300 text-xs">
+                        {new Date(competitor.date).toLocaleDateString('it-IT')}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
+          </div>
+          
+          {/* Disclaimer */}
+          <div className="mt-4 bg-yellow-900/20 border border-yellow-500/50 rounded-lg p-3">
+            <p className="text-xs text-yellow-300">
+              <strong>⚠️ Disclaimer:</strong> I prezzi mostrati provengono da Booking.com e potrebbero variare rispetto al pricing diretto offerto dagli hotel. 
+              Il prezzo netto* è calcolato al netto della commissione del 15% applicata da Booking.com.
+            </p>
           </div>
 
           {/* Statistics Summary */}
