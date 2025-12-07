@@ -614,19 +614,20 @@ export class SentryReasoningEngine {
     const { kpis, trends } = this.context;
     
     // Rischio: Cash flow negativo
-    if (kpis.goppar < 0 || (trends.profitability.direction === 'down' && kpis.goppar < 20)) {
+    const goppar = kpis.goppar || 0;
+    if (goppar < 0 || (trends.profitability.direction === 'down' && goppar < 20)) {
       insights.push({
         id: `risk-cashflow-${Date.now()}`,
         category: 'risk',
         priority: 10,
         title: 'Rischio Cash Flow Negativo',
-        description: `GOPPAR attuale (€${kpis.goppar.toFixed(0)}) è ${kpis.goppar < 0 ? 'negativo' : 'criticamente basso'}. Questo può portare a problemi di liquidità.`,
+        description: `GOPPAR attuale (€${goppar.toFixed(0)}) è ${goppar < 0 ? 'negativo' : 'criticamente basso'}. Questo può portare a problemi di liquidità.`,
         reasoning: {
-          observation: `GOPPAR: €${kpis.goppar.toFixed(0)}`,
+          observation: `GOPPAR: €${goppar.toFixed(0)}`,
           analysis: 'GOPPAR negativo o molto basso indica che i ricavi non coprono i costi operativi',
           causes: ['Costi troppo alti', 'Revenue troppo basso', 'Occupazione insufficiente'],
           consequences: ['Problemi di liquidità', 'Impossibilità di investimenti', 'Rischio chiusura'],
-          logic: `Con GOPPAR di €${kpis.goppar.toFixed(0)}, stai generando ${kpis.goppar < 0 ? 'perdite' : 'profitti minimi'}. Questo è insostenibile nel lungo termine. Serve un intervento immediato su revenue o costi.`
+          logic: `Con GOPPAR di €${goppar.toFixed(0)}, stai generando ${goppar < 0 ? 'perdite' : 'profitti minimi'}. Questo è insostenibile nel lungo termine. Serve un intervento immediato su revenue o costi.`
         },
         recommendations: [
           {
@@ -927,8 +928,9 @@ export class SentryReasoningEngine {
         break;
         
       case 'profitability_decline':
+        const gopparForNarrative = kpis.goppar || 0;
         narrative = `La profittabilità è in calo del ${Math.abs(trends.profitability.changePercent).toFixed(1)}%. ` +
-                   `Con GOPPAR attuale di €${kpis.goppar.toFixed(0)}, stai ${kpis.goppar < 0 ? 'generando perdite' : 'generando profitti minimi'}. ` +
+                   `Con GOPPAR attuale di €${gopparForNarrative.toFixed(0)}, stai ${gopparForNarrative < 0 ? 'generando perdite' : 'generando profitti minimi'}. ` +
                    `Questo è un segnale critico che richiede intervento immediato. `;
         
         if (trends.revenue.direction === 'down' && trends.costs.direction === 'up') {
