@@ -79,16 +79,16 @@ async function getUserId(request: NextRequest, body?: any): Promise<string | nul
   
   // Try Authorization header first
   const authHeader = request.headers.get('authorization');
-  logAdmin('[Competitor Prices] Auth header:', authHeader ? 'presente' : 'assente');
+  logAdmin('[Competitor Prices] Auth header:', { present: !!authHeader });
   
   if (authHeader?.startsWith('Bearer ')) {
     const token = authHeader.substring(7);
     try {
       const decodedToken = await getAuth().verifyIdToken(token);
-      logAdmin('[Competitor Prices] Token verificato, userId:', decodedToken.uid);
+      logAdmin('[Competitor Prices] Token verificato, userId:', { userId: decodedToken.uid });
       return decodedToken.uid;
     } catch (error: any) {
-      logAdmin(`[Competitor Prices] Token verification failed: ${error.message}`);
+      logAdmin(`[Competitor Prices] Token verification failed: ${error.message}`, { error: error.message });
       // Non ritornare null subito, prova altri metodi come fallback
     }
   }
@@ -97,13 +97,13 @@ async function getUserId(request: NextRequest, body?: any): Promise<string | nul
   const { searchParams } = new URL(request.url);
   const hotelIdFromQuery = searchParams.get('hotelId');
   if (hotelIdFromQuery) {
-    logAdmin('[Competitor Prices] Query param hotelId:', hotelIdFromQuery);
+    logAdmin('[Competitor Prices] Query param hotelId trovato', { hotelId: hotelIdFromQuery });
     return hotelIdFromQuery;
   }
   
   // Try body (for POST requests)
   if (body && body.hotelId) {
-    logAdmin('[Competitor Prices] Body hotelId:', body.hotelId);
+    logAdmin('[Competitor Prices] Body hotelId trovato', { hotelId: body.hotelId });
     return body.hotelId;
   }
   
@@ -138,7 +138,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    logAdmin('[Competitor Prices GET] userId:', userId);
+    logAdmin('[Competitor Prices GET] userId trovato', { userId });
 
     // 1. Fetch competitors attivi (usa competitor_configs come negli altri endpoint)
     const competitorsSnapshot = await adminDb
@@ -346,7 +346,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    logAdmin('[Competitor Prices POST] userId:', userId);
+    logAdmin('[Competitor Prices POST] userId trovato', { userId });
 
     const { hotelId, competitorId, price, date } = body;
 
