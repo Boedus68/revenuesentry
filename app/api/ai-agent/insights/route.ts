@@ -7,6 +7,17 @@ import { NaturalLanguageGenerator } from '../../../../lib/ai-agent/nlg';
 import { HotelData, RevenueData, CostsData, HistoricalData } from '../../../../lib/types';
 import { logAdmin } from '../../../../lib/admin-log';
 
+// Helper functions per calcoli safe
+function safeNumber(value: any, defaultValue: number = 0): number {
+  const num = Number(value);
+  return isNaN(num) || !isFinite(num) ? defaultValue : num;
+}
+
+function safePercent(value: any, defaultValue: number = 0): number {
+  const num = safeNumber(value, defaultValue);
+  return Math.max(-100, Math.min(100, num));
+}
+
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
@@ -261,6 +272,8 @@ export async function GET(request: NextRequest) {
       try {
         return {
           ...insight,
+          priority: safeNumber(insight.priority, 5),
+          confidence: safeNumber(insight.confidence, 0.5),
           createdAt: insight.createdAt instanceof Date ? insight.createdAt.toISOString() : (insight.createdAt || new Date().toISOString()),
           reasoning: {
             observation: insight.reasoning?.observation || '',
@@ -279,11 +292,11 @@ export async function GET(request: NextRequest) {
             dependencies: rec.dependencies || []
           })),
           impact: {
-            revenueChange: typeof insight.impact?.revenueChange === 'number' ? insight.impact.revenueChange : 0,
-            costChange: typeof insight.impact?.costChange === 'number' ? insight.impact.costChange : 0,
-            profitChange: typeof insight.impact?.profitChange === 'number' ? insight.impact.profitChange : 0,
-            occupancyChange: typeof insight.impact?.occupancyChange === 'number' ? insight.impact.occupancyChange : 0,
-            confidence: typeof insight.impact?.confidence === 'number' ? insight.impact.confidence : 0.5,
+            revenueChange: safeNumber(insight.impact?.revenueChange, 0),
+            costChange: safeNumber(insight.impact?.costChange, 0),
+            profitChange: safeNumber(insight.impact?.profitChange, 0),
+            occupancyChange: safePercent(insight.impact?.occupancyChange, 0),
+            confidence: safeNumber(insight.impact?.confidence, 0.5),
             timeframe: insight.impact?.timeframe || ''
           }
         };
@@ -295,7 +308,8 @@ export async function GET(request: NextRequest) {
           category: insight.category,
           title: insight.title || '',
           description: insight.description || '',
-          priority: insight.priority,
+          priority: safeNumber(insight.priority, 5),
+          confidence: safeNumber(insight.confidence, 0.5),
           createdAt: new Date().toISOString(),
           reasoning: { observation: '', analysis: '', causes: [], consequences: [], logic: '' },
           recommendations: [],
