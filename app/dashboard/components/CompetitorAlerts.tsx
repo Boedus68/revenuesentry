@@ -132,8 +132,14 @@ export default function CompetitorAlerts() {
       // Ottieni il token di autenticazione
       const token = await user.getIdToken();
       
-      // Usa GET invece di POST per leggere i dati
-      const response = await fetch(`/api/scraper/competitor-prices?hotelId=${hotelId}`, {
+      // Formatta le date per la query string
+      const checkinDateStr = checkinDate.toISOString().split('T')[0];
+      const checkoutDateStr = checkoutDate.toISOString().split('T')[0];
+      
+      console.log('Fetching competitor prices for dates:', { checkinDate: checkinDateStr, checkoutDate: checkoutDateStr });
+      
+      // Usa GET invece di POST per leggere i dati, includendo le date
+      const response = await fetch(`/api/scraper/competitor-prices?hotelId=${hotelId}&checkinDate=${checkinDateStr}&checkoutDate=${checkoutDateStr}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,

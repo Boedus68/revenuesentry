@@ -140,6 +140,24 @@ export async function GET(request: NextRequest) {
 
     logAdmin('[Competitor Prices GET] userId trovato', { userId });
 
+    // Leggi le date dai parametri query
+    const { searchParams } = new URL(request.url);
+    const checkinDateParam = searchParams.get('checkinDate');
+    const checkoutDateParam = searchParams.get('checkoutDate');
+    
+    // Usa le date fornite o default a oggi/domani
+    const checkinDate = checkinDateParam ? new Date(checkinDateParam) : new Date();
+    const checkoutDate = checkoutDateParam ? new Date(checkoutDateParam) : (() => {
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      return tomorrow;
+    })();
+    
+    const checkinDateStr = checkinDate.toISOString().split('T')[0];
+    const checkoutDateStr = checkoutDate.toISOString().split('T')[0];
+    
+    logAdmin('[Competitor Prices GET] Date richieste', { checkinDate: checkinDateStr, checkoutDate: checkoutDateStr });
+
     // 1. Fetch competitors attivi (usa competitor_configs come negli altri endpoint)
     const competitorsSnapshot = await adminDb
       .collection('competitor_configs')
@@ -164,10 +182,10 @@ export async function GET(request: NextRequest) {
       ...doc.data()
     })) as CompetitorDoc[];
 
-    // 2. Fetch ALL prices per ogni competitor e prendi il più recente
-    const today = new Date().toISOString().split('T')[0];
+    // 2. Fetch prices per la data specifica (checkinDate)
     const prices: CompetitorPrice[] = [];
     const alerts: CompetitorAlert[] = [];
+    const competitorsNeedingScraping: CompetitorDoc[] = [];
 
     for (const competitor of competitors) {
       try {
@@ -177,47 +195,48 @@ export async function GET(request: NextRequest) {
           continue;
         }
 
-        logAdmin(`[Competitor Prices GET] Processing competitor`, { competitorId: competitor.id });
+        logAdmin(`[Competitor Prices GET] Processing competitor`, { competitorId: competitor.id, competitorName });
 
-        // Fetch tutti i prezzi per questo competitor (usa competitor_name per compatibilità)
-        const allPricesSnapshot = await adminDb
+        // Cerca prezzi per la data specifica di check-in
+        const priceSnapshot = await adminDb
           .collection('competitor_data')
           .where('hotelId', '==', userId)
           .where('competitor_name', '==', competitorName)
+          .where('date', '==', checkinDateStr)
           .get();
 
-        logAdmin(`[Competitor Prices GET] Prices per competitor`, { competitorId: competitor.id, count: allPricesSnapshot.size });
+        logAdmin(`[Competitor Prices GET] Prices per competitor e data`, { 
+          competitorId: competitor.id, 
+          date: checkinDateStr,
+          count: priceSnapshot.size 
+        });
 
-        if (!allPricesSnapshot.empty) {
-          // Converti a array tipizzato e ordina per data
-          const allPrices = allPricesSnapshot.docs
-            .map(doc => ({
-              id: doc.id,
-              ...doc.data()
-            } as CompetitorDataDoc & { id: string }))
-            .sort((a, b) => {
-              // Usa scraped_at se disponibile, altrimenti createdAt
-              const aTime = a.scraped_at?.toDate?.() || a.createdAt?.toDate?.() || new Date(0);
-              const bTime = b.scraped_at?.toDate?.() || b.createdAt?.toDate?.() || new Date(0);
-              return bTime.getTime() - aTime.getTime();
-            });
-
-          // Prendi il più recente
-          const latestPriceData = allPrices[0];
+        if (!priceSnapshot.empty) {
+          // Prendi il primo risultato (dovrebbe essere uno solo per data)
+          const priceData = priceSnapshot.docs[0].data() as CompetitorDataDoc;
 
           prices.push({
             competitorId: competitor.id,
             competitorName: competitorName,
-            price: safeNumber(latestPriceData.price, 0),
-            date: latestPriceData.date || today,
-            scrapedAt: latestPriceData.createdAt?.toDate?.()?.toISOString() || new Date().toISOString()
+            price: safeNumber(priceData.price, 0),
+            date: priceData.date || checkinDateStr,
+            scrapedAt: priceData.createdAt?.toDate?.()?.toISOString() || new Date().toISOString()
           });
 
-          // Check per alert se c'è un prezzo precedente
-          if (allPrices.length > 1) {
-            const previousPriceData = allPrices[1];
+          // Check per alert: confronta con prezzo precedente (più recente prima di questa data)
+          const previousPriceSnapshot = await adminDb
+            .collection('competitor_data')
+            .where('hotelId', '==', userId)
+            .where('competitor_name', '==', competitorName)
+            .where('date', '<', checkinDateStr)
+            .orderBy('date', 'desc')
+            .limit(1)
+            .get();
+
+          if (!previousPriceSnapshot.empty) {
+            const previousPriceData = previousPriceSnapshot.docs[0].data() as CompetitorDataDoc;
             const oldPrice = safeNumber(previousPriceData.price, 0);
-            const newPrice = safeNumber(latestPriceData.price, 0);
+            const newPrice = safeNumber(priceData.price, 0);
             const changePercent = calculateChangePercent(oldPrice, newPrice);
 
             // Alert se cambio significativo (>10%)
@@ -228,40 +247,62 @@ export async function GET(request: NextRequest) {
                 newPrice,
                 changePercent,
                 severity: getSeverity(changePercent),
-                date: latestPriceData.date || today
+                date: priceData.date || checkinDateStr
               });
             }
           }
         } else {
-          // Nessun prezzo trovato - genera mock data per demo
-          const mockPrice = 90 + Math.floor(Math.random() * 60); // €90-150
-
-          prices.push({
-            competitorId: competitor.id,
-            competitorName: competitorName,
-            price: mockPrice,
-            date: today,
-            scrapedAt: new Date().toISOString()
-          });
-
-          // Salva mock price in DB per future reference
-          try {
-            await adminDb.collection('competitor_data').add({
-              hotelId: userId,
-              competitor_name: competitorName,
-              price: mockPrice,
-              date: today,
-              isMock: true,
-              createdAt: FieldValue.serverTimestamp()
-            });
-            logAdmin(`[Competitor Prices GET] Mock price creato`, { price: mockPrice });
-          } catch (saveError: any) {
-            logAdmin(`[Competitor Prices GET] Errore salvataggio mock price`, { error: saveError.message });
-          }
+          // Nessun prezzo trovato per questa data - aggiungi alla lista per scraping
+          competitorsNeedingScraping.push(competitor);
         }
       } catch (error: any) {
         logAdmin(`[Competitor Prices GET] Error per competitor ${competitor.id}: ${error.message}`, { error: error.stack });
         // Continua con next competitor invece di fallire tutto
+      }
+    }
+
+    // 3. Se ci sono competitor senza prezzi per questa data, genera mock data
+    if (competitorsNeedingScraping.length > 0) {
+      logAdmin(`[Competitor Prices GET] Generazione mock prices per ${competitorsNeedingScraping.length} competitor senza dati`);
+      
+      for (const competitor of competitorsNeedingScraping) {
+        const competitorName = competitor.competitor_name || competitor.name || '';
+        // Genera mock price (variabile per data e competitor per simulare prezzi diversi)
+        const basePrice = 90;
+        // Usa hash della data per variare il prezzo in modo deterministico ma variabile
+        const dateHash = checkinDateStr.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+        // Usa hash del nome competitor per variare il prezzo base
+        const nameHash = competitorName.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+        const dateVariation = dateHash % 60; // Variazione 0-59 basata sulla data
+        const nameVariation = (nameHash % 30); // Variazione 0-29 basata sul nome
+        const mockPrice = Math.round((basePrice + dateVariation + nameVariation) * 100) / 100; // €90-179 variabile per data e competitor
+
+        prices.push({
+          competitorId: competitor.id,
+          competitorName: competitorName,
+          price: mockPrice,
+          date: checkinDateStr,
+          scrapedAt: new Date().toISOString()
+        });
+
+        // Salva mock price in DB per questa data specifica
+        try {
+          await adminDb.collection('competitor_data').add({
+            hotelId: userId,
+            competitor_name: competitorName,
+            price: mockPrice,
+            date: checkinDateStr,
+            isMock: true,
+            createdAt: FieldValue.serverTimestamp()
+          });
+          logAdmin(`[Competitor Prices GET] Mock price creato per data`, { 
+            competitorName, 
+            price: mockPrice, 
+            date: checkinDateStr 
+          });
+        } catch (saveError: any) {
+          logAdmin(`[Competitor Prices GET] Errore salvataggio mock price`, { error: saveError.message });
+        }
       }
     }
 
