@@ -1377,6 +1377,160 @@ export class SentryReasoningEngine {
     });
   }
   
+  /**
+   * ANALISI COST INCREASE: Identifica cause aumento costi
+   */
+  private analyzeCostIncrease(context: HotelContext): string {
+    const { trends, costsData } = context;
+    
+    let analysis = '';
+    
+    analysis += `I costi sono aumentati del ${trends.costs.changePercent.toFixed(1)}% negli ultimi ${trends.costs.timeframe}. `;
+    
+    // Identifica categorie costi problematiche
+    const problematicCategories = this.identifyProblematicCostCategories(context);
+    if (problematicCategories.length > 0) {
+      analysis += `Le categorie più problematiche sono: ${problematicCategories.join(', ')}. `;
+    }
+    
+    // Check se è dovuto a aumento occupazione o inefficienze
+    if (trends.occupancy.direction === 'up' && trends.occupancy.changePercent < trends.costs.changePercent) {
+      analysis += `L'aumento dei costi è superiore all'aumento di occupazione, indicando possibili inefficienze operative. `;
+    } else if (trends.occupancy.direction === 'down') {
+      analysis += `I costi sono aumentati nonostante la riduzione di occupazione, il che è particolarmente preoccupante. `;
+    }
+    
+    return analysis;
+  }
+  
+  /**
+   * IDENTIFICA CAUSE COST INCREASE
+   */
+  private identifyCostIncreaseCauses(context: HotelContext): string[] {
+    const causes: string[] = [];
+    const { trends, costsData } = context;
+    
+    if (costsData.length > 0) {
+      const latestCosts = costsData[costsData.length - 1];
+      const previousCosts = costsData.length > 1 ? costsData[costsData.length - 2] : null;
+      
+      // Causa 1: Aumento personale
+      const currentPersonale = (latestCosts.personale?.bustePaga || 0) + 
+                               (latestCosts.personale?.contributiINPS || 0);
+      const previousPersonale = previousCosts 
+        ? ((previousCosts.personale?.bustePaga || 0) + (previousCosts.personale?.contributiINPS || 0))
+        : 0;
+      
+      if (previousPersonale > 0 && currentPersonale > previousPersonale * 1.1) {
+        causes.push('Aumento costi personale - possibile assunzione o aumento stipendi');
+      }
+      
+      // Causa 2: Aumento utenze
+      const currentUtenze = (latestCosts.utenze?.energia?.importo || 0) + 
+                            (latestCosts.utenze?.gas?.importo || 0) + 
+                            (latestCosts.utenze?.acqua?.importo || 0);
+      const previousUtenze = previousCosts
+        ? ((previousCosts.utenze?.energia?.importo || 0) + 
+           (previousCosts.utenze?.gas?.importo || 0) + 
+           (previousCosts.utenze?.acqua?.importo || 0))
+        : 0;
+      
+      if (previousUtenze > 0 && currentUtenze > previousUtenze * 1.15) {
+        causes.push('Aumento utenze - possibile aumento tariffe o consumi');
+      }
+      
+      // Causa 3: Marketing/Commissioni OTA
+      const currentMarketing = (latestCosts.marketing?.costiMarketing || 0) + 
+                               (latestCosts.marketing?.commissioniOTA || 0);
+      const previousMarketing = previousCosts
+        ? ((previousCosts.marketing?.costiMarketing || 0) + 
+           (previousCosts.marketing?.commissioniOTA || 0))
+        : 0;
+      
+      if (previousMarketing > 0 && currentMarketing > previousMarketing * 1.2) {
+        causes.push('Aumento costi marketing/commissioni OTA');
+      }
+    }
+    
+    // Causa 4: Inflazione generale
+    if (trends.costs.changePercent > 10) {
+      causes.push('Inflazione generale sui costi operativi');
+    }
+    
+    // Causa 5: Costi una-tantum
+    if (trends.costs.significance === 'high' && trends.costs.timeframe === '1 mese') {
+      causes.push('Possibili costi una-tantum o straordinari');
+    }
+    
+    return causes.length > 0 ? causes : ['Aumento costi generalizzato - richiede analisi approfondita'];
+  }
+  
+  /**
+   * ANALISI OCCUPANCY DECLINE: Identifica cause calo occupazione
+   */
+  private analyzeOccupancyDecline(context: HotelContext): string {
+    const { kpis, trends } = context;
+    
+    let analysis = '';
+    
+    analysis += `L'occupazione è scesa del ${Math.abs(trends.occupancy.changePercent).toFixed(1)}% negli ultimi ${trends.occupancy.timeframe}. `;
+    
+    // Check se è dovuto a pricing o altri fattori
+    if (kpis.adr > this.getBenchmarkADR() * 1.1) {
+      analysis += `Il tuo ADR (€${kpis.adr.toFixed(0)}) è significativamente sopra il benchmark (€${this.getBenchmarkADR().toFixed(0)}), ` +
+                  `il che potrebbe indicare che i prezzi stanno limitando la domanda. `;
+    } else if (kpis.adr < this.getBenchmarkADR() * 0.9) {
+      analysis += `Nonostante prezzi sotto mercato, l'occupazione è bassa. ` +
+                  `Questo suggerisce problemi di visibilità online, recensioni, o posizionamento. `;
+    } else {
+      analysis += `I prezzi sono allineati al mercato, quindi il problema potrebbe essere legato a marketing, ` +
+                  `recensioni, o condizioni di mercato generali. `;
+    }
+    
+    return analysis;
+  }
+  
+  /**
+   * IDENTIFICA CAUSE OCCUPANCY DECLINE
+   */
+  private identifyOccupancyDeclineCauses(context: HotelContext): string[] {
+    const causes: string[] = [];
+    const { kpis, trends, historicalData } = context;
+    
+    // Causa 1: Pricing troppo alto
+    if (kpis.adr > this.getBenchmarkADR() * 1.1) {
+      causes.push('Prezzi troppo alti rispetto al mercato - limitano la domanda');
+    }
+    
+    // Causa 2: Pricing troppo basso (segno di problemi competitivi)
+    if (kpis.adr < this.getBenchmarkADR() * 0.85) {
+      causes.push('Prezzi troppo bassi - possibile problema di posizionamento o competitività');
+    }
+    
+    // Causa 3: Stagionalità
+    if (this.isLowSeason(context.currentMonth)) {
+      causes.push('Bassa stagione - normale per il periodo');
+    }
+    
+    // Causa 4: Trend negativo prolungato
+    if (trends.occupancy.direction === 'down' && trends.occupancy.timeframe === '3 mesi') {
+      causes.push('Trend negativo prolungato - potrebbe indicare problemi strutturali');
+    }
+    
+    // Causa 5: Competitor aggressivi
+    const competitorPressure = this.analyzeCompetitorPressure(context);
+    if (competitorPressure > 0.7) {
+      causes.push('Alta pressione competitiva - competitor hanno prezzi più aggressivi');
+    }
+    
+    // Causa 6: Problemi marketing/visibilità
+    if (kpis.occupazione < 0.6) {
+      causes.push('Marketing insufficiente o visibilità online bassa');
+    }
+    
+    return causes.length > 0 ? causes : ['Calo occupazione - richiede analisi approfondita delle cause'];
+  }
+  
   private buildGenericReasoningChain(observation: string, context: HotelContext): ReasoningChain {
     return {
       observation,
