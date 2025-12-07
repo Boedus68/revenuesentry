@@ -271,16 +271,20 @@ export async function GET(request: NextRequest) {
           },
           recommendations: (insight.recommendations || []).map(rec => ({
             action: rec.action || '',
-            reasoning: rec.reasoning || '',
-            estimatedImpact: typeof rec.estimatedImpact === 'number' ? rec.estimatedImpact : 0,
-            urgency: rec.urgency || 'medium',
-            timeframe: rec.timeframe || 'short-term'
+            why: rec.why || '',
+            how: rec.how || '',
+            expectedOutcome: rec.expectedOutcome || '',
+            effort: rec.effort || 'medium',
+            timeToImpact: rec.timeToImpact || '',
+            dependencies: rec.dependencies || []
           })),
           impact: {
-            revenueImpact: typeof insight.impact?.revenueImpact === 'number' ? insight.impact.revenueImpact : 0,
-            costImpact: typeof insight.impact?.costImpact === 'number' ? insight.impact.costImpact : 0,
-            occupancyImpact: typeof insight.impact?.occupancyImpact === 'number' ? insight.impact.occupancyImpact : 0,
-            confidence: typeof insight.impact?.confidence === 'number' ? insight.impact.confidence : 0.5
+            revenueChange: typeof insight.impact?.revenueChange === 'number' ? insight.impact.revenueChange : 0,
+            costChange: typeof insight.impact?.costChange === 'number' ? insight.impact.costChange : 0,
+            profitChange: typeof insight.impact?.profitChange === 'number' ? insight.impact.profitChange : 0,
+            occupancyChange: typeof insight.impact?.occupancyChange === 'number' ? insight.impact.occupancyChange : 0,
+            confidence: typeof insight.impact?.confidence === 'number' ? insight.impact.confidence : 0.5,
+            timeframe: insight.impact?.timeframe || ''
           }
         };
       } catch (serErr: any) {
@@ -295,7 +299,7 @@ export async function GET(request: NextRequest) {
           createdAt: new Date().toISOString(),
           reasoning: { observation: '', analysis: '', causes: [], consequences: [], logic: '' },
           recommendations: [],
-          impact: { revenueImpact: 0, costImpact: 0, occupancyImpact: 0, confidence: 0.5 },
+          impact: { revenueChange: 0, costChange: 0, profitChange: 0, occupancyChange: 0, confidence: 0.5, timeframe: '' },
           naturalLanguage: insight.title || '',
           formattedMessage: insight.description || '',
           briefNotification: insight.title || ''
