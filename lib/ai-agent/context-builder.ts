@@ -45,19 +45,52 @@ export class ContextBuilder {
     }
     
     // Calcola KPI
-    const kpis = calculateKPI(costsForKPI, revenueData, hotelData);
+    let kpis;
+    try {
+      kpis = calculateKPI(costsForKPI, revenueData, hotelData);
+    } catch (err: any) {
+      throw new Error(`Errore calcolo KPI: ${err.message}`);
+    }
     
     // Analizza trend
-    const trends = this.analyzeTrends(revenueData, costsData, historicalData);
+    let trends;
+    try {
+      trends = this.analyzeTrends(revenueData, costsData, historicalData);
+    } catch (err: any) {
+      throw new Error(`Errore analisi trend: ${err.message}`);
+    }
     
     // Identifica anomalie
-    const anomalies = this.identifyAnomalies(costsData, revenueData, historicalData, kpis);
+    let anomalies;
+    try {
+      anomalies = this.identifyAnomalies(costsData, revenueData, historicalData, kpis);
+    } catch (err: any) {
+      // Se fallisce, continua con array vuoto
+      anomalies = [];
+    }
     
     // Confronta con benchmark
-    const benchmarks = this.buildBenchmarkComparison(kpis, hotelData);
+    let benchmarks;
+    try {
+      benchmarks = this.buildBenchmarkComparison(kpis, hotelData);
+    } catch (err: any) {
+      throw new Error(`Errore benchmark comparison: ${err.message}`);
+    }
     
     // Analizza stagionalità
-    const seasonality = this.analyzeSeasonality(historicalData, currentMonth);
+    let seasonality;
+    try {
+      seasonality = this.analyzeSeasonality(historicalData, currentMonth);
+    } catch (err: any) {
+      // Se fallisce, usa valori di default
+      seasonality = {
+        currentMonthFactor: 1.0,
+        nextMonthFactor: 1.0,
+        isLowSeason: false,
+        isHighSeason: false,
+        historicalPattern: []
+      };
+    }
     
     return {
       currentMonth,
@@ -83,22 +116,22 @@ export class ContextBuilder {
   ): TrendAnalysis {
     // Revenue trend (ultimi 3 mesi vs precedenti 3)
     const revenueTrend = this.calculateTrend(
-      revenueData.slice(-3).map(r => r.entrateTotali || 0),
-      revenueData.slice(-6, -3).map(r => r.entrateTotali || 0),
+      revenueData.length >= 3 ? revenueData.slice(-3).map(r => r.entrateTotali || 0) : [],
+      revenueData.length >= 6 ? revenueData.slice(-6, -3).map(r => r.entrateTotali || 0) : [],
       'revenue'
     );
     
     // Occupancy trend
     const occupancyTrend = this.calculateTrend(
-      revenueData.slice(-3).map(r => r.occupazione || 0),
-      revenueData.slice(-6, -3).map(r => r.occupazione || 0),
+      revenueData.length >= 3 ? revenueData.slice(-3).map(r => r.occupazione || 0) : [],
+      revenueData.length >= 6 ? revenueData.slice(-6, -3).map(r => r.occupazione || 0) : [],
       'occupancy'
     );
     
     // Costs trend
     const costsTrend = this.calculateTrend(
-      costsData.slice(-3).map(c => this.getTotalCosts(c)),
-      costsData.slice(-6, -3).map(c => this.getTotalCosts(c)),
+      costsData.length >= 3 ? costsData.slice(-3).map(c => this.getTotalCosts(c)) : [],
+      costsData.length >= 6 ? costsData.slice(-6, -3).map(c => this.getTotalCosts(c)) : [],
       'costs'
     );
     
@@ -357,15 +390,20 @@ export class ContextBuilder {
     // Calcola media occupazione per mese
     const monthlyAvg: Record<string, number> = {};
     Object.keys(monthlyData).forEach(month => {
-      monthlyAvg[month] = monthlyData[month].reduce((a, b) => a + b, 0) / monthlyData[month].length;
+      if (monthlyData[month].length > 0) {
+        monthlyAvg[month] = monthlyData[month].reduce((a, b) => a + b, 0) / monthlyData[month].length;
+      }
     });
     
     // Media generale
-    const overallAvg = Object.values(monthlyAvg).reduce((a, b) => a + b, 0) / Object.values(monthlyAvg).length;
+    const monthlyValues = Object.values(monthlyAvg);
+    const overallAvg = monthlyValues.length > 0 
+      ? monthlyValues.reduce((a, b) => a + b, 0) / monthlyValues.length 
+      : 0;
     
     // Fattore mese corrente
     const currentMonthKey = currentMonth.substring(0, 7);
-    const currentMonthFactor = monthlyAvg[currentMonthKey] 
+    const currentMonthFactor = (overallAvg > 0 && monthlyAvg[currentMonthKey]) 
       ? monthlyAvg[currentMonthKey] / overallAvg 
       : 1.0;
     
@@ -373,7 +411,7 @@ export class ContextBuilder {
     const nextMonthDate = new Date(currentMonth + '-01');
     nextMonthDate.setMonth(nextMonthDate.getMonth() + 1);
     const nextMonthKey = `${nextMonthDate.getFullYear()}-${String(nextMonthDate.getMonth() + 1).padStart(2, '0')}`;
-    const nextMonthFactor = monthlyAvg[nextMonthKey]
+    const nextMonthFactor = (overallAvg > 0 && monthlyAvg[nextMonthKey])
       ? monthlyAvg[nextMonthKey] / overallAvg
       : 1.0;
     
@@ -401,37 +439,71 @@ export class ContextBuilder {
   /**
    * Helper: calcola total costs
    */
-  private getTotalCosts(costs: CostsData): number {
+  private getTotalCosts(costs: CostsData | Partial<CostsData>): number {
+    if (!costs || typeof costs !== 'object') {
+      return 0;
+    }
+    
     let total = 0;
     
-    // Personale
-    if (costs.personale) {
-      total += (costs.personale.bustePaga || 0);
-      total += (costs.personale.contributiINPS || 0);
-      total += (costs.personale.sicurezza || 0);
-    }
-    
-    // Utenze
-    if (costs.utenze) {
-      total += (costs.utenze.energia?.importo || 0);
-      total += (costs.utenze.gas?.importo || 0);
-      total += (costs.utenze.acqua?.importo || 0);
-    }
-    
-    // Ristorazione
-    if (costs.ristorazione && Array.isArray(costs.ristorazione)) {
-      total += costs.ristorazione.reduce((sum, item) => sum + (item?.importo || 0), 0);
-    }
-    
-    // Marketing
-    if (costs.marketing) {
-      total += (costs.marketing.costiMarketing || 0);
-      total += (costs.marketing.commissioniOTA || 0);
-    }
-    
-    // Altri costi
-    if (costs.altriCosti && Array.isArray(costs.altriCosti)) {
-      total += costs.altriCosti.reduce((sum, item) => sum + (item?.importo || 0), 0);
+    try {
+      // Personale
+      if (costs.personale && typeof costs.personale === 'object') {
+        total += (costs.personale.bustePaga || 0);
+        total += (costs.personale.contributiINPS || 0);
+        total += (costs.personale.sicurezza || 0);
+      }
+      
+      // Utenze
+      if (costs.utenze && typeof costs.utenze === 'object') {
+        if (costs.utenze.energia && typeof costs.utenze.energia === 'object') {
+          total += (costs.utenze.energia.importo || 0);
+        }
+        if (costs.utenze.gas && typeof costs.utenze.gas === 'object') {
+          total += (costs.utenze.gas.importo || 0);
+        }
+        if (costs.utenze.acqua && typeof costs.utenze.acqua === 'object') {
+          total += (costs.utenze.acqua.importo || 0);
+        }
+      }
+      
+      // Ristorazione
+      if (costs.ristorazione && Array.isArray(costs.ristorazione)) {
+        total += costs.ristorazione.reduce((sum, item) => {
+          if (item && typeof item === 'object' && 'importo' in item) {
+            return sum + (item.importo || 0);
+          }
+          return sum;
+        }, 0);
+      }
+      
+      // Marketing
+      if (costs.marketing && typeof costs.marketing === 'object') {
+        total += (costs.marketing.costiMarketing || 0);
+        total += (costs.marketing.commissioniOTA || 0);
+      }
+      
+      // Altri costi
+      if (costs.altriCosti) {
+        if (Array.isArray(costs.altriCosti)) {
+          total += costs.altriCosti.reduce((sum, item) => {
+            if (item && typeof item === 'object' && 'importo' in item) {
+              return sum + (item.importo || 0);
+            }
+            return sum;
+          }, 0);
+        } else if (typeof costs.altriCosti === 'object') {
+          // Se è un oggetto con chiavi numeriche
+          Object.values(costs.altriCosti).forEach(value => {
+            if (typeof value === 'number') {
+              total += value;
+            }
+          });
+        }
+      }
+    } catch (err: any) {
+      // Se c'è un errore nel calcolo, ritorna almeno un valore parziale
+      console.error('[ContextBuilder] Errore calcolo total costs:', err.message);
     }
     
     return total;

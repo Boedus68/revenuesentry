@@ -40,64 +40,144 @@ export async function GET(request: NextRequest) {
     const revenueData: RevenueData[] = userData?.revenues || [];
     const costsData: CostsData[] = [];
     
+    logAdmin(`[AI Agent] User data loaded`, { 
+      hasHotelData: !!hotelData.hotelName,
+      revenuesCount: revenueData.length,
+      hasCosts: !!userData?.costs
+    });
+    
     // Fetch costs data (potrebbe essere strutturato diversamente)
     if (userData?.costs) {
-      // Se costs è un oggetto per mese, convertilo in array
-      if (typeof userData.costs === 'object' && !Array.isArray(userData.costs)) {
-        Object.keys(userData.costs).forEach(month => {
-          costsData.push({ ...userData.costs[month], mese: month } as CostsData);
-        });
-      } else if (Array.isArray(userData.costs)) {
-        costsData.push(...userData.costs);
+      try {
+        // Se costs è un array di MonthlyCostsData, estrai solo i costs
+        if (Array.isArray(userData.costs)) {
+          // Verifica se è array di MonthlyCostsData o CostsData
+          if (userData.costs.length > 0 && 'costs' in userData.costs[0]) {
+            // È MonthlyCostsData[]
+            costsData.push(...userData.costs.map((mc: any) => mc.costs || mc));
+          } else {
+            // È CostsData[]
+            costsData.push(...userData.costs);
+          }
+        } else if (typeof userData.costs === 'object') {
+          // Se costs è un oggetto per mese, convertilo in array
+          Object.keys(userData.costs).forEach(month => {
+            const monthCosts = userData.costs[month];
+            if (monthCosts && typeof monthCosts === 'object') {
+              // Se ha campo 'costs', estrailo
+              costsData.push(('costs' in monthCosts ? monthCosts.costs : monthCosts) as CostsData);
+            }
+          });
+        }
+      } catch (err: any) {
+        logAdmin(`[AI Agent] Errore parsing costs: ${err.message}`);
       }
     }
     
-    // Fetch historical data
-    const ninetyDaysAgo = new Date();
-    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
-    const historicalSnapshot = await adminDb
-      .collection('historical_data')
-      .where('hotelId', '==', hotelId)
-      .where('date', '>=', ninetyDaysAgo.toISOString().split('T')[0])
-      .orderBy('date', 'asc')
-      .get();
+    logAdmin(`[AI Agent] Costs data parsed`, { costsCount: costsData.length });
     
-    const historicalData: HistoricalData[] = historicalSnapshot.docs.map(doc => {
-      const data = doc.data();
-      return {
-        hotelId: data.hotelId,
-        date: data.date,
-        occupancy_rate: data.occupancy_rate || 0,
-        adr: data.adr || 0,
-        revpar: data.revpar || 0,
-        total_revenue: data.total_revenue || 0,
-        total_costs: data.total_costs || 0,
-        is_weekend: data.is_weekend || false,
-        is_holiday: data.is_holiday || false,
-        day_of_week: data.day_of_week,
-        month: data.month,
-        createdAt: data.createdAt,
-        updatedAt: data.updatedAt,
-      } as HistoricalData;
-    });
+    // Fetch historical data
+    let historicalData: HistoricalData[] = [];
+    try {
+      const ninetyDaysAgo = new Date();
+      ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+      const dateStr = ninetyDaysAgo.toISOString().split('T')[0];
+      
+      // Prova query con orderBy, se fallisce prova senza
+      try {
+        const historicalSnapshot = await adminDb
+          .collection('historical_data')
+          .where('hotelId', '==', hotelId)
+          .where('date', '>=', dateStr)
+          .orderBy('date', 'asc')
+          .get();
+        
+        historicalData = historicalSnapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
+            hotelId: data.hotelId || hotelId,
+            date: data.date || '',
+            occupancy_rate: data.occupancy_rate || 0,
+            adr: data.adr || 0,
+            revpar: data.revpar || 0,
+            total_revenue: data.total_revenue || 0,
+            total_costs: data.total_costs || 0,
+            is_weekend: data.is_weekend || false,
+            is_holiday: data.is_holiday || false,
+            day_of_week: data.day_of_week ?? 0,
+            month: data.month ?? 1,
+            createdAt: data.createdAt || new Date(),
+            updatedAt: data.updatedAt || new Date(),
+          } as HistoricalData;
+        });
+      } catch (queryError: any) {
+        // Se fallisce per mancanza di indice, prova senza orderBy
+        logAdmin(`[AI Agent] Query con orderBy fallita, provo senza: ${queryError.message}`);
+        const historicalSnapshot = await adminDb
+          .collection('historical_data')
+          .where('hotelId', '==', hotelId)
+          .get();
+        
+        historicalData = historicalSnapshot.docs
+          .map(doc => {
+            const data = doc.data();
+            return {
+              hotelId: data.hotelId || hotelId,
+              date: data.date || '',
+              occupancy_rate: data.occupancy_rate || 0,
+              adr: data.adr || 0,
+              revpar: data.revpar || 0,
+              total_revenue: data.total_revenue || 0,
+              total_costs: data.total_costs || 0,
+              is_weekend: data.is_weekend || false,
+              is_holiday: data.is_holiday || false,
+              day_of_week: data.day_of_week ?? 0,
+              month: data.month ?? 1,
+              createdAt: data.createdAt || new Date(),
+              updatedAt: data.updatedAt || new Date(),
+            } as HistoricalData;
+          })
+          .filter(h => h.date >= dateStr)
+          .sort((a, b) => a.date.localeCompare(b.date));
+      }
+    } catch (err: any) {
+      logAdmin(`[AI Agent] Errore fetch historical data: ${err.message}`);
+      // Continua con array vuoto
+    }
+    
+    logAdmin(`[AI Agent] Historical data loaded`, { count: historicalData.length });
     
     // Determina mese corrente
     const currentMonth = new Date().toISOString().substring(0, 7); // YYYY-MM
     
     // Costruisci contesto
-    const contextBuilder = new ContextBuilder();
-    const context = contextBuilder.buildContext({
-      hotelId,
-      currentMonth,
-      hotelData,
-      revenueData,
-      costsData,
-      historicalData
-    });
+    let context;
+    try {
+      const contextBuilder = new ContextBuilder();
+      context = contextBuilder.buildContext({
+        hotelId,
+        currentMonth,
+        hotelData,
+        revenueData,
+        costsData,
+        historicalData
+      });
+      logAdmin(`[AI Agent] Context built successfully`);
+    } catch (err: any) {
+      logAdmin(`[AI Agent] Errore build context: ${err.message}`, { error: err.stack });
+      throw err;
+    }
     
     // Genera insights con Reasoning Engine
-    const reasoningEngine = new SentryReasoningEngine(context);
-    const insights = await reasoningEngine.generateInsights();
+    let insights;
+    try {
+      const reasoningEngine = new SentryReasoningEngine(context);
+      insights = await reasoningEngine.generateInsights();
+      logAdmin(`[AI Agent] Insights generated`, { count: insights.length });
+    } catch (err: any) {
+      logAdmin(`[AI Agent] Errore generazione insights: ${err.message}`, { error: err.stack });
+      throw err;
+    }
     
     // Genera messaggi in linguaggio naturale
     const nlg = new NaturalLanguageGenerator();
@@ -128,15 +208,47 @@ export async function GET(request: NextRequest) {
       logAdmin(`[AI Agent] Errore salvataggio insights: ${error.message}`);
     }
     
+    // Serializza insights rimuovendo eventuali campi non serializzabili
+    const serializedInsights = insightsWithMessages.map(insight => ({
+      ...insight,
+      createdAt: insight.createdAt instanceof Date ? insight.createdAt.toISOString() : insight.createdAt,
+      reasoning: {
+        ...insight.reasoning,
+        // Assicurati che tutti i campi siano serializzabili
+      },
+      recommendations: insight.recommendations.map(rec => ({
+        ...rec,
+        // Assicurati che tutti i campi siano serializzabili
+      })),
+      impact: {
+        ...insight.impact,
+        // Assicurati che tutti i campi siano numeri
+      }
+    }));
+    
     return NextResponse.json({
       success: true,
-      insights: insightsWithMessages,
+      insights: serializedInsights,
       context: {
         currentMonth: context.currentMonth,
-        kpis: context.kpis,
-        trends: context.trends,
+        kpis: {
+          ...context.kpis,
+          // Assicurati che tutti i campi siano serializzabili
+        },
+        trends: {
+          revenue: { ...context.trends.revenue },
+          occupancy: { ...context.trends.occupancy },
+          costs: { ...context.trends.costs },
+          profitability: { ...context.trends.profitability }
+        },
         anomaliesCount: context.anomalies.length,
-        benchmarks: context.benchmarks
+        benchmarks: {
+          adr: { ...context.benchmarks.adr },
+          occupancy: { ...context.benchmarks.occupancy },
+          revpar: { ...context.benchmarks.revpar },
+          goppar: { ...context.benchmarks.goppar },
+          costRatio: { ...context.benchmarks.costRatio }
+        }
       },
       generatedAt: new Date().toISOString()
     }, { status: 200 });
