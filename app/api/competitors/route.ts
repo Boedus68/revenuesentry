@@ -8,6 +8,22 @@ import { validateCompetitorConfig } from '../../../lib/firestore-schemas';
 import { CompetitorConfig } from '../../../lib/types';
 import { logAdmin } from '../../../lib/admin-log';
 
+// Helper per convertire Firestore Timestamp o Date in ISO string
+function toISOString(value: any): string {
+  if (!value) return new Date().toISOString();
+  if (value.toDate && typeof value.toDate === 'function') {
+    // Firestore Timestamp
+    return value.toDate().toISOString();
+  }
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+  if (typeof value === 'string') {
+    return value;
+  }
+  return new Date().toISOString();
+}
+
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
@@ -38,7 +54,7 @@ export async function GET(request: NextRequest) {
       .where('hotelId', '==', hotelId)
       .get();
 
-    const competitors: (CompetitorConfig & { id: string })[] = [];
+    const competitors: any[] = [];
     snapshot.docs.forEach(doc => {
       try {
         const data = doc.data();
@@ -49,14 +65,14 @@ export async function GET(request: NextRequest) {
             id: doc.id,
             isActive: data.isActive ?? true,
             priority: data.priority ?? 'medium',
-            created_at: data.created_at || new Date(),
-            updated_at: data.updated_at || new Date()
-          } as CompetitorConfig & { id: string });
+            created_at: toISOString(data.created_at),
+            updated_at: toISOString(data.updated_at)
+          });
         } else {
-          logAdmin(`[API] Competitor con dati incompleti saltato`, { docId: doc.id, data });
+          logAdmin('[API] Competitor con dati incompleti saltato', { docId: doc.id, hasData: !!data });
         }
       } catch (err: any) {
-        logAdmin(`[API] Errore parsing competitor doc: ${err.message}`, { docId: doc.id });
+        logAdmin('[API] Errore parsing competitor doc', { docId: doc.id, error: err.message });
       }
     });
 
@@ -135,11 +151,19 @@ export async function POST(request: NextRequest) {
     const docRef = adminDb.collection('competitor_configs').doc();
     await docRef.set(validated);
 
-    logAdmin(`[API] Competitor aggiunto: ${competitor_name}`);
+    logAdmin('[API] Competitor aggiunto', { competitor_name, id: docRef.id });
+
+    // Serializza le date prima di restituire
+    const serializedCompetitor = {
+      ...validated,
+      id: docRef.id,
+      created_at: toISOString(validated.created_at),
+      updated_at: toISOString(validated.updated_at)
+    };
 
     return NextResponse.json({
       success: true,
-      competitor: { ...validated, id: docRef.id },
+      competitor: serializedCompetitor,
     }, { status: 201 });
 
   } catch (error: any) {

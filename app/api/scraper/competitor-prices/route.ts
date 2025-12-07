@@ -326,9 +326,14 @@ export async function POST(request: NextRequest) {
     let body;
     try {
       body = await request.json();
-      logAdmin('[Competitor Prices POST] Body ricevuto:', body);
+      logAdmin('[Competitor Prices POST] Body ricevuto', { 
+        hasBody: !!body,
+        hasHotelId: !!body?.hotelId,
+        hasCompetitorId: !!body?.competitorId,
+        hasPrice: !!body?.price
+      });
     } catch (error: any) {
-      logAdmin(`[Competitor Prices POST] Body parse error`, { error: error.message });
+      logAdmin('[Competitor Prices POST] Body parse error', { error: error.message });
       return NextResponse.json(
         { error: 'Body richiesta non valido' },
         { status: 400 }

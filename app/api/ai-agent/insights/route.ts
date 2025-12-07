@@ -104,8 +104,8 @@ export async function GET(request: NextRequest) {
           });
         }
       }
-    } catch (err: any) {
-      logAdmin(`[AI Agent] Errore parsing costs: ${err.message}`, { error: err.stack });
+      } catch (err: any) {
+        logAdmin('[AI Agent] Errore parsing costs', { error: err.message, stack: err.stack });
     }
     
     logAdmin(`[AI Agent] Costs data parsed`, { costsCount: costsData.length });
@@ -146,7 +146,7 @@ export async function GET(request: NextRequest) {
         });
       } catch (queryError: any) {
         // Se fallisce per mancanza di indice, prova senza orderBy
-        logAdmin(`[AI Agent] Query con orderBy fallita, provo senza: ${queryError.message}`);
+        logAdmin('[AI Agent] Query con orderBy fallita, provo senza', { error: queryError.message });
         const historicalSnapshot = await adminDb
           .collection('historical_data')
           .where('hotelId', '==', hotelId)
@@ -175,7 +175,7 @@ export async function GET(request: NextRequest) {
           .sort((a, b) => a.date.localeCompare(b.date));
       }
     } catch (err: any) {
-      logAdmin(`[AI Agent] Errore fetch historical data: ${err.message}`);
+      logAdmin('[AI Agent] Errore fetch historical data', { error: err.message });
       // Continua con array vuoto
     }
     
@@ -198,7 +198,7 @@ export async function GET(request: NextRequest) {
       });
       logAdmin(`[AI Agent] Context built successfully`);
     } catch (err: any) {
-      logAdmin(`[AI Agent] Errore build context: ${err.message}`, { error: err.stack });
+      logAdmin('[AI Agent] Errore build context', { error: err.message, stack: err.stack });
       throw err;
     }
     
@@ -209,7 +209,7 @@ export async function GET(request: NextRequest) {
       insights = await reasoningEngine.generateInsights();
       logAdmin(`[AI Agent] Insights generated`, { count: insights.length });
     } catch (err: any) {
-      logAdmin(`[AI Agent] Errore generazione insights: ${err.message}`, { error: err.stack });
+      logAdmin('[AI Agent] Errore generazione insights', { error: err.message, stack: err.stack });
       throw err;
     }
     
@@ -226,7 +226,7 @@ export async function GET(request: NextRequest) {
             briefNotification: nlg.generateBriefNotification(insight)
           };
         } catch (nlgErr: any) {
-          logAdmin(`[AI Agent] Errore NLG per insight: ${nlgErr.message}`);
+          logAdmin('[AI Agent] Errore NLG per insight', { error: nlgErr.message });
           // Fallback: usa solo i dati base dell'insight
           return {
             ...insight,
@@ -237,7 +237,7 @@ export async function GET(request: NextRequest) {
         }
       });
     } catch (err: any) {
-      logAdmin(`[AI Agent] Errore generazione messaggi NLG: ${err.message}`, { error: err.stack });
+      logAdmin('[AI Agent] Errore generazione messaggi NLG', { error: err.message, stack: err.stack });
       // Fallback: usa solo i dati base degli insights
       insightsWithMessages = insights.map(insight => ({
         ...insight,
@@ -264,7 +264,7 @@ export async function GET(request: NextRequest) {
       
       await adminDb.collection('ai_insights').doc(`${hotelId}_${Date.now()}`).set(insightsDoc);
     } catch (error: any) {
-      logAdmin(`[AI Agent] Errore salvataggio insights: ${error.message}`);
+      logAdmin('[AI Agent] Errore salvataggio insights', { error: error.message });
     }
     
     // Serializza insights rimuovendo eventuali campi non serializzabili
@@ -301,7 +301,7 @@ export async function GET(request: NextRequest) {
           }
         };
       } catch (serErr: any) {
-        logAdmin(`[AI Agent] Errore serializzazione insight: ${serErr.message}`);
+        logAdmin('[AI Agent] Errore serializzazione insight', { error: serErr.message });
         // Fallback: ritorna solo i campi essenziali
         return {
           id: insight.id,
@@ -349,7 +349,7 @@ export async function GET(request: NextRequest) {
     }, { status: 200 });
     
   } catch (error: any) {
-    logAdmin(`[AI Agent] Errore generazione insights: ${error.message}`, { error: error.stack });
+    logAdmin('[AI Agent] Errore generazione insights', { error: error.message, stack: error.stack });
     return NextResponse.json(
       { error: 'Internal server error', message: error.message },
       { status: 500 }
