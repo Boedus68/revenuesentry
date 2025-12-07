@@ -1,12 +1,58 @@
-// API endpoint per scraping competitor prices
+// API endpoint per competitor prices
 import { NextRequest, NextResponse } from 'next/server';
-import { CompetitorScraper } from '../../../../lib/services/scraper-service';
 import { getAdminDb } from '../../../../lib/firebase-admin';
 import { logAdmin } from '../../../../lib/admin-log';
-import { AgentAction } from '../../../../lib/types';
-import { validateAgentAction } from '../../../../lib/firestore-schemas';
+import { FieldValue } from 'firebase-admin/firestore';
 
-// Helper functions
+// ============================================================================
+// TYPES
+// ============================================================================
+
+interface CompetitorPrice {
+  competitorId: string;
+  competitorName: string;
+  price: number;
+  date: string;
+  scrapedAt: string;
+}
+
+interface CompetitorAlert {
+  competitorName: string;
+  oldPrice: number;
+  newPrice: number;
+  changePercent: number;
+  severity: 'high' | 'medium' | 'low';
+  date: string;
+}
+
+interface CompetitorDataDoc {
+  hotelId: string;
+  competitorId: string;
+  competitor_name?: string;
+  competitorName?: string;
+  price: number;
+  date: string;
+  isMock?: boolean;
+  scraped_at?: any;
+  createdAt?: any;
+  updatedAt?: any;
+}
+
+interface CompetitorDoc {
+  id: string;
+  hotelId: string;
+  competitor_name: string;
+  name?: string;
+  url?: string;
+  priceUnit?: 'per_notte' | 'per_persona';
+  isActive: boolean;
+  createdAt?: any;
+}
+
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+
 function safeNumber(value: any, defaultValue: number = 0): number {
   const num = Number(value);
   return isNaN(num) || !isFinite(num) ? defaultValue : num;
@@ -24,7 +70,10 @@ function getSeverity(changePercent: number): 'high' | 'medium' | 'low' {
   return 'low';
 }
 
+// ============================================================================
 // GET - Fetch competitor prices and alerts
+// ============================================================================
+
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
@@ -39,6 +88,7 @@ export async function GET(request: NextRequest) {
 
     const adminDb = getAdminDb();
     if (!adminDb) {
+      logAdmin(`[API] Errore: Firebase Admin non inizializzato per GET competitor prices`, { hotelId });
       return NextResponse.json(
         { error: 'Firebase Admin non inizializzato' },
         { status: 500 }
@@ -47,7 +97,7 @@ export async function GET(request: NextRequest) {
 
     logAdmin(`[API] GET competitor prices request`, { hotelId });
 
-    // 1. Fetch competitors attivi
+    // 1. Fetch competitors attivi (usa competitor_configs come negli altri endpoint)
     const competitorsSnapshot = await adminDb
       .collection('competitor_configs')
       .where('hotelId', '==', hotelId)
@@ -67,108 +117,66 @@ export async function GET(request: NextRequest) {
     const competitors = competitorsSnapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
-    })) as Array<{ id: string; competitor_name?: string; [key: string]: any }>;
+    })) as CompetitorDoc[];
 
-    // 2. Fetch latest prices per ogni competitor
+    // 2. Fetch ALL prices per ogni competitor e prendi il più recente
     const today = new Date().toISOString().split('T')[0];
-    const prices: any[] = [];
-    const alerts: any[] = [];
+    const prices: CompetitorPrice[] = [];
+    const alerts: CompetitorAlert[] = [];
 
     for (const competitor of competitors) {
       try {
-        const competitorName = competitor.competitor_name;
+        const competitorName = competitor.competitor_name || competitor.name || '';
         if (!competitorName) {
           logAdmin(`[API] Competitor senza nome saltato`, { competitorId: competitor.id });
           continue;
         }
 
-        // Fetch ultimo prezzo (senza orderBy per evitare bisogno di indice)
-        let latestPriceSnapshot;
-        try {
-          latestPriceSnapshot = await adminDb
-            .collection('competitor_data')
-            .where('hotelId', '==', hotelId)
-            .where('competitor_name', '==', competitorName)
-            .orderBy('scraped_at', 'desc')
-            .limit(1)
-            .get();
-        } catch (orderByError: any) {
-          // Se orderBy fallisce, prova senza e ordina in memoria
-          const allPricesSnapshot = await adminDb
-            .collection('competitor_data')
-            .where('hotelId', '==', hotelId)
-            .where('competitor_name', '==', competitorName)
-            .get();
-          
+        // Fetch tutti i prezzi per questo competitor
+        const allPricesSnapshot = await adminDb
+          .collection('competitor_data')
+          .where('hotelId', '==', hotelId)
+          .where('competitor_name', '==', competitorName)
+          .get();
+
+        if (!allPricesSnapshot.empty) {
+          // Converti a array tipizzato e ordina per data
           const allPrices = allPricesSnapshot.docs
-            .map(doc => ({ id: doc.id, ...doc.data() }))
+            .map(doc => ({
+              id: doc.id,
+              ...doc.data()
+            } as CompetitorDataDoc & { id: string }))
             .sort((a, b) => {
+              // Usa scraped_at se disponibile, altrimenti createdAt
               const aTime = a.scraped_at?.toDate?.() || a.createdAt?.toDate?.() || new Date(0);
               const bTime = b.scraped_at?.toDate?.() || b.createdAt?.toDate?.() || new Date(0);
               return bTime.getTime() - aTime.getTime();
             });
-          
-          latestPriceSnapshot = {
-            empty: allPrices.length === 0,
-            docs: allPrices.slice(0, 1).map(p => ({
-              id: p.id,
-              data: () => p
-            })) as any[]
-          } as any;
-        }
 
-        if (!latestPriceSnapshot.empty) {
-          const latestPriceDoc = latestPriceSnapshot.docs[0];
-          const latestPriceData = latestPriceDoc.data();
-          const latestPrice = safeNumber(latestPriceData.price, 0);
+          // Prendi il più recente
+          const latestPriceData = allPrices[0];
 
           prices.push({
             competitorId: competitor.id,
             competitorName: competitorName,
-            price: latestPrice,
+            price: safeNumber(latestPriceData.price, 0),
             date: latestPriceData.date || today,
-            scrapedAt: latestPriceData.scraped_at?.toDate?.()?.toISOString() || new Date().toISOString()
+            scrapedAt: latestPriceData.createdAt?.toDate?.()?.toISOString() || new Date().toISOString()
           });
 
-          // Fetch previous price per alert (se disponibile)
-          let previousPriceSnapshot;
-          try {
-            const allPricesSnapshot = await adminDb
-              .collection('competitor_data')
-              .where('hotelId', '==', hotelId)
-              .where('competitor_name', '==', competitorName)
-              .get();
-            
-            const allPrices = allPricesSnapshot.docs
-              .map(doc => ({ id: doc.id, ...doc.data() }))
-              .sort((a, b) => {
-                const aTime = a.scraped_at?.toDate?.() || a.createdAt?.toDate?.() || new Date(0);
-                const bTime = b.scraped_at?.toDate?.() || b.createdAt?.toDate?.() || new Date(0);
-                return bTime.getTime() - aTime.getTime();
-              });
-            
-            previousPriceSnapshot = {
-              empty: allPrices.length < 2,
-              docs: allPrices.length >= 2 ? [{
-                id: allPrices[1].id,
-                data: () => allPrices[1]
-              }] : []
-            } as any;
-          } catch (err: any) {
-            previousPriceSnapshot = { empty: true, docs: [] } as any;
-          }
-
-          if (!previousPriceSnapshot.empty) {
-            const previousPriceData = previousPriceSnapshot.docs[0].data();
+          // Check per alert se c'è un prezzo precedente
+          if (allPrices.length > 1) {
+            const previousPriceData = allPrices[1];
             const oldPrice = safeNumber(previousPriceData.price, 0);
-            const changePercent = calculateChangePercent(oldPrice, latestPrice);
+            const newPrice = safeNumber(latestPriceData.price, 0);
+            const changePercent = calculateChangePercent(oldPrice, newPrice);
 
             // Alert se cambio significativo (>10%)
             if (Math.abs(changePercent) >= 10) {
               alerts.push({
                 competitorName: competitorName,
                 oldPrice,
-                newPrice: latestPrice,
+                newPrice,
                 changePercent,
                 severity: getSeverity(changePercent),
                 date: latestPriceData.date || today
@@ -184,8 +192,7 @@ export async function GET(request: NextRequest) {
             competitorName: competitorName,
             price: mockPrice,
             date: today,
-            scrapedAt: new Date().toISOString(),
-            isMock: true
+            scrapedAt: new Date().toISOString()
           });
 
           // Salva mock price in DB per future reference
@@ -196,7 +203,7 @@ export async function GET(request: NextRequest) {
               price: mockPrice,
               date: today,
               isMock: true,
-              scraped_at: adminDb.Timestamp.now()
+              createdAt: FieldValue.serverTimestamp()
             });
           } catch (saveError: any) {
             logAdmin(`[API] Errore salvataggio mock price: ${saveError.message}`);
@@ -210,12 +217,19 @@ export async function GET(request: NextRequest) {
 
     // 3. Calcola statistiche
     const stats = {
-      avgPrice: prices.length > 0 ? prices.reduce((sum, p) => sum + safeNumber(p.price), 0) / prices.length : 0,
-      minPrice: prices.length > 0 ? Math.min(...prices.map(p => safeNumber(p.price))) : 0,
-      maxPrice: prices.length > 0 ? Math.max(...prices.map(p => safeNumber(p.price))) : 0,
+      avgPrice: prices.length > 0 ? prices.reduce((sum, p) => sum + p.price, 0) / prices.length : 0,
+      minPrice: prices.length > 0 ? Math.min(...prices.map(p => p.price)) : 0,
+      maxPrice: prices.length > 0 ? Math.max(...prices.map(p => p.price)) : 0,
       competitorsCount: competitors.length,
       lastUpdated: new Date().toISOString()
     };
+
+    logAdmin(`[API] Competitor prices fetched`, {
+      hotelId,
+      competitorsCount: competitors.length,
+      pricesCount: prices.length,
+      alertsCount: alerts.length
+    });
 
     return NextResponse.json({
       success: true,
@@ -240,171 +254,117 @@ export async function GET(request: NextRequest) {
   }
 }
 
+// ============================================================================
+// POST - Manually add competitor price
+// ============================================================================
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { location, checkinDate, checkoutDate, hotelId, currentPrice } = body;
+    const { hotelId, competitorId, price, date } = body;
 
-    // Validazione input
-    if (!location || !checkinDate || !checkoutDate || !hotelId) {
+    if (!hotelId) {
       return NextResponse.json(
-        { error: 'Missing required fields: location, checkinDate, checkoutDate, hotelId' },
+        { error: 'Missing required parameter: hotelId' },
         { status: 400 }
       );
     }
 
-    logAdmin(`[API] Competitor prices request`, { location, checkinDate, checkoutDate, hotelId });
-
-    const scraper = new CompetitorScraper();
-    const checkin = new Date(checkinDate);
-    const checkout = new Date(checkoutDate);
-
-    // Verifica se ci sono competitor configurati
-    const configuredCompetitors = await scraper.getConfiguredCompetitors(hotelId);
-    
-    // Verifica cache prima di scrapare
-    const isCached = await scraper.isCached(hotelId, checkin);
-    
-    let competitors;
-    let shouldRefreshCache = false;
-    
-    if (isCached && configuredCompetitors.length > 0) {
-      // Se ci sono competitor configurati, verifica che la cache li contenga tutti
-      logAdmin(`[API] Verifica cache con ${configuredCompetitors.length} competitor configurati`);
-      const cached = await scraper.getFromCache(hotelId, location, checkin);
-      
-      if (cached && cached.length > 0) {
-        const cachedNames = new Set(cached.map(c => c.competitor_name));
-        const configuredNames = new Set(configuredCompetitors.map((c: any) => c.competitor_name));
-        
-        // Verifica se tutti i competitor configurati sono nella cache
-        const allConfiguredInCache = Array.from(configuredNames).every(name => cachedNames.has(name));
-        
-        if (allConfiguredInCache && cached.length === configuredCompetitors.length) {
-          // Cache valida, usa i dati cached
-          logAdmin(`[API] Usando dati cached (${cached.length} competitor)`);
-          competitors = cached.map(c => ({
-            hotel_name: c.competitor_name,
-            price: c.price,
-            rating: c.rating,
-            availability: c.availability,
-          }));
-        } else {
-          // Cache non contiene tutti i competitor configurati, forza refresh
-          logAdmin(`[API] Cache non completa (cached: ${cached.length}, configurati: ${configuredCompetitors.length}), forzo refresh`);
-          shouldRefreshCache = true;
-        }
-      } else {
-        shouldRefreshCache = true;
-      }
-    } else if (isCached) {
-      // Nessun competitor configurato, usa cache se disponibile
-      logAdmin(`[API] Usando dati cached`);
-      const cached = await scraper.getFromCache(hotelId, location, checkin);
-      competitors = cached?.map(c => ({
-        hotel_name: c.competitor_name,
-        price: c.price,
-        rating: c.rating,
-        availability: c.availability,
-      })) || [];
-    }
-    
-    // Se non c'è cache valida o serve refresh, scrapa nuovi dati
-    if (!competitors || shouldRefreshCache) {
-      logAdmin(`[API] Scraping nuovi dati competitor`);
-      competitors = await scraper.scrapeBookingPrices(location, checkin, checkout, hotelId);
+    const adminDb = getAdminDb();
+    if (!adminDb) {
+      logAdmin(`[API] Errore: Firebase Admin non inizializzato per POST competitor price`, { hotelId });
+      return NextResponse.json(
+        { error: 'Firebase Admin non inizializzato' },
+        { status: 500 }
+      );
     }
 
-    // Calcola statistiche con safe number
-    const stats = {
-      avgPrice: competitors.length > 0 
-        ? competitors.reduce((sum, c) => sum + safeNumber(c.price), 0) / competitors.length 
-        : 0,
-      minPrice: competitors.length > 0 
-        ? Math.min(...competitors.map(c => safeNumber(c.price))) 
-        : 0,
-      maxPrice: competitors.length > 0 
-        ? Math.max(...competitors.map(c => safeNumber(c.price))) 
-        : 0,
-      competitorsCount: competitors.length
-    };
-
-    // Genera alert se competitor hanno abbassato prezzi significativamente
-    const alerts: any[] = [];
-    
-    if (currentPrice && stats.avgPrice > 0) {
-      const priceDifference = calculateChangePercent(stats.avgPrice, safeNumber(currentPrice));
-      
-      // Alert se competitor sono più economici del 10%
-      if (priceDifference > 10) {
-        alerts.push({
-          type: 'competitor_price_drop',
-          severity: 'high',
-          message: `I competitor hanno prezzi medi del ${priceDifference.toFixed(1)}% più bassi del tuo`,
-          competitorStats: stats,
-        });
-
-        // Salva alert in agent_actions
-        const adminDb = getAdminDb();
-        if (adminDb) {
-          try {
-            const actionData: Partial<AgentAction> = {
-              hotelId,
-              action_type: 'competitor_alert',
-              action_data: {
-                alert_type: 'competitor_price_drop',
-                current_price: currentPrice,
-                competitor_avg_price: stats.avgPrice,
-                price_difference_percent: priceDifference,
-                competitors: competitors,
-              },
-              status: 'pending',
-              reasoning: `I competitor nella zona hanno abbassato i prezzi del ${priceDifference.toFixed(1)}% rispetto al tuo prezzo attuale (€${currentPrice}). Considera di rivalutare la tua strategia di pricing.`,
-              impact_estimate: Math.round((priceDifference / 100) * currentPrice * 30), // Stima impatto mensile
-              created_at: new Date(),
-            };
-
-            const validated = validateAgentAction(actionData);
-            if (validated) {
-              const actionRef = adminDb.collection('agent_actions').doc();
-              await actionRef.set(validated);
-              logAdmin(`[API] Alert salvato in agent_actions`);
-            }
-          } catch (error: any) {
-            logAdmin(`[API] Errore salvataggio alert: ${error.message}`);
-          }
-        }
-      }
-
-      // Alert se qualche competitor specifico ha prezzo molto più basso
-      for (const competitor of competitors) {
-        const competitorPrice = safeNumber(competitor.price);
-        const yourPrice = safeNumber(currentPrice);
-        if (yourPrice > 0 && competitorPrice < yourPrice * 0.9) {
-          const competitorDiff = calculateChangePercent(yourPrice, competitorPrice);
-          alerts.push({
-            type: 'specific_competitor_lower',
-            severity: 'medium',
-            message: `${competitor.hotel_name} ha un prezzo del ${competitorDiff.toFixed(1)}% più basso (€${competitorPrice.toFixed(2)} vs tuo €${yourPrice.toFixed(2)})`,
-            competitor: competitor.hotel_name,
-            competitorPrice: competitorPrice,
-            yourPrice: yourPrice,
-          });
-        }
-      }
+    // Valida input
+    if (!competitorId || typeof competitorId !== 'string') {
+      return NextResponse.json(
+        { error: 'ID competitor obbligatorio' },
+        { status: 400 }
+      );
     }
 
-    return NextResponse.json({
-      competitors,
-      stats,
-      alerts,
-      cached: isCached && !shouldRefreshCache,
-    }, { status: 200 });
+    if (typeof price !== 'number' || price <= 0) {
+      return NextResponse.json(
+        { error: 'Prezzo non valido' },
+        { status: 400 }
+      );
+    }
+
+    // Verifica competitor ownership
+    const competitorDoc = await adminDb.collection('competitor_configs').doc(competitorId).get();
+
+    if (!competitorDoc.exists) {
+      return NextResponse.json(
+        { error: 'Competitor non trovato' },
+        { status: 404 }
+      );
+    }
+
+    const competitorData = competitorDoc.data() as CompetitorDoc;
+    if (competitorData?.hotelId !== hotelId) {
+      return NextResponse.json(
+        { error: 'Non autorizzato' },
+        { status: 403 }
+      );
+    }
+
+    // Salva prezzo
+    const priceDate = date || new Date().toISOString().split('T')[0];
+    const competitorName = competitorData.competitor_name || competitorData.name || '';
+
+    // Check se prezzo per questa data già esistente
+    const existingSnapshot = await adminDb
+      .collection('competitor_data')
+      .where('hotelId', '==', hotelId)
+      .where('competitor_name', '==', competitorName)
+      .where('date', '==', priceDate)
+      .limit(1)
+      .get();
+
+    if (!existingSnapshot.empty) {
+      // Update existing
+      const docId = existingSnapshot.docs[0].id;
+      await adminDb.collection('competitor_data').doc(docId).update({
+        price,
+        updatedAt: FieldValue.serverTimestamp()
+      });
+
+      logAdmin(`[API] Competitor price updated`, { hotelId, competitorId, price, date: priceDate });
+
+      return NextResponse.json({
+        success: true,
+        message: 'Prezzo aggiornato con successo'
+      });
+    } else {
+      // Create new
+      await adminDb.collection('competitor_data').add({
+        hotelId,
+        competitor_name: competitorName,
+        price,
+        date: priceDate,
+        isMock: false,
+        createdAt: FieldValue.serverTimestamp()
+      });
+
+      logAdmin(`[API] Competitor price added`, { hotelId, competitorId, price, date: priceDate });
+
+      return NextResponse.json({
+        success: true,
+        message: 'Prezzo salvato con successo'
+      }, { status: 201 });
+    }
 
   } catch (error: any) {
-    logAdmin(`[API] Errore competitor prices: ${error.message}`, { error: error.stack });
+    logAdmin(`[API] Errore POST competitor price: ${error.message}`, { error: error.stack });
     return NextResponse.json(
-      { error: 'Internal server error', message: error.message },
+      {
+        error: 'Errore nel salvataggio prezzo',
+        message: process.env.NODE_ENV === 'development' ? error.message : undefined
+      },
       { status: 500 }
     );
   }
