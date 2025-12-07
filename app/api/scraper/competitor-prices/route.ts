@@ -67,7 +67,7 @@ export async function GET(request: NextRequest) {
     const competitors = competitorsSnapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
-    }));
+    })) as Array<{ id: string; competitor_name?: string; [key: string]: any }>;
 
     // 2. Fetch latest prices per ogni competitor
     const today = new Date().toISOString().split('T')[0];
@@ -76,13 +76,19 @@ export async function GET(request: NextRequest) {
 
     for (const competitor of competitors) {
       try {
+        const competitorName = competitor.competitor_name;
+        if (!competitorName) {
+          logAdmin(`[API] Competitor senza nome saltato`, { competitorId: competitor.id });
+          continue;
+        }
+
         // Fetch ultimo prezzo (senza orderBy per evitare bisogno di indice)
         let latestPriceSnapshot;
         try {
           latestPriceSnapshot = await adminDb
             .collection('competitor_data')
             .where('hotelId', '==', hotelId)
-            .where('competitor_name', '==', competitor.competitor_name)
+            .where('competitor_name', '==', competitorName)
             .orderBy('scraped_at', 'desc')
             .limit(1)
             .get();
@@ -91,7 +97,7 @@ export async function GET(request: NextRequest) {
           const allPricesSnapshot = await adminDb
             .collection('competitor_data')
             .where('hotelId', '==', hotelId)
-            .where('competitor_name', '==', competitor.competitor_name)
+            .where('competitor_name', '==', competitorName)
             .get();
           
           const allPrices = allPricesSnapshot.docs
@@ -118,7 +124,7 @@ export async function GET(request: NextRequest) {
 
           prices.push({
             competitorId: competitor.id,
-            competitorName: competitor.competitor_name,
+            competitorName: competitorName,
             price: latestPrice,
             date: latestPriceData.date || today,
             scrapedAt: latestPriceData.scraped_at?.toDate?.()?.toISOString() || new Date().toISOString()
@@ -130,7 +136,7 @@ export async function GET(request: NextRequest) {
             const allPricesSnapshot = await adminDb
               .collection('competitor_data')
               .where('hotelId', '==', hotelId)
-              .where('competitor_name', '==', competitor.competitor_name)
+              .where('competitor_name', '==', competitorName)
               .get();
             
             const allPrices = allPricesSnapshot.docs
@@ -160,7 +166,7 @@ export async function GET(request: NextRequest) {
             // Alert se cambio significativo (>10%)
             if (Math.abs(changePercent) >= 10) {
               alerts.push({
-                competitorName: competitor.competitor_name,
+                competitorName: competitorName,
                 oldPrice,
                 newPrice: latestPrice,
                 changePercent,
@@ -175,7 +181,7 @@ export async function GET(request: NextRequest) {
 
           prices.push({
             competitorId: competitor.id,
-            competitorName: competitor.competitor_name,
+            competitorName: competitorName,
             price: mockPrice,
             date: today,
             scrapedAt: new Date().toISOString(),
@@ -186,7 +192,7 @@ export async function GET(request: NextRequest) {
           try {
             await adminDb.collection('competitor_data').add({
               hotelId,
-              competitor_name: competitor.competitor_name,
+              competitor_name: competitorName,
               price: mockPrice,
               date: today,
               isMock: true,
