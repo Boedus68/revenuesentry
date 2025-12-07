@@ -148,10 +148,11 @@ export async function GET(request: NextRequest) {
 
     logAdmin('[Competitor Prices GET] userId trovato', { userId });
 
-    // Leggi le date dai parametri query
+    // Leggi le date e il filtro trattamento dai parametri query
     const { searchParams } = new URL(request.url);
     const checkinDateParam = searchParams.get('checkinDate');
     const checkoutDateParam = searchParams.get('checkoutDate');
+    const treatmentFilter = searchParams.get('treatment'); // 'BB', 'FB', o null per tutti
     
     // Usa le date fornite o default a oggi/domani
     const checkinDate = checkinDateParam ? new Date(checkinDateParam) : new Date();
@@ -161,10 +162,27 @@ export async function GET(request: NextRequest) {
       return tomorrow;
     })();
     
+    // Valida che checkout sia dopo checkin
+    if (checkoutDate <= checkinDate) {
+      logAdmin('[Competitor Prices GET] Date non valide', { checkinDate: checkinDateParam, checkoutDate: checkoutDateParam });
+      return NextResponse.json(
+        { error: 'La data di check-out deve essere successiva alla data di check-in' },
+        { status: 400 }
+      );
+    }
+    
     const checkinDateStr = checkinDate.toISOString().split('T')[0];
     const checkoutDateStr = checkoutDate.toISOString().split('T')[0];
     
-    logAdmin('[Competitor Prices GET] Date richieste', { checkinDate: checkinDateStr, checkoutDate: checkoutDateStr });
+    // Calcola numero di notti
+    const nights = Math.ceil((checkoutDate.getTime() - checkinDate.getTime()) / (1000 * 60 * 60 * 24));
+    
+    logAdmin('[Competitor Prices GET] Date richieste', { 
+      checkinDate: checkinDateStr, 
+      checkoutDate: checkoutDateStr,
+      nights,
+      treatmentFilter 
+    });
 
     // 1. Fetch competitors attivi (usa competitor_configs come negli altri endpoint)
     const competitorsSnapshot = await adminDb
@@ -222,6 +240,28 @@ export async function GET(request: NextRequest) {
         if (!priceSnapshot.empty) {
           // Prendi il primo risultato (dovrebbe essere uno solo per data)
           const priceData = priceSnapshot.docs[0].data() as CompetitorDataDoc;
+          
+          // Filtra per trattamento se richiesto
+          const competitorTreatment = priceData.treatment?.toUpperCase() || '';
+          if (treatmentFilter) {
+            const filterUpper = treatmentFilter.toUpperCase();
+            if (filterUpper === 'BB' && competitorTreatment !== 'BB' && competitorTreatment !== 'B&B') {
+              logAdmin(`[Competitor Prices GET] Competitor filtrato per trattamento`, { 
+                competitorName, 
+                treatment: competitorTreatment,
+                filter: filterUpper 
+              });
+              continue; // Salta questo competitor
+            }
+            if (filterUpper === 'FB' && competitorTreatment !== 'FB' && competitorTreatment !== 'FULL BOARD' && competitorTreatment !== 'PENSIONE COMPLETA') {
+              logAdmin(`[Competitor Prices GET] Competitor filtrato per trattamento`, { 
+                competitorName, 
+                treatment: competitorTreatment,
+                filter: filterUpper 
+              });
+              continue; // Salta questo competitor
+            }
+          }
 
           prices.push({
             competitorId: competitor.id,
@@ -232,7 +272,7 @@ export async function GET(request: NextRequest) {
             treatment: priceData.treatment || undefined,
             price_unit: priceData.price_unit || 'per_camera',
             guests: priceData.guests || undefined,
-            nights: priceData.nights || undefined
+            nights: priceData.nights || nights
           });
 
           // Check per alert: confronta con prezzo precedente (più recente prima di questa data)
@@ -279,18 +319,27 @@ export async function GET(request: NextRequest) {
       
       for (const competitor of competitorsNeedingScraping) {
         const competitorName = competitor.competitor_name || competitor.name || '';
+        
+        // Determina il trattamento in base al filtro o usa BB come default
+        let mockTreatment = 'BB';
+        if (treatmentFilter) {
+          const filterUpper = treatmentFilter.toUpperCase();
+          if (filterUpper === 'FB') {
+            mockTreatment = 'FB';
+          } else {
+            mockTreatment = 'BB';
+          }
+        }
+        
         // Genera mock price (variabile per data e competitor per simulare prezzi diversi)
-        const basePrice = 90;
+        const basePrice = mockTreatment === 'FB' ? 120 : 90; // Full board costa di più
         // Usa hash della data per variare il prezzo in modo deterministico ma variabile
         const dateHash = checkinDateStr.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
         // Usa hash del nome competitor per variare il prezzo base
         const nameHash = competitorName.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
         const dateVariation = dateHash % 60; // Variazione 0-59 basata sulla data
         const nameVariation = (nameHash % 30); // Variazione 0-29 basata sul nome
-        const mockPrice = Math.round((basePrice + dateVariation + nameVariation) * 100) / 100; // €90-179 variabile per data e competitor
-
-        // Calcola numero di notti dalla differenza tra check-in e check-out
-        const nights = Math.ceil((checkoutDate.getTime() - checkinDate.getTime()) / (1000 * 60 * 60 * 24));
+        const mockPrice = Math.round((basePrice + dateVariation + nameVariation) * 100) / 100; // €90-179 (BB) o €120-209 (FB)
         
         prices.push({
           competitorId: competitor.id,
@@ -298,7 +347,7 @@ export async function GET(request: NextRequest) {
           price: mockPrice,
           date: checkinDateStr,
           scrapedAt: new Date().toISOString(),
-          treatment: 'BB', // Default per mock data
+          treatment: mockTreatment,
           price_unit: 'per_camera_per_notte',
           guests: 2, // Default 2 ospiti per camera doppia
           nights: nights
@@ -306,15 +355,23 @@ export async function GET(request: NextRequest) {
 
         // Salva mock price in DB per questa data specifica
         try {
-          // Calcola numero di notti dalla differenza tra check-in e check-out
-          const nights = Math.ceil((checkoutDate.getTime() - checkinDate.getTime()) / (1000 * 60 * 60 * 24));
+          // Determina il trattamento in base al filtro o usa BB come default
+          let mockTreatment = 'BB';
+          if (treatmentFilter) {
+            const filterUpper = treatmentFilter.toUpperCase();
+            if (filterUpper === 'FB') {
+              mockTreatment = 'FB';
+            } else {
+              mockTreatment = 'BB';
+            }
+          }
           
           await adminDb.collection('competitor_data').add({
             hotelId: userId,
             competitor_name: competitorName,
             price: mockPrice,
             date: checkinDateStr,
-            treatment: 'BB',
+            treatment: mockTreatment,
             price_unit: 'per_camera_per_notte',
             guests: 2,
             nights: nights,

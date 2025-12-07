@@ -53,12 +53,17 @@ export class CompetitorScraper {
    * Usa i competitor configurati dall'utente se disponibili, altrimenti usa lista di default
    * Nota: In produzione, usa Puppeteer/Playwright o API ufficiale
    * Per ora, simula con dati mock per sviluppo
+   * 
+   * @param treatmentFilter - Filtro trattamento ('BB', 'FB', o null per tutti)
+   *                          Quando 'FB', lo scraping dovrebbe usare il filtro Booking.com
+   *                          "all meals included" nella URL di ricerca
    */
   async scrapeBookingPrices(
     location: string,
     checkinDate: Date,
     checkoutDate: Date,
-    hotelId: string
+    hotelId: string,
+    treatmentFilter?: string
   ): Promise<CompetitorPrice[]> {
     try {
       logAdmin(`[Scraper] Inizio scraping competitor per ${location}`, { location, checkinDate, checkoutDate });

@@ -56,6 +56,16 @@ export default function CompetitorAlerts() {
     date.setDate(date.getDate() + 2); // Dopodomani
     return date;
   });
+  
+  // Filtro trattamento
+  const [treatmentFilter, setTreatmentFilter] = useState<string>('all'); // 'all', 'BB', 'FB'
+  
+  // Funzione helper per calcolare le notti in modo sicuro
+  const calculateNights = (checkin: Date, checkout: Date): number => {
+    const diffTime = Math.abs(checkout.getTime() - checkin.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return Math.max(1, diffDays); // Almeno 1 notte
+  };
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -82,11 +92,11 @@ export default function CompetitorAlerts() {
     }, 6 * 60 * 60 * 1000);
 
     return () => clearInterval(interval);
-  }, [user, checkinDate, checkoutDate]);
+  }, [user, checkinDate, checkoutDate, treatmentFilter]);
 
   // Funzione helper per calcolare il prezzo a persona
   const calculatePricePerPerson = (competitor: CompetitorPrice): number => {
-    const nights = competitor.nights || Math.ceil((checkoutDate.getTime() - checkinDate.getTime()) / (1000 * 60 * 60 * 24));
+    const nights = competitor.nights || calculateNights(checkinDate, checkoutDate);
     const guests = competitor.guests || 2; // Default 2 ospiti
     
     if (competitor.price_unit === 'per_persona') {
@@ -178,10 +188,22 @@ export default function CompetitorAlerts() {
       const checkinDateStr = checkinDate.toISOString().split('T')[0];
       const checkoutDateStr = checkoutDate.toISOString().split('T')[0];
       
-      console.log('Fetching competitor prices for dates:', { checkinDate: checkinDateStr, checkoutDate: checkoutDateStr });
+      console.log('Fetching competitor prices for dates:', { checkinDate: checkinDateStr, checkoutDate: checkoutDateStr, treatmentFilter });
       
-      // Usa GET invece di POST per leggere i dati, includendo le date
-      const response = await fetch(`/api/scraper/competitor-prices?hotelId=${hotelId}&checkinDate=${checkinDateStr}&checkoutDate=${checkoutDateStr}`, {
+      // Costruisci URL con parametri
+      const params = new URLSearchParams({
+        hotelId: hotelId,
+        checkinDate: checkinDateStr,
+        checkoutDate: checkoutDateStr,
+      });
+      
+      // Aggiungi filtro trattamento se non è 'all'
+      if (treatmentFilter !== 'all') {
+        params.append('treatment', treatmentFilter);
+      }
+      
+      // Usa GET invece di POST per leggere i dati, includendo le date e il filtro trattamento
+      const response = await fetch(`/api/scraper/competitor-prices?${params.toString()}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -280,7 +302,16 @@ export default function CompetitorAlerts() {
               <input
                 type="date"
                 value={checkinDate.toISOString().split('T')[0]}
-                onChange={(e) => setCheckinDate(new Date(e.target.value))}
+                onChange={(e) => {
+                  const newDate = new Date(e.target.value);
+                  setCheckinDate(newDate);
+                  // Assicura che checkout sia sempre dopo checkin
+                  if (checkoutDate <= newDate) {
+                    const nextDay = new Date(newDate);
+                    nextDay.setDate(nextDay.getDate() + 1);
+                    setCheckoutDate(nextDay);
+                  }
+                }}
                 min={new Date().toISOString().split('T')[0]}
                 className="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
@@ -300,8 +331,20 @@ export default function CompetitorAlerts() {
                 className="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
+            <div className="flex items-center gap-2">
+              <label className="text-xs text-gray-400">Trattamento:</label>
+              <select
+                value={treatmentFilter}
+                onChange={(e) => setTreatmentFilter(e.target.value)}
+                className="bg-gray-700 border border-gray-600 rounded px-2 py-1 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="all">Tutti</option>
+                <option value="BB">B&B</option>
+                <option value="FB">Pensione Completa</option>
+              </select>
+            </div>
             <div className="text-xs text-gray-500">
-              ({Math.ceil((checkoutDate.getTime() - checkinDate.getTime()) / (1000 * 60 * 60 * 24))} notte/i)
+              ({calculateNights(checkinDate, checkoutDate)} notte/i)
             </div>
           </div>
         </div>
@@ -363,10 +406,23 @@ export default function CompetitorAlerts() {
                 </tr>
               </thead>
               <tbody>
-                {competitors.map((competitor, idx) => {
+                {competitors
+                  .filter(competitor => {
+                    // Filtra per trattamento se selezionato
+                    if (treatmentFilter === 'all') return true;
+                    const competitorTreatment = competitor.treatment?.toUpperCase() || '';
+                    if (treatmentFilter === 'BB') {
+                      return competitorTreatment === 'BB' || competitorTreatment === 'B&B';
+                    }
+                    if (treatmentFilter === 'FB') {
+                      return competitorTreatment === 'FB' || competitorTreatment === 'FULL BOARD' || competitorTreatment === 'PENSIONE COMPLETA';
+                    }
+                    return true;
+                  })
+                  .map((competitor, idx) => {
                   const pricePerPerson = calculatePricePerPerson(competitor);
                   const netPricePerPerson = calculateNetPricePerPerson(competitor);
-                  const nights = competitor.nights || Math.ceil((checkoutDate.getTime() - checkinDate.getTime()) / (1000 * 60 * 60 * 24));
+                  const nights = competitor.nights || calculateNights(checkinDate, checkoutDate);
                   const guests = competitor.guests || 2;
                   
                   // Calcola prezzo totale in base all'unità
