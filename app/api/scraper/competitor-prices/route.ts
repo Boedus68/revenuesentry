@@ -2,7 +2,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminDb } from '../../../../lib/firebase-admin';
 import { logAdmin } from '../../../../lib/admin-log';
-import { FieldValue } from 'firebase-admin/firestore';
+import { FieldValue, getFirestore } from 'firebase-admin/firestore';
+import { getAuth } from 'firebase-admin/auth';
 
 // ============================================================================
 // TYPES
@@ -27,7 +28,7 @@ interface CompetitorAlert {
 
 interface CompetitorDataDoc {
   hotelId: string;
-  competitorId: string;
+  competitorId?: string;
   competitor_name?: string;
   competitorName?: string;
   price: number;
@@ -41,7 +42,7 @@ interface CompetitorDataDoc {
 interface CompetitorDoc {
   id: string;
   hotelId: string;
-  competitor_name: string;
+  competitor_name?: string;
   name?: string;
   url?: string;
   priceUnit?: 'per_notte' | 'per_persona';
@@ -70,39 +71,83 @@ function getSeverity(changePercent: number): 'high' | 'medium' | 'low' {
   return 'low';
 }
 
+/**
+ * Extract userId from either Authorization header, hotelId query param, or body (for POST)
+ */
+async function getUserId(request: NextRequest, body?: any): Promise<string | null> {
+  logAdmin('[Competitor Prices] Extracting userId...');
+  
+  // Try Authorization header first
+  const authHeader = request.headers.get('authorization');
+  logAdmin('[Competitor Prices] Auth header:', authHeader ? 'presente' : 'assente');
+  
+  if (authHeader?.startsWith('Bearer ')) {
+    const token = authHeader.substring(7);
+    try {
+      const decodedToken = await getAuth().verifyIdToken(token);
+      logAdmin('[Competitor Prices] Token verificato, userId:', decodedToken.uid);
+      return decodedToken.uid;
+    } catch (error: any) {
+      logAdmin(`[Competitor Prices] Token verification failed: ${error.message}`);
+      // Non ritornare null subito, prova altri metodi come fallback
+    }
+  }
+  
+  // Try query param
+  const { searchParams } = new URL(request.url);
+  const hotelIdFromQuery = searchParams.get('hotelId');
+  if (hotelIdFromQuery) {
+    logAdmin('[Competitor Prices] Query param hotelId:', hotelIdFromQuery);
+    return hotelIdFromQuery;
+  }
+  
+  // Try body (for POST requests)
+  if (body && body.hotelId) {
+    logAdmin('[Competitor Prices] Body hotelId:', body.hotelId);
+    return body.hotelId;
+  }
+  
+  logAdmin('[Competitor Prices] Nessun hotelId trovato');
+  return null;
+}
+
 // ============================================================================
 // GET - Fetch competitor prices and alerts
 // ============================================================================
 
 export async function GET(request: NextRequest) {
+  logAdmin('[Competitor Prices GET] Request received');
+  
   try {
-    const searchParams = request.nextUrl.searchParams;
-    const hotelId = searchParams.get('hotelId');
-
-    if (!hotelId) {
-      return NextResponse.json(
-        { error: 'Missing required parameter: hotelId' },
-        { status: 400 }
-      );
-    }
-
     const adminDb = getAdminDb();
     if (!adminDb) {
-      logAdmin(`[API] Errore: Firebase Admin non inizializzato per GET competitor prices`, { hotelId });
+      logAdmin('[Competitor Prices GET] Firebase Admin non inizializzato');
       return NextResponse.json(
         { error: 'Firebase Admin non inizializzato' },
         { status: 500 }
       );
     }
 
-    logAdmin(`[API] GET competitor prices request`, { hotelId });
+    const userId = await getUserId(request);
+    
+    if (!userId) {
+      logAdmin('[Competitor Prices GET] Autenticazione fallita');
+      return NextResponse.json(
+        { error: 'Non autenticato - token o hotelId mancante' },
+        { status: 401 }
+      );
+    }
+
+    logAdmin('[Competitor Prices GET] userId:', userId);
 
     // 1. Fetch competitors attivi (usa competitor_configs come negli altri endpoint)
     const competitorsSnapshot = await adminDb
       .collection('competitor_configs')
-      .where('hotelId', '==', hotelId)
+      .where('hotelId', '==', userId)
       .where('isActive', '==', true)
       .get();
+
+    logAdmin('[Competitor Prices GET] Competitors trovati:', competitorsSnapshot.size);
 
     if (competitorsSnapshot.empty) {
       return NextResponse.json({
@@ -128,16 +173,20 @@ export async function GET(request: NextRequest) {
       try {
         const competitorName = competitor.competitor_name || competitor.name || '';
         if (!competitorName) {
-          logAdmin(`[API] Competitor senza nome saltato`, { competitorId: competitor.id });
+          logAdmin(`[Competitor Prices GET] Competitor senza nome saltato`, { competitorId: competitor.id });
           continue;
         }
 
-        // Fetch tutti i prezzi per questo competitor
+        logAdmin(`[Competitor Prices GET] Processing competitor: ${competitor.id}`);
+
+        // Fetch tutti i prezzi per questo competitor (usa competitor_name per compatibilità)
         const allPricesSnapshot = await adminDb
           .collection('competitor_data')
-          .where('hotelId', '==', hotelId)
+          .where('hotelId', '==', userId)
           .where('competitor_name', '==', competitorName)
           .get();
+
+        logAdmin(`[Competitor Prices GET] Prices per competitor ${competitor.id}:`, allPricesSnapshot.size);
 
         if (!allPricesSnapshot.empty) {
           // Converti a array tipizzato e ordina per data
@@ -198,19 +247,20 @@ export async function GET(request: NextRequest) {
           // Salva mock price in DB per future reference
           try {
             await adminDb.collection('competitor_data').add({
-              hotelId,
+              hotelId: userId,
               competitor_name: competitorName,
               price: mockPrice,
               date: today,
               isMock: true,
               createdAt: FieldValue.serverTimestamp()
             });
+            logAdmin(`[Competitor Prices GET] Mock price creato: ${mockPrice}`);
           } catch (saveError: any) {
-            logAdmin(`[API] Errore salvataggio mock price: ${saveError.message}`);
+            logAdmin(`[Competitor Prices GET] Errore salvataggio mock price: ${saveError.message}`);
           }
         }
       } catch (error: any) {
-        logAdmin(`[API] Errore fetch prices per competitor ${competitor.id}: ${error.message}`);
+        logAdmin(`[Competitor Prices GET] Error per competitor ${competitor.id}: ${error.message}`, { error: error.stack });
         // Continua con next competitor invece di fallire tutto
       }
     }
@@ -224,11 +274,10 @@ export async function GET(request: NextRequest) {
       lastUpdated: new Date().toISOString()
     };
 
-    logAdmin(`[API] Competitor prices fetched`, {
-      hotelId,
-      competitorsCount: competitors.length,
+    logAdmin('[Competitor Prices GET] Success!', {
       pricesCount: prices.length,
-      alertsCount: alerts.length
+      alertsCount: alerts.length,
+      stats
     });
 
     return NextResponse.json({
@@ -243,11 +292,13 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error: any) {
-    logAdmin(`[API] Errore GET competitor prices: ${error.message}`, { error: error.stack });
+    logAdmin('[Competitor Prices GET] ERRORE:', error.message, { error: error.stack });
+    
     return NextResponse.json(
       {
         error: 'Errore nel recupero prezzi competitor',
-        message: process.env.NODE_ENV === 'development' ? error.message : undefined
+        message: error.message,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
       },
       { status: 500 }
     );
@@ -259,28 +310,52 @@ export async function GET(request: NextRequest) {
 // ============================================================================
 
 export async function POST(request: NextRequest) {
+  logAdmin('[Competitor Prices POST] Request received');
+  
   try {
-    const body = await request.json();
-    const { hotelId, competitorId, price, date } = body;
-
-    if (!hotelId) {
-      return NextResponse.json(
-        { error: 'Missing required parameter: hotelId' },
-        { status: 400 }
-      );
-    }
-
     const adminDb = getAdminDb();
     if (!adminDb) {
-      logAdmin(`[API] Errore: Firebase Admin non inizializzato per POST competitor price`, { hotelId });
+      logAdmin('[Competitor Prices POST] Firebase Admin non inizializzato');
       return NextResponse.json(
         { error: 'Firebase Admin non inizializzato' },
         { status: 500 }
       );
     }
 
+    // Parse body first (needed for getUserId to check body)
+    let body;
+    try {
+      body = await request.json();
+      logAdmin('[Competitor Prices POST] Body ricevuto:', body);
+    } catch (error: any) {
+      logAdmin(`[Competitor Prices POST] Body parse error: ${error.message}`);
+      return NextResponse.json(
+        { error: 'Body richiesta non valido' },
+        { status: 400 }
+      );
+    }
+
+    // Get userId from header, query param, or body
+    const userId = await getUserId(request, body);
+    
+    if (!userId) {
+      logAdmin('[Competitor Prices POST] Autenticazione fallita');
+      return NextResponse.json(
+        { error: 'Non autenticato - token o hotelId mancante' },
+        { status: 401 }
+      );
+    }
+
+    logAdmin('[Competitor Prices POST] userId:', userId);
+
+    const { hotelId, competitorId, price, date } = body;
+
+    // Se hotelId è nel body, usa quello (per compatibilità)
+    const finalHotelId = hotelId || userId;
+
     // Valida input
     if (!competitorId || typeof competitorId !== 'string') {
+      logAdmin('[Competitor Prices POST] competitorId mancante o invalido');
       return NextResponse.json(
         { error: 'ID competitor obbligatorio' },
         { status: 400 }
@@ -288,16 +363,18 @@ export async function POST(request: NextRequest) {
     }
 
     if (typeof price !== 'number' || price <= 0) {
+      logAdmin('[Competitor Prices POST] price invalido:', price);
       return NextResponse.json(
         { error: 'Prezzo non valido' },
         { status: 400 }
       );
     }
 
-    // Verifica competitor ownership
+    // Verifica competitor ownership (usa competitor_configs)
     const competitorDoc = await adminDb.collection('competitor_configs').doc(competitorId).get();
 
     if (!competitorDoc.exists) {
+      logAdmin('[Competitor Prices POST] Competitor non trovato:', competitorId);
       return NextResponse.json(
         { error: 'Competitor non trovato' },
         { status: 404 }
@@ -305,7 +382,8 @@ export async function POST(request: NextRequest) {
     }
 
     const competitorData = competitorDoc.data() as CompetitorDoc;
-    if (competitorData?.hotelId !== hotelId) {
+    if (competitorData?.hotelId !== finalHotelId) {
+      logAdmin('[Competitor Prices POST] Competitor non appartiene a userId');
       return NextResponse.json(
         { error: 'Non autorizzato' },
         { status: 403 }
@@ -319,7 +397,7 @@ export async function POST(request: NextRequest) {
     // Check se prezzo per questa data già esistente
     const existingSnapshot = await adminDb
       .collection('competitor_data')
-      .where('hotelId', '==', hotelId)
+      .where('hotelId', '==', finalHotelId)
       .where('competitor_name', '==', competitorName)
       .where('date', '==', priceDate)
       .limit(1)
@@ -333,8 +411,7 @@ export async function POST(request: NextRequest) {
         updatedAt: FieldValue.serverTimestamp()
       });
 
-      logAdmin(`[API] Competitor price updated`, { hotelId, competitorId, price, date: priceDate });
-
+      logAdmin('[Competitor Prices POST] Prezzo aggiornato');
       return NextResponse.json({
         success: true,
         message: 'Prezzo aggiornato con successo'
@@ -342,7 +419,7 @@ export async function POST(request: NextRequest) {
     } else {
       // Create new
       await adminDb.collection('competitor_data').add({
-        hotelId,
+        hotelId: finalHotelId,
         competitor_name: competitorName,
         price,
         date: priceDate,
@@ -350,8 +427,7 @@ export async function POST(request: NextRequest) {
         createdAt: FieldValue.serverTimestamp()
       });
 
-      logAdmin(`[API] Competitor price added`, { hotelId, competitorId, price, date: priceDate });
-
+      logAdmin('[Competitor Prices POST] Prezzo creato');
       return NextResponse.json({
         success: true,
         message: 'Prezzo salvato con successo'
@@ -359,11 +435,13 @@ export async function POST(request: NextRequest) {
     }
 
   } catch (error: any) {
-    logAdmin(`[API] Errore POST competitor price: ${error.message}`, { error: error.stack });
+    logAdmin('[Competitor Prices POST] ERRORE:', error.message, { error: error.stack });
+    
     return NextResponse.json(
       {
         error: 'Errore nel salvataggio prezzo',
-        message: process.env.NODE_ENV === 'development' ? error.message : undefined
+        message: error.message,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
       },
       { status: 500 }
     );
