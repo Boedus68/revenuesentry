@@ -310,9 +310,9 @@ export class ContextBuilder {
         gap: (kpis.adr - adrBenchmark) / adrBenchmark
       },
       occupancy: {
-        actual: kpis.occupancy,
+        actual: kpis.occupazione,
         benchmark: occupancyBenchmark,
-        gap: (kpis.occupancy - occupancyBenchmark) / occupancyBenchmark
+        gap: (kpis.occupazione - occupancyBenchmark) / occupancyBenchmark
       },
       revpar: {
         actual: kpis.revpar,

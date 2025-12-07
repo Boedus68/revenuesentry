@@ -524,19 +524,19 @@ export class SentryReasoningEngine {
     const { kpis, hotelData } = this.context;
     
     // Opportunità: Upselling
-    if (kpis.occupancy > 0.7) {
+    if (kpis.occupazione > 0.7) {
       insights.push({
         id: `opportunity-upselling-${Date.now()}`,
         category: 'opportunity',
         priority: 5,
         title: 'Opportunità Upselling con Alta Occupazione',
-        description: `Con occupazione al ${(kpis.occupancy * 100).toFixed(1)}%, hai molte opportunità per aumentare revenue per ospite con servizi extra.`,
+        description: `Con occupazione al ${(kpis.occupazione * 100).toFixed(1)}%, hai molte opportunità per aumentare revenue per ospite con servizi extra.`,
         reasoning: {
-          observation: `Occupazione alta: ${(kpis.occupancy * 100).toFixed(1)}%`,
+          observation: `Occupazione alta: ${(kpis.occupazione * 100).toFixed(1)}%`,
           analysis: 'Ogni ospite è un\'opportunità per revenue aggiuntivo a margine alto',
           causes: ['Alta occupazione = più ospiti', 'Margini alti su servizi extra'],
           consequences: ['Revenue incrementale significativo', 'Migliore esperienza ospiti'],
-          logic: `Con ${Math.round((hotelData.camereTotali || 30) * kpis.occupancy * 25)} ospiti/mese, anche un upselling medio di €10/ospite su 30% degli ospiti genera €${this.estimateUpsellImpact(this.context).toFixed(0)}/mese in revenue aggiuntivo.`
+          logic: `Con ${Math.round((hotelData.camereTotali || 30) * kpis.occupazione * 25)} ospiti/mese, anche un upselling medio di €10/ospite su 30% degli ospiti genera €${this.estimateUpsellImpact(this.context).toFixed(0)}/mese in revenue aggiuntivo.`
         },
         recommendations: [
           {
@@ -564,7 +564,7 @@ export class SentryReasoningEngine {
     }
     
     // Opportunità: Miglioramento recensioni
-    if (kpis.occupancy < 0.8) {
+    if (kpis.occupazione < 0.8) {
       insights.push({
         id: `opportunity-reviews-${Date.now()}`,
         category: 'opportunity',
@@ -655,7 +655,7 @@ export class SentryReasoningEngine {
     
     // Rischio: Competitor aggressivi
     const competitorPressure = this.analyzeCompetitorPressure(this.context);
-    if (competitorPressure > 0.7 && kpis.occupancy < 0.75) {
+    if (competitorPressure > 0.7 && kpis.occupazione < 0.75) {
       insights.push({
         id: `risk-competitor-pressure-${Date.now()}`,
         category: 'risk',
@@ -786,7 +786,7 @@ export class SentryReasoningEngine {
             'Diluizione costi su meno camere',
             'Perdita quota di mercato'
           ],
-          logic: `Con occupazione al ${(context.kpis.occupancy * 100).toFixed(1)}% vs benchmark ${(context.benchmarks.occupancy.benchmark * 100).toFixed(1)}%, stai perdendo circa ${Math.abs(context.benchmarks.occupancy.gap * 100).toFixed(1)} punti percentuali di occupazione potenziale.`
+          logic: `Con occupazione al ${(context.kpis.occupazione * 100).toFixed(1)}% vs benchmark ${(context.benchmarks.occupancy.benchmark * 100).toFixed(1)}%, stai perdendo circa ${Math.abs(context.benchmarks.occupancy.gap * 100).toFixed(1)} punti percentuali di occupazione potenziale.`
         };
         
       case 'cost_ratio_benchmark':
@@ -844,7 +844,7 @@ export class SentryReasoningEngine {
     }
     
     // Causa 2: Occupancy bassa
-    if (kpis.occupancy < 0.7) {
+    if (kpis.occupazione < 0.7) {
       causes.push('Occupazione bassa - problemi di marketing o visibilità online');
     }
     
@@ -881,7 +881,7 @@ export class SentryReasoningEngine {
                    `negli ultimi ${trends.revenue.timeframe}. Analizzando i dati, emerge che `;
         
         if (trends.occupancy.direction === 'down') {
-          narrative += `il problema principale è l'occupazione, scesa al ${(kpis.occupancy * 100).toFixed(1)}%. ` +
+          narrative += `il problema principale è l'occupazione, scesa al ${(kpis.occupazione * 100).toFixed(1)}%. ` +
                       `Questo suggerisce che il mercato è competitivo o che la visibilità online va migliorata. `;
         }
         
@@ -911,7 +911,7 @@ export class SentryReasoningEngine {
         break;
         
       case 'occupancy_decline':
-        narrative = `L'occupazione è scesa al ${(kpis.occupancy * 100).toFixed(1)}%, una riduzione del ${Math.abs(trends.occupancy.changePercent).toFixed(1)}%. ` +
+        narrative = `L'occupazione è scesa al ${(kpis.occupazione * 100).toFixed(1)}%, una riduzione del ${Math.abs(trends.occupancy.changePercent).toFixed(1)}%. ` +
                    `Ogni camera vuota rappresenta revenue perso che non può essere recuperato. `;
         
         if (kpis.adr > this.getBenchmarkADR() * 1.1) {
@@ -968,13 +968,13 @@ export class SentryReasoningEngine {
     }
     
     // Recommendation 2: Marketing Push
-    if (this.context.kpis.occupancy < 0.75) {
+    if (this.context.kpis.occupazione < 0.75) {
       recommendations.push({
         action: 'Campagna marketing mirata per colmare vuoti',
-        why: 'Con occupazione al ' + (this.context.kpis.occupancy * 100).toFixed(0) + '%, hai margine per acquisire più ospiti. ' +
+        why: 'Con occupazione al ' + (this.context.kpis.occupazione * 100).toFixed(0) + '%, hai margine per acquisire più ospiti. ' +
              'Anche con prezzi scontati, revenue incrementale > costo acquisizione.',
         how: 'Promozioni last-minute (7-14 giorni prima), social media ads targeting località vicine, collaborazioni con eventi locali.',
-        expectedOutcome: `+${(this.context.kpis.occupancy * 0.1 * 100).toFixed(0)} punti occupazione = +€${this.estimateMarketingCampaignROI(this.context).toFixed(0)}/mese`,
+        expectedOutcome: `+${(this.context.kpis.occupazione * 0.1 * 100).toFixed(0)} punti occupazione = +€${this.estimateMarketingCampaignROI(this.context).toFixed(0)}/mese`,
         effort: 'medium',
         timeToImpact: '2-4 settimane',
         dependencies: ['Budget marketing: €500-1000']
@@ -1200,7 +1200,7 @@ export class SentryReasoningEngine {
   
   private getAverageRoomsSold(): number {
     const { hotelData, kpis } = this.context;
-    return (hotelData.camereTotali || 30) * kpis.occupancy;
+    return (hotelData.camereTotali || 30) * kpis.occupazione;
   }
   
   private getBenchmarkADR(): number {
@@ -1221,8 +1221,8 @@ export class SentryReasoningEngine {
   private analyzeCompetitorPressure(context: HotelContext): number {
     // TODO: Implementa analisi competitor data quando disponibile
     // Per ora return mock basato su occupancy
-    if (context.kpis.occupancy < 0.7) return 0.7;
-    if (context.kpis.occupancy < 0.8) return 0.5;
+    if (context.kpis.occupazione < 0.7) return 0.7;
+    if (context.kpis.occupazione < 0.8) return 0.5;
     return 0.3;
   }
   
@@ -1269,7 +1269,7 @@ export class SentryReasoningEngine {
     const { hotelData, kpis } = context;
     const highDemandDays = 8; // ~giorni weekend/mese
     const priceIncrease = kpis.adr * 0.15; // +15%
-    const roomsSold = (hotelData.camereTotali || 30) * kpis.occupancy;
+    const roomsSold = (hotelData.camereTotali || 30) * kpis.occupazione;
     return highDemandDays * priceIncrease * roomsSold;
   }
   
@@ -1283,7 +1283,7 @@ export class SentryReasoningEngine {
   
   private estimateUpsellImpact(context: HotelContext): number {
     const { hotelData, kpis } = context;
-    const avgGuests = (hotelData.camereTotali || 30) * kpis.occupancy * 1.5 * 25; // guests/mese
+    const avgGuests = (hotelData.camereTotali || 30) * kpis.occupazione * 1.5 * 25; // guests/mese
     const upsellRate = 0.3; // 30% accepts
     const avgUpsellValue = 10; // €10/guest
     return avgGuests * upsellRate * avgUpsellValue;
