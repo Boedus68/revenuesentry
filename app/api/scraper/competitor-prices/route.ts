@@ -147,7 +147,7 @@ export async function GET(request: NextRequest) {
       .where('isActive', '==', true)
       .get();
 
-    logAdmin('[Competitor Prices GET] Competitors trovati:', competitorsSnapshot.size);
+    logAdmin('[Competitor Prices GET] Competitors trovati', { count: competitorsSnapshot.size });
 
     if (competitorsSnapshot.empty) {
       return NextResponse.json({
@@ -177,7 +177,7 @@ export async function GET(request: NextRequest) {
           continue;
         }
 
-        logAdmin(`[Competitor Prices GET] Processing competitor: ${competitor.id}`);
+        logAdmin(`[Competitor Prices GET] Processing competitor`, { competitorId: competitor.id });
 
         // Fetch tutti i prezzi per questo competitor (usa competitor_name per compatibilità)
         const allPricesSnapshot = await adminDb
@@ -186,7 +186,7 @@ export async function GET(request: NextRequest) {
           .where('competitor_name', '==', competitorName)
           .get();
 
-        logAdmin(`[Competitor Prices GET] Prices per competitor ${competitor.id}:`, allPricesSnapshot.size);
+        logAdmin(`[Competitor Prices GET] Prices per competitor`, { competitorId: competitor.id, count: allPricesSnapshot.size });
 
         if (!allPricesSnapshot.empty) {
           // Converti a array tipizzato e ordina per data
@@ -254,9 +254,9 @@ export async function GET(request: NextRequest) {
               isMock: true,
               createdAt: FieldValue.serverTimestamp()
             });
-            logAdmin(`[Competitor Prices GET] Mock price creato: ${mockPrice}`);
+            logAdmin(`[Competitor Prices GET] Mock price creato`, { price: mockPrice });
           } catch (saveError: any) {
-            logAdmin(`[Competitor Prices GET] Errore salvataggio mock price: ${saveError.message}`);
+            logAdmin(`[Competitor Prices GET] Errore salvataggio mock price`, { error: saveError.message });
           }
         }
       } catch (error: any) {
@@ -328,7 +328,7 @@ export async function POST(request: NextRequest) {
       body = await request.json();
       logAdmin('[Competitor Prices POST] Body ricevuto:', body);
     } catch (error: any) {
-      logAdmin(`[Competitor Prices POST] Body parse error: ${error.message}`);
+      logAdmin(`[Competitor Prices POST] Body parse error`, { error: error.message });
       return NextResponse.json(
         { error: 'Body richiesta non valido' },
         { status: 400 }
@@ -363,7 +363,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (typeof price !== 'number' || price <= 0) {
-      logAdmin('[Competitor Prices POST] price invalido:', price);
+      logAdmin('[Competitor Prices POST] price invalido', { price });
       return NextResponse.json(
         { error: 'Prezzo non valido' },
         { status: 400 }
@@ -374,7 +374,7 @@ export async function POST(request: NextRequest) {
     const competitorDoc = await adminDb.collection('competitor_configs').doc(competitorId).get();
 
     if (!competitorDoc.exists) {
-      logAdmin('[Competitor Prices POST] Competitor non trovato:', competitorId);
+      logAdmin('[Competitor Prices POST] Competitor non trovato', { competitorId });
       return NextResponse.json(
         { error: 'Competitor non trovato' },
         { status: 404 }
