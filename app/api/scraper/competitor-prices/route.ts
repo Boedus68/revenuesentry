@@ -224,12 +224,16 @@ export async function GET(request: NextRequest) {
         logAdmin(`[Competitor Prices GET] Processing competitor`, { competitorId: competitor.id, competitorName });
 
         // Cerca prezzi per la data specifica di check-in
-        const priceSnapshot = await adminDb
+        // Se c'è un filtro trattamento, aggiungilo alla query
+        let priceQuery = adminDb
           .collection('competitor_data')
           .where('hotelId', '==', userId)
           .where('competitor_name', '==', competitorName)
-          .where('date', '==', checkinDateStr)
-          .get();
+          .where('date', '==', checkinDateStr);
+        
+        // Se c'è un filtro trattamento, aggiungilo alla query
+        // Nota: Firestore non supporta OR, quindi dobbiamo filtrare dopo
+        const priceSnapshot = await priceQuery.get();
 
         logAdmin(`[Competitor Prices GET] Prices per competitor e data`, { 
           competitorId: competitor.id, 
@@ -242,21 +246,27 @@ export async function GET(request: NextRequest) {
           const priceData = priceSnapshot.docs[0].data() as CompetitorDataDoc;
           
           // Filtra per trattamento se richiesto
-          const competitorTreatment = priceData.treatment?.toUpperCase() || '';
+          const competitorTreatment = (priceData.treatment || '').toUpperCase().trim();
           if (treatmentFilter) {
-            const filterUpper = treatmentFilter.toUpperCase();
-            if (filterUpper === 'BB' && competitorTreatment !== 'BB' && competitorTreatment !== 'B&B') {
-              logAdmin(`[Competitor Prices GET] Competitor filtrato per trattamento`, { 
-                competitorName, 
-                treatment: competitorTreatment,
-                filter: filterUpper 
-              });
-              continue; // Salta questo competitor
+            const filterUpper = treatmentFilter.toUpperCase().trim();
+            let matches = false;
+            
+            if (filterUpper === 'BB') {
+              // BB include anche dati senza trattamento (default è BB)
+              matches = competitorTreatment === 'BB' || 
+                       competitorTreatment === 'B&B' || 
+                       competitorTreatment === '' ||
+                       !priceData.treatment;
+            } else if (filterUpper === 'FB') {
+              matches = competitorTreatment === 'FB' || 
+                       competitorTreatment === 'FULL BOARD' || 
+                       competitorTreatment === 'PENSIONE COMPLETA';
             }
-            if (filterUpper === 'FB' && competitorTreatment !== 'FB' && competitorTreatment !== 'FULL BOARD' && competitorTreatment !== 'PENSIONE COMPLETA') {
+            
+            if (!matches) {
               logAdmin(`[Competitor Prices GET] Competitor filtrato per trattamento`, { 
                 competitorName, 
-                treatment: competitorTreatment,
+                treatment: competitorTreatment || '(vuoto)',
                 filter: filterUpper 
               });
               continue; // Salta questo competitor
@@ -323,7 +333,7 @@ export async function GET(request: NextRequest) {
         // Determina il trattamento in base al filtro o usa BB come default
         let mockTreatment = 'BB';
         if (treatmentFilter) {
-          const filterUpper = treatmentFilter.toUpperCase();
+          const filterUpper = treatmentFilter.toUpperCase().trim();
           if (filterUpper === 'FB') {
             mockTreatment = 'FB';
           } else {
@@ -355,17 +365,6 @@ export async function GET(request: NextRequest) {
 
         // Salva mock price in DB per questa data specifica
         try {
-          // Determina il trattamento in base al filtro o usa BB come default
-          let mockTreatment = 'BB';
-          if (treatmentFilter) {
-            const filterUpper = treatmentFilter.toUpperCase();
-            if (filterUpper === 'FB') {
-              mockTreatment = 'FB';
-            } else {
-              mockTreatment = 'BB';
-            }
-          }
-          
           await adminDb.collection('competitor_data').add({
             hotelId: userId,
             competitor_name: competitorName,

@@ -60,6 +60,10 @@ export default function CompetitorAlerts() {
   // Filtro trattamento
   const [treatmentFilter, setTreatmentFilter] = useState<string>('all'); // 'all', 'BB', 'FB'
   
+  // Ordinamento
+  type SortType = 'price_desc' | 'price_asc' | 'name_asc' | 'name_desc';
+  const [sortType, setSortType] = useState<SortType>('price_desc'); // Default: prezzo dal più alto al più basso
+  
   // Funzione helper per calcolare le notti in modo sicuro
   const calculateNights = (checkin: Date, checkout: Date): number => {
     const diffTime = Math.abs(checkout.getTime() - checkin.getTime());
@@ -116,6 +120,23 @@ export default function CompetitorAlerts() {
     const pricePerPerson = calculatePricePerPerson(competitor);
     // Prezzo netto = prezzo - 15% commissione Booking
     return pricePerPerson * 0.85;
+  };
+
+  // Funzione helper per calcolare il prezzo a camera doppia (2 ospiti)
+  const calculatePricePerDoubleRoom = (competitor: CompetitorPrice): number => {
+    const nights = competitor.nights || calculateNights(checkinDate, checkoutDate);
+    const guests = 2; // Camera doppia = 2 ospiti
+    
+    if (competitor.price_unit === 'per_persona') {
+      // Prezzo per persona per notte → moltiplica per 2 ospiti e per le notti
+      return competitor.price * guests * nights;
+    } else if (competitor.price_unit === 'per_camera_per_notte') {
+      // Prezzo per camera per notte → moltiplica per le notti
+      return competitor.price * nights;
+    } else {
+      // per_camera (totale per camera per tutto il soggiorno)
+      return competitor.price;
+    }
   };
 
   // Funzione helper per formattare il trattamento
@@ -392,14 +413,41 @@ export default function CompetitorAlerts() {
       {/* Competitor Table */}
       {competitors.length > 0 && (
         <div>
-          <h3 className="text-lg font-semibold text-white mb-3">Prezzi Competitor</h3>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-lg font-semibold text-white">Prezzi Competitor</h3>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-400">Ordina per:</span>
+              <button
+                onClick={() => setSortType(sortType === 'price_desc' ? 'price_asc' : 'price_desc')}
+                className={`px-3 py-1 text-xs rounded-lg transition ${
+                  sortType === 'price_desc' || sortType === 'price_asc'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                }`}
+                title={sortType === 'price_desc' ? 'Prezzo: alto → basso' : 'Prezzo: basso → alto'}
+              >
+                Prezzo {sortType === 'price_desc' ? '↓' : '↑'}
+              </button>
+              <button
+                onClick={() => setSortType(sortType === 'name_asc' ? 'name_desc' : 'name_asc')}
+                className={`px-3 py-1 text-xs rounded-lg transition ${
+                  sortType === 'name_asc' || sortType === 'name_desc'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                }`}
+                title={sortType === 'name_asc' ? 'Nome: A → Z' : 'Nome: Z → A'}
+              >
+                Nome {sortType === 'name_asc' ? '↑' : '↓'}
+              </button>
+            </div>
+          </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-700">
                   <th className="text-left py-2 px-3 text-gray-300 font-semibold">Competitor</th>
                   <th className="text-center py-2 px-3 text-gray-300 font-semibold">Trattamento</th>
-                  <th className="text-right py-2 px-3 text-gray-300 font-semibold">Prezzo Totale</th>
+                  <th className="text-right py-2 px-3 text-gray-300 font-semibold">Prezzo a Camera Doppia</th>
                   <th className="text-right py-2 px-3 text-gray-300 font-semibold">Prezzo a Persona</th>
                   <th className="text-right py-2 px-3 text-gray-300 font-semibold">Prezzo Netto*</th>
                   <th className="text-right py-2 px-3 text-gray-300 font-semibold">Data</th>
@@ -410,31 +458,35 @@ export default function CompetitorAlerts() {
                   .filter(competitor => {
                     // Filtra per trattamento se selezionato
                     if (treatmentFilter === 'all') return true;
-                    const competitorTreatment = competitor.treatment?.toUpperCase() || '';
+                    const competitorTreatment = (competitor.treatment || '').toUpperCase().trim();
                     if (treatmentFilter === 'BB') {
-                      return competitorTreatment === 'BB' || competitorTreatment === 'B&B';
+                      return competitorTreatment === 'BB' || competitorTreatment === 'B&B' || competitorTreatment === '';
                     }
                     if (treatmentFilter === 'FB') {
                       return competitorTreatment === 'FB' || competitorTreatment === 'FULL BOARD' || competitorTreatment === 'PENSIONE COMPLETA';
                     }
                     return true;
                   })
+                  .sort((a, b) => {
+                    // Ordinamento
+                    if (sortType === 'price_desc' || sortType === 'price_asc') {
+                      const priceA = calculatePricePerDoubleRoom(a);
+                      const priceB = calculatePricePerDoubleRoom(b);
+                      return sortType === 'price_desc' ? priceB - priceA : priceA - priceB;
+                    } else {
+                      // Ordinamento alfabetico
+                      const nameA = a.competitorName.toLowerCase();
+                      const nameB = b.competitorName.toLowerCase();
+                      return sortType === 'name_asc' 
+                        ? nameA.localeCompare(nameB, 'it')
+                        : nameB.localeCompare(nameA, 'it');
+                    }
+                  })
                   .map((competitor, idx) => {
                   const pricePerPerson = calculatePricePerPerson(competitor);
                   const netPricePerPerson = calculateNetPricePerPerson(competitor);
+                  const pricePerDoubleRoom = calculatePricePerDoubleRoom(competitor);
                   const nights = competitor.nights || calculateNights(checkinDate, checkoutDate);
-                  const guests = competitor.guests || 2;
-                  
-                  // Calcola prezzo totale in base all'unità
-                  let totalPrice = competitor.price;
-                  if (competitor.price_unit === 'per_camera_per_notte') {
-                    // Prezzo per camera per notte → moltiplica per le notti
-                    totalPrice = competitor.price * nights;
-                  } else if (competitor.price_unit === 'per_persona') {
-                    // Prezzo per persona per notte → moltiplica per ospiti e notti
-                    totalPrice = competitor.price * guests * nights;
-                  }
-                  // Se è 'per_camera', totalPrice è già corretto (è il totale per camera per tutto il soggiorno)
                   
                   return (
                     <tr key={idx} className="border-b border-gray-700/50 hover:bg-gray-700/30">
@@ -445,10 +497,8 @@ export default function CompetitorAlerts() {
                         </span>
                       </td>
                       <td className="py-2 px-3 text-right">
-                        <span className="text-white font-semibold">€{totalPrice.toFixed(2)}</span>
-                        {competitor.price_unit === 'per_camera_per_notte' && (
-                          <span className="text-gray-400 text-xs block">({nights} notte/i)</span>
-                        )}
+                        <span className="text-white font-semibold">€{pricePerDoubleRoom.toFixed(2)}</span>
+                        <span className="text-gray-400 text-xs block">(2 ospiti, {nights} notte/i)</span>
                       </td>
                       <td className="py-2 px-3 text-right">
                         <span className="text-white font-semibold">€{pricePerPerson.toFixed(2)}</span>
