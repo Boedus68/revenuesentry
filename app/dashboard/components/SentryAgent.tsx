@@ -56,15 +56,15 @@ export default function SentryAgent() {
   const getCategoryColor = (category: string) => {
     switch (category) {
       case 'opportunity':
-        return 'bg-green-100 text-green-800 border-green-300';
+        return 'bg-green-500/20 text-green-300 border-green-500/50';
       case 'problem':
-        return 'bg-red-100 text-red-800 border-red-300';
+        return 'bg-red-500/20 text-red-300 border-red-500/50';
       case 'risk':
-        return 'bg-orange-100 text-orange-800 border-orange-300';
+        return 'bg-orange-500/20 text-orange-300 border-orange-500/50';
       case 'achievement':
-        return 'bg-blue-100 text-blue-800 border-blue-300';
+        return 'bg-blue-500/20 text-blue-300 border-blue-500/50';
       default:
-        return 'bg-gray-100 text-gray-800 border-gray-300';
+        return 'bg-gray-700/50 text-gray-300 border-gray-600';
     }
   };
 
@@ -86,13 +86,13 @@ export default function SentryAgent() {
   const getUrgencyColor = (urgency: string) => {
     switch (urgency) {
       case 'immediate':
-        return 'text-red-600 font-bold';
+        return 'text-red-400 font-bold';
       case 'short-term':
-        return 'text-orange-600 font-semibold';
+        return 'text-orange-400 font-semibold';
       case 'long-term':
-        return 'text-blue-600';
+        return 'text-blue-400';
       default:
-        return 'text-gray-600';
+        return 'text-gray-400';
     }
   };
 
@@ -105,14 +105,14 @@ export default function SentryAgent() {
 
   if (error && insights.length === 0) {
     return (
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h3 className="text-xl font-bold mb-4 text-gray-800">
+      <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-6">
+        <h3 className="text-xl font-bold mb-4 text-white">
           🤖 Sentry AI Agent
         </h3>
-        <div className="text-red-600 text-sm mb-4">{error}</div>
+        <div className="text-red-400 text-sm mb-4">{error}</div>
         <button
           onClick={fetchInsights}
-          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
         >
           Riprova
         </button>
@@ -121,67 +121,67 @@ export default function SentryAgent() {
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-6">
+    <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-6">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h3 className="text-2xl font-bold text-gray-800">
+          <h3 className="text-2xl font-bold text-white">
             🤖 Sentry AI Agent
           </h3>
-          <p className="text-sm text-gray-600 mt-1">
+          <p className="text-sm text-gray-400 mt-1">
             Analista AI autonomo per il tuo hotel
           </p>
         </div>
         <button
           onClick={fetchInsights}
           disabled={loading}
-          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 text-sm"
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm"
         >
           {loading ? 'Analisi...' : '🔄 Analizza'}
         </button>
       </div>
 
       {lastGenerated && (
-        <div className="text-xs text-gray-500 mb-4">
+        <div className="text-xs text-gray-400 mb-4">
           Ultima analisi: {lastGenerated.toLocaleString('it-IT')}
         </div>
       )}
 
       {loading && insights.length === 0 ? (
         <div className="text-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Sentry sta analizzando i tuoi dati...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto"></div>
+          <p className="mt-4 text-gray-400">Sentry sta analizzando i tuoi dati...</p>
         </div>
       ) : insights.length === 0 ? (
-        <div className="text-center py-12 text-gray-500">
+        <div className="text-center py-12 text-gray-400">
           <p>Nessun insight disponibile. Clicca su "Analizza" per generare insights.</p>
         </div>
       ) : (
         <div className="space-y-4">
           {/* Summary Stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-            <div className="bg-red-50 rounded-lg p-3 border border-red-200">
-              <div className="text-2xl font-bold text-red-600">
+            <div className="bg-red-500/20 rounded-lg p-3 border border-red-500/50">
+              <div className="text-2xl font-bold text-red-400">
                 {insights.filter(i => i.category === 'problem').length}
               </div>
-              <div className="text-xs text-red-700">Problemi</div>
+              <div className="text-xs text-red-300">Problemi</div>
             </div>
-            <div className="bg-green-50 rounded-lg p-3 border border-green-200">
-              <div className="text-2xl font-bold text-green-600">
+            <div className="bg-green-500/20 rounded-lg p-3 border border-green-500/50">
+              <div className="text-2xl font-bold text-green-400">
                 {insights.filter(i => i.category === 'opportunity').length}
               </div>
-              <div className="text-xs text-green-700">Opportunità</div>
+              <div className="text-xs text-green-300">Opportunità</div>
             </div>
-            <div className="bg-orange-50 rounded-lg p-3 border border-orange-200">
-              <div className="text-2xl font-bold text-orange-600">
+            <div className="bg-orange-500/20 rounded-lg p-3 border border-orange-500/50">
+              <div className="text-2xl font-bold text-orange-400">
                 {insights.filter(i => i.category === 'risk').length}
               </div>
-              <div className="text-xs text-orange-700">Rischi</div>
+              <div className="text-xs text-orange-300">Rischi</div>
             </div>
-            <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
-              <div className="text-2xl font-bold text-blue-600">
+            <div className="bg-blue-500/20 rounded-lg p-3 border border-blue-500/50">
+              <div className="text-2xl font-bold text-blue-400">
                 {insights.filter(i => i.category === 'achievement').length}
               </div>
-              <div className="text-xs text-blue-700">Successi</div>
+              <div className="text-xs text-blue-300">Successi</div>
             </div>
           </div>
 
@@ -206,15 +206,15 @@ export default function SentryAgent() {
                        insight.urgency === 'short-term' ? '⏰ Breve termine' : 
                        '📅 Lungo termine'}
                     </span>
-                    <span className="px-2 py-1 rounded bg-gray-200 text-gray-700">
+                    <span className="px-2 py-1 rounded bg-gray-700/50 text-gray-300">
                       Confidenza: {(insight.confidence * 100).toFixed(0)}%
                     </span>
-                    <span className="px-2 py-1 rounded bg-gray-200 text-gray-700">
+                    <span className="px-2 py-1 rounded bg-gray-700/50 text-gray-300">
                       Priorità: {insight.priority}/10
                     </span>
                   </div>
                 </div>
-                <button className="ml-4 text-gray-600 hover:text-gray-800">
+                <button className="ml-4 text-gray-400 hover:text-white">
                   {selectedInsight?.id === insight.id ? '▼' : '▶'}
                 </button>
               </div>
@@ -224,17 +224,17 @@ export default function SentryAgent() {
                 <div className="mt-4 pt-4 border-t border-current/20">
                   {/* Reasoning */}
                   <div className="mb-4">
-                    <h5 className="font-semibold mb-2">🔍 Analisi</h5>
-                    <div className="text-sm space-y-2">
+                    <h5 className="font-semibold mb-2 text-white">🔍 Analisi</h5>
+                    <div className="text-sm space-y-2 text-gray-300">
                       <div>
-                        <strong>Osservazione:</strong> {insight.reasoning.observation}
+                        <strong className="text-white">Osservazione:</strong> {insight.reasoning.observation}
                       </div>
                       <div>
-                        <strong>Analisi:</strong> {insight.reasoning.analysis}
+                        <strong className="text-white">Analisi:</strong> {insight.reasoning.analysis}
                       </div>
                       {insight.reasoning.causes.length > 0 && (
                         <div>
-                          <strong>Possibili cause:</strong>
+                          <strong className="text-white">Possibili cause:</strong>
                           <ul className="list-disc list-inside ml-2">
                             {insight.reasoning.causes.map((cause, idx) => (
                               <li key={idx}>{cause}</li>
@@ -244,7 +244,7 @@ export default function SentryAgent() {
                       )}
                       {insight.reasoning.consequences.length > 0 && (
                         <div>
-                          <strong>Conseguenze se ignorato:</strong>
+                          <strong className="text-white">Conseguenze se ignorato:</strong>
                           <ul className="list-disc list-inside ml-2">
                             {insight.reasoning.consequences.map((consequence, idx) => (
                               <li key={idx}>{consequence}</li>
@@ -252,8 +252,8 @@ export default function SentryAgent() {
                           </ul>
                         </div>
                       )}
-                      <div className="mt-2 p-2 bg-white/50 rounded">
-                        <strong>Ragionamento completo:</strong> {insight.reasoning.logic}
+                      <div className="mt-2 p-2 bg-gray-900/50 rounded">
+                        <strong className="text-white">Ragionamento completo:</strong> {insight.reasoning.logic}
                       </div>
                     </div>
                   </div>
@@ -261,23 +261,23 @@ export default function SentryAgent() {
                   {/* Recommendations */}
                   {insight.recommendations.length > 0 && (
                     <div className="mb-4">
-                      <h5 className="font-semibold mb-2">💡 Raccomandazioni</h5>
+                      <h5 className="font-semibold mb-2 text-white">💡 Raccomandazioni</h5>
                       <div className="space-y-3">
                         {insight.recommendations.map((rec, idx) => (
-                          <div key={idx} className="bg-white/50 rounded p-3">
-                            <div className="font-semibold mb-1">
+                          <div key={idx} className="bg-gray-900/50 rounded p-3">
+                            <div className="font-semibold mb-1 text-white">
                               {idx + 1}. {rec.action}
                               {rec.effort === 'low' && ' 🟢'}
                               {rec.effort === 'medium' && ' 🟡'}
                               {rec.effort === 'high' && ' 🔴'}
                             </div>
-                            <div className="text-sm space-y-1">
-                              <div><strong>Perché:</strong> {rec.why}</div>
-                              <div><strong>Come:</strong> {rec.how}</div>
-                              <div><strong>Risultato atteso:</strong> {rec.expectedOutcome}</div>
-                              <div><strong>Tempo impatto:</strong> {rec.timeToImpact}</div>
+                            <div className="text-sm space-y-1 text-gray-300">
+                              <div><strong className="text-white">Perché:</strong> {rec.why}</div>
+                              <div><strong className="text-white">Come:</strong> {rec.how}</div>
+                              <div><strong className="text-white">Risultato atteso:</strong> {rec.expectedOutcome}</div>
+                              <div><strong className="text-white">Tempo impatto:</strong> {rec.timeToImpact}</div>
                               {rec.dependencies.length > 0 && (
-                                <div><strong>Dipendenze:</strong> {rec.dependencies.join(', ')}</div>
+                                <div><strong className="text-white">Dipendenze:</strong> {rec.dependencies.join(', ')}</div>
                               )}
                             </div>
                           </div>
@@ -288,42 +288,42 @@ export default function SentryAgent() {
 
                   {/* Impact */}
                   <div className="mb-4">
-                    <h5 className="font-semibold mb-2">📊 Impatto Stimato</h5>
+                    <h5 className="font-semibold mb-2 text-white">📊 Impatto Stimato</h5>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
                       {Math.abs(insight.impact.revenueChange) > 0.01 && (
-                        <div className="bg-white/50 rounded p-2">
-                          <div className="text-xs text-gray-600">Revenue</div>
-                          <div className={`font-semibold ${insight.impact.revenueChange > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        <div className="bg-gray-900/50 rounded p-2">
+                          <div className="text-xs text-gray-400">Revenue</div>
+                          <div className={`font-semibold ${insight.impact.revenueChange > 0 ? 'text-green-400' : 'text-red-400'}`}>
                             {insight.impact.revenueChange > 0 ? '+' : ''}€{insight.impact.revenueChange.toFixed(0)}
                           </div>
                         </div>
                       )}
                       {Math.abs(insight.impact.costChange) > 0.01 && (
-                        <div className="bg-white/50 rounded p-2">
-                          <div className="text-xs text-gray-600">Costi</div>
-                          <div className={`font-semibold ${insight.impact.costChange < 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        <div className="bg-gray-900/50 rounded p-2">
+                          <div className="text-xs text-gray-400">Costi</div>
+                          <div className={`font-semibold ${insight.impact.costChange < 0 ? 'text-green-400' : 'text-red-400'}`}>
                             {insight.impact.costChange > 0 ? '+' : ''}€{insight.impact.costChange.toFixed(0)}
                           </div>
                         </div>
                       )}
                       {Math.abs(insight.impact.profitChange) > 0.01 && (
-                        <div className="bg-white/50 rounded p-2">
-                          <div className="text-xs text-gray-600">Profitto</div>
-                          <div className={`font-semibold ${insight.impact.profitChange > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        <div className="bg-gray-900/50 rounded p-2">
+                          <div className="text-xs text-gray-400">Profitto</div>
+                          <div className={`font-semibold ${insight.impact.profitChange > 0 ? 'text-green-400' : 'text-red-400'}`}>
                             {insight.impact.profitChange > 0 ? '+' : ''}€{insight.impact.profitChange.toFixed(0)}
                           </div>
                         </div>
                       )}
                       {Math.abs(insight.impact.occupancyChange) > 0.01 && (
-                        <div className="bg-white/50 rounded p-2">
-                          <div className="text-xs text-gray-600">Occupazione</div>
-                          <div className={`font-semibold ${insight.impact.occupancyChange > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        <div className="bg-gray-900/50 rounded p-2">
+                          <div className="text-xs text-gray-400">Occupazione</div>
+                          <div className={`font-semibold ${insight.impact.occupancyChange > 0 ? 'text-green-400' : 'text-red-400'}`}>
                             {insight.impact.occupancyChange > 0 ? '+' : ''}{insight.impact.occupancyChange.toFixed(1)}%
                           </div>
                         </div>
                       )}
                     </div>
-                    <div className="text-xs text-gray-600 mt-2">
+                    <div className="text-xs text-gray-400 mt-2">
                       Timeframe: {insight.impact.timeframe} | Confidenza: {(insight.impact.confidence * 100).toFixed(0)}%
                     </div>
                   </div>

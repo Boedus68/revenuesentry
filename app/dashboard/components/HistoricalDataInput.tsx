@@ -184,47 +184,47 @@ export default function HistoricalDataInput({ onDataSaved }: HistoricalDataInput
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-6">
+    <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-6">
       <div className="flex justify-between items-center mb-4">
-        <h3 className="text-xl font-bold text-gray-800">
+        <h3 className="text-xl font-bold text-white">
           📊 Inserisci Dati Storici Giornalieri
         </h3>
         <button
           onClick={importFromRevenues}
           disabled={loading}
-          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 text-sm"
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm"
         >
           {loading ? 'Caricamento...' : '📥 Converti da Dati Mensili'}
         </button>
       </div>
 
-      <p className="text-sm text-gray-600 mb-4">
+      <p className="text-sm text-gray-400 mb-4">
         Inserisci i dati giornalieri per abilitare il Dynamic Pricing. Puoi inserire più giorni alla volta.
         <br />
-        <strong>Suggerimento:</strong> Se hai già inserito dati mensili nella sezione Ricavi, clicca su "Converti da Dati Mensili" per generare automaticamente i dati giornalieri.
+        <strong className="text-gray-300">Suggerimento:</strong> Se hai già inserito dati mensili nella sezione Ricavi, clicca su "Converti da Dati Mensili" per generare automaticamente i dati giornalieri.
       </p>
 
       {error && (
-        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
+        <div className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded text-red-300 text-sm">
           {error}
         </div>
       )}
 
       {success && (
-        <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded text-green-700 text-sm">
+        <div className="mb-4 p-3 bg-green-500/20 border border-green-500/50 rounded text-green-300 text-sm">
           Dati salvati con successo! Il Dynamic Pricing ora può generare raccomandazioni.
         </div>
       )}
 
       <div className="space-y-4 mb-4">
         {entries.map((entry, index) => (
-          <div key={index} className="border border-gray-200 rounded-lg p-4">
+          <div key={index} className="border border-gray-600 rounded-lg p-4 bg-gray-900/30">
             <div className="flex justify-between items-center mb-3">
-              <h4 className="font-semibold text-gray-700">Giorno {index + 1}</h4>
+              <h4 className="font-semibold text-white">Giorno {index + 1}</h4>
               {entries.length > 1 && (
                 <button
                   onClick={() => removeEntry(index)}
-                  className="text-red-600 hover:text-red-800 text-sm"
+                  className="text-red-400 hover:text-red-300 text-sm"
                 >
                   ✕ Rimuovi
                 </button>
@@ -233,19 +233,19 @@ export default function HistoricalDataInput({ onDataSaved }: HistoricalDataInput
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-300 mb-1">
                   Data *
                 </label>
                 <input
                   type="date"
                   value={entry.date}
                   onChange={(e) => updateEntry(index, 'date', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-300 mb-1">
                   Ricavi Totali (€) *
                 </label>
                 <input
@@ -253,26 +253,26 @@ export default function HistoricalDataInput({ onDataSaved }: HistoricalDataInput
                   step="0.01"
                   value={entry.total_revenue || ''}
                   onChange={(e) => updateEntry(index, 'total_revenue', parseFloat(e.target.value) || 0)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="0.00"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-300 mb-1">
                   Camere Vendute
                 </label>
                 <input
                   type="number"
                   value={entry.rooms_sold || ''}
                   onChange={(e) => updateEntry(index, 'rooms_sold', parseInt(e.target.value) || 0)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="0"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-300 mb-1">
                   ADR (€) *
                 </label>
                 <input
@@ -280,10 +280,10 @@ export default function HistoricalDataInput({ onDataSaved }: HistoricalDataInput
                   step="0.01"
                   value={entry.adr || ''}
                   onChange={(e) => updateEntry(index, 'adr', parseFloat(e.target.value) || 0)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="0.00"
                 />
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="text-xs text-gray-400 mt-1">
                   {entry.rooms_sold && entry.total_revenue
                     ? `Calcolato: €${(entry.total_revenue / entry.rooms_sold).toFixed(2)}`
                     : 'Prezzo medio per camera'}
@@ -291,7 +291,7 @@ export default function HistoricalDataInput({ onDataSaved }: HistoricalDataInput
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-300 mb-1">
                   Occupazione (%)
                 </label>
                 <input
@@ -301,26 +301,26 @@ export default function HistoricalDataInput({ onDataSaved }: HistoricalDataInput
                   step="0.1"
                   value={entry.occupancy_rate || ''}
                   onChange={(e) => updateEntry(index, 'occupancy_rate', parseFloat(e.target.value) || 0)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="0"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-300 mb-1">
                   Ospiti Totali
                 </label>
                 <input
                   type="number"
                   value={entry.guests || ''}
                   onChange={(e) => updateEntry(index, 'guests', parseInt(e.target.value) || 0)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="0"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-300 mb-1">
                   Costi Totali (€)
                 </label>
                 <input
@@ -328,7 +328,7 @@ export default function HistoricalDataInput({ onDataSaved }: HistoricalDataInput
                   step="0.01"
                   value={entry.total_costs || ''}
                   onChange={(e) => updateEntry(index, 'total_costs', parseFloat(e.target.value) || 0)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="0.00"
                 />
               </div>
@@ -340,14 +340,14 @@ export default function HistoricalDataInput({ onDataSaved }: HistoricalDataInput
       <div className="flex gap-2">
         <button
           onClick={addEntry}
-          className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+          className="px-4 py-2 bg-gray-700 text-gray-200 rounded-lg hover:bg-gray-600"
         >
           + Aggiungi Giorno
         </button>
         <button
           onClick={handleSave}
           disabled={saving || entries.length === 0}
-          className="flex-1 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {saving ? 'Salvataggio...' : '💾 Salva Dati Storici'}
         </button>

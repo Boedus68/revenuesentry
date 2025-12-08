@@ -73,9 +73,9 @@ export default function DynamicPricingCard({
     : '0';
 
   const getConfidenceColor = (confidence: number) => {
-    if (confidence >= 0.7) return 'text-green-600';
-    if (confidence >= 0.4) return 'text-yellow-600';
-    return 'text-red-600';
+    if (confidence >= 0.7) return 'text-green-400';
+    if (confidence >= 0.4) return 'text-yellow-400';
+    return 'text-red-400';
   };
 
   const getConfidenceLabel = (confidence: number) => {
@@ -87,13 +87,13 @@ export default function DynamicPricingCard({
   const getDemandLevelColor = (level: string) => {
     switch (level) {
       case 'high':
-        return 'bg-green-100 text-green-800';
+        return 'bg-green-500/20 text-green-300 border border-green-500/50';
       case 'medium':
-        return 'bg-yellow-100 text-yellow-800';
+        return 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/50';
       case 'low':
-        return 'bg-red-100 text-red-800';
+        return 'bg-red-500/20 text-red-300 border border-red-500/50';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-gray-700/50 text-gray-300 border border-gray-600';
     }
   };
 
@@ -112,14 +112,14 @@ export default function DynamicPricingCard({
 
   if (error && !recommendation) {
     return (
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h3 className="text-xl font-bold mb-4 text-gray-800">
+      <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-6">
+        <h3 className="text-xl font-bold mb-4 text-white">
           💰 Dynamic Pricing
         </h3>
-        <div className="text-red-600 text-sm">{error}</div>
+        <div className="text-red-400 text-sm">{error}</div>
         <button
           onClick={fetchPriceRecommendation}
-          className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
         >
           Riprova
         </button>
@@ -128,39 +128,39 @@ export default function DynamicPricingCard({
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-6">
+    <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-6">
       <div className="flex justify-between items-center mb-4">
-        <h3 className="text-xl font-bold text-gray-800">
+        <h3 className="text-xl font-bold text-white">
           💰 Dynamic Pricing
         </h3>
         <input
           type="date"
           value={selectedDate}
           onChange={(e) => setSelectedDate(e.target.value)}
-          className="px-3 py-1 border border-gray-300 rounded text-sm"
+          className="px-3 py-1 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
       </div>
 
       {loading && !recommendation ? (
         <div className="text-center py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-2 text-gray-600">Calcolo prezzo ottimale...</p>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
+          <p className="mt-2 text-gray-400">Calcolo prezzo ottimale...</p>
         </div>
       ) : recommendation ? (
         <>
           {/* Prezzo corrente vs raccomandato */}
           <div className="mb-6">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-gray-600">Prezzo corrente:</span>
-              <span className="text-lg font-semibold text-gray-800">
+              <span className="text-gray-400">Prezzo corrente:</span>
+              <span className="text-lg font-semibold text-white">
                 €{recommendation.currentPrice.toFixed(2)}
               </span>
             </div>
             <div className="flex items-center justify-between mb-2">
-              <span className="text-gray-600">Prezzo raccomandato:</span>
+              <span className="text-gray-400">Prezzo raccomandato:</span>
               <span
                 className={`text-xl font-bold ${
-                  priceDiff > 0 ? 'text-green-600' : priceDiff < 0 ? 'text-red-600' : 'text-gray-800'
+                  priceDiff > 0 ? 'text-green-400' : priceDiff < 0 ? 'text-red-400' : 'text-white'
                 }`}
               >
                 €{recommendation.recommendedPrice.toFixed(2)}
@@ -169,7 +169,7 @@ export default function DynamicPricingCard({
             {Math.abs(priceDiff) > 0.01 && (
               <div
                 className={`text-sm font-semibold ${
-                  priceDiff > 0 ? 'text-green-600' : 'text-red-600'
+                  priceDiff > 0 ? 'text-green-400' : 'text-red-400'
                 }`}
               >
                 {priceDiff > 0 ? '↑' : '↓'} {Math.abs(parseFloat(priceDiffPercent))}%
@@ -178,13 +178,13 @@ export default function DynamicPricingCard({
           </div>
 
           {/* Range prezzo */}
-          <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-            <div className="text-sm text-gray-600 mb-2">Range consigliato:</div>
+          <div className="mb-6 p-4 bg-gray-900/50 rounded-lg border border-gray-700">
+            <div className="text-sm text-gray-400 mb-2">Range consigliato:</div>
             <div className="flex justify-between text-sm">
-              <span className="text-gray-700">
+              <span className="text-gray-300">
                 Min: €{recommendation.minPrice.toFixed(2)}
               </span>
-              <span className="text-gray-700">
+              <span className="text-gray-300">
                 Max: €{recommendation.maxPrice.toFixed(2)}
               </span>
             </div>
@@ -193,14 +193,14 @@ export default function DynamicPricingCard({
           {/* Confidence e fattori */}
           <div className="mb-6 space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">Confidenza:</span>
+              <span className="text-sm text-gray-400">Confidenza:</span>
               <span className={`text-sm font-semibold ${getConfidenceColor(recommendation.confidence)}`}>
                 {getConfidenceLabel(recommendation.confidence)} (
                 {(recommendation.confidence * 100).toFixed(0)}%)
               </span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">Livello domanda:</span>
+              <span className="text-sm text-gray-400">Livello domanda:</span>
               <span
                 className={`px-2 py-1 rounded text-xs font-semibold ${getDemandLevelColor(
                   recommendation.factors.demandLevel
@@ -210,26 +210,26 @@ export default function DynamicPricingCard({
               </span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">Competitor medio:</span>
-              <span className="text-sm font-semibold text-gray-800">
+              <span className="text-sm text-gray-400">Competitor medio:</span>
+              <span className="text-sm font-semibold text-white">
                 €{recommendation.factors.competitorAvgPrice.toFixed(2)}
               </span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">Fattore stagionalità:</span>
-              <span className="text-sm font-semibold text-gray-800">
+              <span className="text-sm text-gray-400">Fattore stagionalità:</span>
+              <span className="text-sm font-semibold text-white">
                 {(recommendation.factors.seasonalityFactor * 100).toFixed(0)}%
               </span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">Trend occupazione:</span>
+              <span className="text-sm text-gray-400">Trend occupazione:</span>
               <span
                 className={`text-sm font-semibold ${
                   recommendation.factors.occupancyTrend === 'increasing'
-                    ? 'text-green-600'
+                    ? 'text-green-400'
                     : recommendation.factors.occupancyTrend === 'decreasing'
-                    ? 'text-red-600'
-                    : 'text-gray-600'
+                    ? 'text-red-400'
+                    : 'text-gray-400'
                 }`}
               >
                 {recommendation.factors.occupancyTrend === 'increasing'
@@ -242,11 +242,11 @@ export default function DynamicPricingCard({
           </div>
 
           {/* Reasoning */}
-          <div className="mb-6 p-4 bg-blue-50 rounded-lg">
-            <div className="text-sm font-semibold text-gray-700 mb-2">
+          <div className="mb-6 p-4 bg-blue-500/20 rounded-lg border border-blue-500/50">
+            <div className="text-sm font-semibold text-blue-300 mb-2">
               📊 Analisi:
             </div>
-            <p className="text-sm text-gray-600">{recommendation.reasoning}</p>
+            <p className="text-sm text-gray-300">{recommendation.reasoning}</p>
           </div>
 
           {/* Azioni */}
@@ -254,9 +254,9 @@ export default function DynamicPricingCard({
             <button
               onClick={handleApplyPrice}
               disabled={Math.abs(priceDiff) < 0.01}
-              className={`flex-1 px-4 py-2 rounded font-semibold ${
+              className={`flex-1 px-4 py-2 rounded-lg font-semibold ${
                 Math.abs(priceDiff) < 0.01
-                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
                   : 'bg-green-600 text-white hover:bg-green-700'
               }`}
             >
@@ -264,7 +264,7 @@ export default function DynamicPricingCard({
             </button>
             <button
               onClick={fetchPriceRecommendation}
-              className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+              className="px-4 py-2 bg-gray-700 text-gray-200 rounded-lg hover:bg-gray-600"
             >
               🔄 Aggiorna
             </button>
