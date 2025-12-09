@@ -80,15 +80,21 @@ export async function POST(request: NextRequest) {
     };
 
     // Su Vercel, usa @sparticuz/chromium
-    if (isProduction && chromium) {
-      chromium.setGraphicsMode(false);
-      launchOptions.executablePath = await chromium.executablePath();
-      launchOptions.args = [
-        ...chromium.args,
-        '--hide-scrollbars',
-        '--disable-web-security',
-        '--window-size=1920x1080',
-      ];
+    if (isProduction && chromium && typeof chromium.executablePath === 'function') {
+      try {
+        launchOptions.executablePath = await chromium.executablePath();
+        if (chromium.args && Array.isArray(chromium.args)) {
+          launchOptions.args = [
+            ...chromium.args,
+            '--hide-scrollbars',
+            '--disable-web-security',
+            '--window-size=1920x1080',
+          ];
+        }
+      } catch (error: any) {
+        console.error('[Booking Scraper] Errore configurazione chromium:', error?.message || error);
+        // Fallback: usa args standard senza chromium
+      }
     }
 
     browser = await puppeteer.launch(launchOptions);
