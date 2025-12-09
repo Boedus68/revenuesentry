@@ -279,7 +279,7 @@ export async function POST(request: NextRequest) {
       boardType: bestMatch?.boardType || boardType,
       availability: true,
       scrapedAt: new Date().toISOString(),
-      allPrices: scrapedData.allPrices.map(p => ({
+      allPrices: scrapedData.allPrices.map((p: any) => ({
         price: p.price,
         roomType: p.roomType,
         boardType: p.boardType,
