@@ -8,8 +8,26 @@ let chromium: any;
 
 if (isProduction) {
   // Su Vercel, usa puppeteer-core con @sparticuz/chromium
-  puppeteer = require('puppeteer-core');
-  chromium = require('@sparticuz/chromium');
+  try {
+    puppeteer = require('puppeteer-core');
+    const chromiumModule = require('@sparticuz/chromium');
+    // Prova sia default export che named export
+    chromium = chromiumModule.default || chromiumModule;
+    
+    // Verifica che chromium abbia i metodi necessari
+    if (!chromium || typeof chromium.executablePath !== 'function') {
+      console.error('[Booking Scraper] Chromium module structure:', {
+        hasDefault: !!chromiumModule.default,
+        hasExecutablePath: typeof chromiumModule.executablePath === 'function',
+        hasDefaultExecutablePath: chromiumModule.default && typeof chromiumModule.default.executablePath === 'function',
+        keys: Object.keys(chromiumModule).slice(0, 10)
+      });
+      throw new Error('Chromium module non ha executablePath function');
+    }
+  } catch (error: any) {
+    console.error('[Booking Scraper] Errore caricamento chromium:', error?.message || error);
+    throw error;
+  }
 } else {
   // In sviluppo locale, usa puppeteer normale (include Chrome)
   puppeteer = require('puppeteer');
@@ -81,50 +99,31 @@ export async function POST(request: NextRequest) {
 
     // Su Vercel, usa @sparticuz/chromium (obbligatorio per puppeteer-core)
     if (isProduction) {
-      console.log('[Booking Scraper] Ambiente produzione rilevato, configurazione Chromium...');
-      console.log('[Booking Scraper] Chromium disponibile:', !!chromium);
-      console.log('[Booking Scraper] Chromium type:', typeof chromium);
-      console.log('[Booking Scraper] Chromium keys:', chromium ? Object.keys(chromium).slice(0, 10) : 'N/A');
-      
       if (!chromium) {
         throw new Error('Chromium non disponibile - verifica che @sparticuz/chromium sia installato');
       }
 
-      // Prova diversi modi per ottenere executablePath
-      let executablePath: string | null = null;
-      
-      if (typeof chromium.executablePath === 'function') {
-        try {
-          executablePath = await chromium.executablePath();
-        } catch (error: any) {
-          console.error('[Booking Scraper] Errore chiamata chromium.executablePath():', error?.message || error);
-        }
-      } else if (chromium.executablePath && typeof chromium.executablePath === 'string') {
-        executablePath = chromium.executablePath;
-      } else if (chromium.default && typeof chromium.default.executablePath === 'function') {
-        try {
-          executablePath = await chromium.default.executablePath();
-        } catch (error: any) {
-          console.error('[Booking Scraper] Errore chiamata chromium.default.executablePath():', error?.message || error);
-        }
-      }
-
-      if (!executablePath) {
-        throw new Error('Impossibile ottenere executablePath da chromium');
-      }
-
-      launchOptions.executablePath = executablePath;
-      console.log('[Booking Scraper] Chromium executablePath configurato:', executablePath.substring(0, 50) + '...');
-      
-      // Configura args
-      const chromiumArgs = chromium.args || chromium.default?.args || [];
-      if (Array.isArray(chromiumArgs)) {
+      try {
+        // Configurazione standard per @sparticuz/chromium su Vercel
+        launchOptions.executablePath = await chromium.executablePath();
+        launchOptions.headless = chromium.headless !== false; // Default true
         launchOptions.args = [
-          ...chromiumArgs,
+          ...chromium.args,
           '--hide-scrollbars',
           '--disable-web-security',
           '--window-size=1920x1080',
         ];
+        
+        console.log('[Booking Scraper] Chromium configurato correttamente per Vercel');
+      } catch (error: any) {
+        console.error('[Booking Scraper] Errore configurazione chromium:', error?.message || error);
+        console.error('[Booking Scraper] Chromium object:', {
+          hasExecutablePath: typeof chromium.executablePath === 'function',
+          hasArgs: Array.isArray(chromium.args),
+          hasHeadless: typeof chromium.headless !== 'undefined',
+          keys: Object.keys(chromium).slice(0, 10)
+        });
+        throw new Error(`Impossibile configurare Chromium: ${error?.message || 'unknown error'}`);
       }
     }
 
