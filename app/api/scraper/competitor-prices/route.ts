@@ -55,7 +55,9 @@ interface CompetitorDoc {
   competitor_name?: string;
   name?: string;
   url?: string;
+  bookingUrl?: string;
   priceUnit?: 'per_notte' | 'per_persona';
+  boardType?: 'room_only' | 'breakfast' | 'half_board' | 'full_board' | 'all_inclusive';
   isActive: boolean;
   createdAt?: any;
 }
