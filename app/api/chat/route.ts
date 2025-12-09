@@ -116,7 +116,7 @@ Se l'utente chiede dati specifici che non hai nel contesto, indica che non sono 
 Fornisci analisi pratiche e suggerimenti concreti basati sui dati disponibili.`;
 
     // Usa OpenAI con AI Gateway (se configurato) o OpenAI diretto
-    const result = streamText({
+    const result = await streamText({
       model: openai('gpt-4o-mini'), // Usa modello economico per chat
       system: systemPrompt,
       messages: messages.map((msg: any) => ({
