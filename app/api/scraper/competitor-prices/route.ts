@@ -5,6 +5,9 @@ import { logAdmin } from '../../../../lib/admin-log';
 import { FieldValue, getFirestore } from 'firebase-admin/firestore';
 import { getAuth } from 'firebase-admin/auth';
 
+// Forza rendering dinamico perché usa request.headers
+export const dynamic = 'force-dynamic';
+
 // ============================================================================
 // TYPES
 // ============================================================================

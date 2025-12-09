@@ -5,6 +5,9 @@ import { verifyAdminFromUID } from '@/lib/admin';
 import { logAdminAction } from '@/lib/admin-log';
 import { jsPDF } from 'jspdf';
 
+// Forza rendering dinamico perché usa request.headers
+export const dynamic = 'force-dynamic';
+
 /**
  * API per esportare dati utenti in CSV (solo admin)
  * GET /api/admin/export?format=csv&uid=xxx

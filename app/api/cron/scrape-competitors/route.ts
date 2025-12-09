@@ -3,6 +3,9 @@ import { getAdminDb } from '@/lib/firebase-admin';
 import { logAdmin } from '@/lib/admin-log';
 import { FieldValue } from 'firebase-admin/firestore';
 
+// Forza rendering dinamico perché usa request.headers
+export const dynamic = 'force-dynamic';
+
 /**
  * VERCEL CRON JOB - Scraping Notturno Competitors
  * 

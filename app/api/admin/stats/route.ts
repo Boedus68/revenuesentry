@@ -6,6 +6,9 @@ import { verifyAdminFromUID } from '@/lib/admin';
 import { logAdminAction } from '@/lib/admin-log';
 import { calculateKPI } from '@/lib/calculations';
 
+// Forza rendering dinamico perché usa request.headers
+export const dynamic = 'force-dynamic';
+
 /**
  * API per recuperare statistiche degli utenti (solo admin)
  * GET /api/admin/stats

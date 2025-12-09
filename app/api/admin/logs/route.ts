@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyAdminFromUID } from '@/lib/admin';
 import { getAdminLogs } from '@/lib/admin-log';
 
+// Forza rendering dinamico perché usa request.headers
+export const dynamic = 'force-dynamic';
+
 /**
  * API per recuperare log admin (solo admin)
  * GET /api/admin/logs?uid=xxx
