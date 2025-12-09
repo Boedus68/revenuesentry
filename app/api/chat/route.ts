@@ -1,7 +1,15 @@
 import { NextRequest } from 'next/server';
 import { streamText } from 'ai';
+import { createOpenAI } from '@ai-sdk/openai';
 import { getAdminDb } from '@/lib/firebase-admin';
 import { logAdmin } from '@/lib/admin-log';
+
+// Configura OpenAI
+// Vercel AI Gateway viene usato automaticamente se configurato tramite variabili d'ambiente
+// Altrimenti usa OpenAI diretto con OPENAI_API_KEY
+const openai = createOpenAI({
+  apiKey: process.env.OPENAI_API_KEY || '',
+});
 
 // Forza rendering dinamico
 export const dynamic = 'force-dynamic';
@@ -107,9 +115,9 @@ Rispondi in italiano, in modo chiaro e professionale.
 Se l'utente chiede dati specifici che non hai nel contesto, indica che non sono disponibili.
 Fornisci analisi pratiche e suggerimenti concreti basati sui dati disponibili.`;
 
-    // Usa Vercel AI Gateway (automatico se configurato)
+    // Usa OpenAI con AI Gateway (se configurato) o OpenAI diretto
     const result = streamText({
-      model: 'openai/gpt-4o-mini', // Usa modello economico per chat
+      model: openai('gpt-4o-mini'), // Usa modello economico per chat
       system: systemPrompt,
       messages: messages.map((msg: any) => ({
         role: msg.role,

@@ -10,23 +10,23 @@ npm install
 
 Il pacchetto `ai` è già aggiunto a `package.json`.
 
-### 2. Configura AI Gateway su Vercel
+### 2. Configura API Key OpenAI
 
-1. Vai su [Vercel AI Gateway](https://vercel.com/boedus-projects/revenuesentry/ai-gateway)
-2. Crea una API Key o collega il progetto con OIDC
-
-**Opzione A: API Key**
-- Crea una API Key
-- Aggiungi come variabile d'ambiente su Vercel:
-  - Name: `AI_GATEWAY_API_KEY`
-  - Value: `your_api_key_here`
+**Opzione A: OpenAI diretto (più semplice)**
+- Ottieni una API Key da [OpenAI](https://platform.openai.com/api-keys)
+- Aggiungi su Vercel → Settings → Environment Variables:
+  - Name: `OPENAI_API_KEY`
+  - Value: `sk-...`
   - Environments: Production, Preview, Development
 
-**Opzione B: OIDC Token (consigliato)**
-```bash
-vercel link
-vercel env pull
-```
+**Opzione B: Vercel AI Gateway (consigliato per produzione)**
+1. Vai su [Vercel AI Gateway](https://vercel.com/boedus-projects/revenuesentry/ai-gateway)
+2. Collega il progetto (se non già collegato)
+3. Configura budget e monitoring
+4. Aggiungi `OPENAI_API_KEY` come sopra
+5. Vercel gestirà automaticamente il routing tramite AI Gateway
+
+**Nota:** Con Vercel AI Gateway configurato, le chiamate passano automaticamente tramite il gateway per monitoring, budget e fallback.
 
 ### 3. Configura modello AI
 

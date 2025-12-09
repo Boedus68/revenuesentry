@@ -11,6 +11,7 @@
     "test:cron:local": "node scripts/test-cron.js local"
   },
   "dependencies": {
+    "@ai-sdk/openai": "^1.0.0",
     "@sparticuz/chromium": "^131.0.0",
     "ai": "^3.4.0",
     "firebase": "^10.12.2",
