@@ -1,0 +1,45 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "competitor_data",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "hotelId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "competitor_name",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "date",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "competitor_data",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "hotelId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "competitor_name",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "date",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "boardType",
+          "order": "ASCENDING"
+        }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

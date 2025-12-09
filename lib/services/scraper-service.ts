@@ -54,16 +54,16 @@ export class CompetitorScraper {
    * Nota: In produzione, usa Puppeteer/Playwright o API ufficiale
    * Per ora, simula con dati mock per sviluppo
    * 
-   * @param treatmentFilter - Filtro trattamento ('BB', 'FB', o null per tutti)
-   *                          Quando 'FB', lo scraping dovrebbe usare il filtro Booking.com
-   *                          "all meals included" nella URL di ricerca
+   * @param treatmentFilter - Filtro trattamento ('BB', 'FB', o null per tutti) - DEPRECATED, usa boardType
+   * @param boardType - Tipo di trattamento ('room_only', 'breakfast', 'half_board', 'full_board', 'all_inclusive')
    */
   async scrapeBookingPrices(
     location: string,
     checkinDate: Date,
     checkoutDate: Date,
     hotelId: string,
-    treatmentFilter?: string
+    treatmentFilter?: string,
+    boardType?: 'room_only' | 'breakfast' | 'half_board' | 'full_board' | 'all_inclusive'
   ): Promise<CompetitorPrice[]> {
     try {
       logAdmin(`[Scraper] Inizio scraping competitor per ${location}`, { location, checkinDate, checkoutDate });
@@ -96,8 +96,12 @@ export class CompetitorScraper {
         ];
       }
 
+      // Determina boardType dal competitor config o usa default
+      // Se ci sono competitor configurati, usa il loro boardType, altrimenti usa quello passato o default
+      const defaultBoardType = boardType || (configuredCompetitors.length > 0 && configuredCompetitors[0].boardType) || 'breakfast';
+      
       // Salva in cache
-      await this.saveToCache(hotelId, location, checkinDate, checkoutDate, competitorsToScrape);
+      await this.saveToCache(hotelId, location, checkinDate, checkoutDate, competitorsToScrape, defaultBoardType);
 
       logAdmin(`[Scraper] Scraping completato: ${competitorsToScrape.length} competitor trovati`);
       return competitorsToScrape;
@@ -164,7 +168,8 @@ export class CompetitorScraper {
     location: string,
     checkinDate: Date,
     checkoutDate: Date,
-    competitors: CompetitorPrice[]
+    competitors: CompetitorPrice[],
+    boardType: 'room_only' | 'breakfast' | 'half_board' | 'full_board' | 'all_inclusive' = 'breakfast'
   ): Promise<void> {
     const adminDb = getAdminDb();
     if (!adminDb) {
@@ -187,6 +192,7 @@ export class CompetitorScraper {
           location,
           date: dateStr,
           price: competitor.price,
+          boardType: boardType, // Usa il boardType passato (default 'breakfast' già gestito nel parametro)
           rating: competitor.rating,
           availability: competitor.availability,
           room_type: competitor.room_type,

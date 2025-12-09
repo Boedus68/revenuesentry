@@ -1,5 +1,15 @@
 // Tipi TypeScript per RevenueSentry
 
+export type BoardType = 'room_only' | 'breakfast' | 'half_board' | 'full_board' | 'all_inclusive';
+
+export const BOARD_TYPE_LABELS: Record<BoardType, string> = {
+  room_only: 'Solo Camera',
+  breakfast: 'B&B (Colazione)',
+  half_board: 'Mezza Pensione',
+  full_board: 'Pensione Completa',
+  all_inclusive: 'All Inclusive'
+};
+
 export interface CostItem {
   fornitore: string;
   importo: number;
@@ -225,6 +235,7 @@ export interface CompetitorConfig {
   bookingId?: string; // ID hotel su Booking.com (se disponibile)
   isActive: boolean;
   priority: 'high' | 'medium' | 'low'; // Priorità nel monitoraggio
+  boardType: BoardType;
   notes?: string; // Note utente sul competitor
   created_at: any;
   updated_at?: any;
@@ -238,7 +249,8 @@ export interface CompetitorData {
   date: string; // formato "YYYY-MM-DD"
   price: number; // Prezzo nella unità configurata (per_camera, per_persona, etc.)
   price_unit: 'per_camera' | 'per_persona' | 'per_camera_per_notte'; // Unità di misura del prezzo
-  treatment?: string; // Trattamento (BB, HB, FB, solo pernottamento)
+  boardType: BoardType;
+  treatment?: string; // Trattamento (BB, HB, FB, solo pernottamento) - DEPRECATED, usa boardType
   room_type?: string; // Tipo camera (singola, doppia, suite, etc.)
   rating?: number;
   availability?: boolean;

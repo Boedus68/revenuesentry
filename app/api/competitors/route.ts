@@ -93,7 +93,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { hotelId, competitor_name, location, bookingUrl, bookingId, priority, notes } = body;
+    const { hotelId, competitor_name, location, bookingUrl, bookingId, priority, boardType, notes } = body;
 
     if (!hotelId || !competitor_name || !location) {
       return NextResponse.json(
@@ -121,6 +121,7 @@ export async function POST(request: NextRequest) {
       bookingId,
       isActive: true,
       priority: priority || 'medium',
+      boardType: boardType || 'breakfast',
       notes,
       created_at: new Date(),
     };

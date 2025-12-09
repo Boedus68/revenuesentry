@@ -35,14 +35,14 @@ yarn-error.log*
 
 # Firebase Service Account Key (NON committare!)
 service-account-key.json
+revenuesentry-firebase-key.json
+*-firebase-key.json
+firebase_key_*.txt
+firebase-key*.json
 
 # vercel
 .vercel
 
 # typescript
 *.tsbuildinfo
-next-env.d.ts
-
-.vercel
-*.json 
-firebase_key_*.txt 
+next-env.d.ts 

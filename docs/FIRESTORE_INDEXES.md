@@ -43,6 +43,54 @@ Questo documento descrive gli indici compositi necessari per le query Firestore 
 
 ---
 
+## Indice Richiesto: `competitor_data`
+
+### Query che richiede l'indice:
+- **Collection**: `competitor_data`
+- **Filtri**: 
+  - `hotelId` (==)
+  - `competitor_name` (==)
+  - `date` (==)
+  - `boardType` (==) - opzionale
+
+### Come creare l'indice:
+
+1. **Metodo Automatico (consigliato)**:
+   - Quando esegui una query che richiede un indice, Firebase ti mostrerà un errore con un link diretto
+   - Clicca sul link nell'errore (esempio: `https://console.firebase.google.com/v1/r/project/revenuesentry/firestore/indexes?create_composite=...`)
+   - Firebase Console aprirà automaticamente la pagina con l'indice pre-configurato
+   - Clicca su "Create Index"
+
+2. **Metodo Manuale**:
+   - Vai su [Firebase Console](https://console.firebase.google.com/project/revenuesentry/firestore/indexes)
+   - Clicca su "Create Index"
+   - Configura:
+     - **Collection ID**: `competitor_data`
+     - **Fields to index**:
+       - `hotelId` - Ascending
+       - `competitor_name` - Ascending
+       - `date` - Ascending
+       - `boardType` - Ascending (per query con filtro boardType)
+     - **Query scope**: Collection
+   - Clicca su "Create"
+
+3. **Metodo con file JSON**:
+   - Il file `firestore.indexes.json` è già configurato con gli indici necessari
+   - Deploya il file con: `firebase deploy --only firestore:indexes`
+   - Oppure importalo manualmente nella Firebase Console
+
+### Tempo di creazione:
+- Gli indici vengono creati in background e possono richiedere alcuni minuti
+- Puoi monitorare lo stato nella pagina Indexes di Firebase Console
+- Una volta creato, le query funzioneranno automaticamente
+
+### Note:
+- Questo indice è necessario per:
+  - `/api/scraper/competitor-prices` (GET) - Recupero prezzi competitor con filtro boardType
+- Se l'indice non è ancora stato creato, le query restituiranno un errore con il link diretto per crearlo
+
+---
+
 ## Indice Richiesto: `competitor_configs` (OPZIONALE)
 
 ### Query che richiede l'indice:

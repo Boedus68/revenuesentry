@@ -14,7 +14,7 @@ export async function PUT(
   try {
     const competitorId = params.id;
     const body = await request.json();
-    const { competitor_name, location, bookingUrl, bookingId, isActive, priority, notes } = body;
+    const { competitor_name, location, bookingUrl, bookingId, isActive, priority, boardType, notes } = body;
 
     const adminDb = getAdminDb();
     if (!adminDb) {
@@ -49,6 +49,7 @@ export async function PUT(
     if (bookingId !== undefined) updatedData.bookingId = bookingId;
     if (isActive !== undefined) updatedData.isActive = isActive;
     if (priority !== undefined) updatedData.priority = priority;
+    if (boardType !== undefined) updatedData.boardType = boardType;
     if (notes !== undefined) updatedData.notes = notes;
 
     const validated = validateCompetitorConfig(updatedData);
@@ -66,6 +67,7 @@ export async function PUT(
       location: validated.location,
       isActive: validated.isActive,
       priority: validated.priority,
+      boardType: validated.boardType || 'breakfast',
       updated_at: validated.updated_at,
     };
     

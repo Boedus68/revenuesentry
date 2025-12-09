@@ -15,7 +15,8 @@ interface CompetitorPrice {
   price: number;
   date: string;
   scrapedAt: string;
-  treatment?: string; // Trattamento (BB, HB, FB, solo pernottamento)
+  boardType?: 'room_only' | 'breakfast' | 'half_board' | 'full_board' | 'all_inclusive';
+  treatment?: string; // Trattamento (BB, HB, FB, solo pernottamento) - DEPRECATED, usa boardType
   price_unit?: 'per_camera' | 'per_persona' | 'per_camera_per_notte';
   guests?: number; // Numero ospiti per cui è valido il prezzo
   nights?: number; // Numero notti
@@ -37,7 +38,8 @@ interface CompetitorDataDoc {
   competitorName?: string;
   price: number;
   date: string;
-  treatment?: string;
+  boardType?: 'room_only' | 'breakfast' | 'half_board' | 'full_board' | 'all_inclusive';
+  treatment?: string; // DEPRECATED, usa boardType
   price_unit?: 'per_camera' | 'per_persona' | 'per_camera_per_notte';
   guests?: number;
   nights?: number;
@@ -152,7 +154,8 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const checkinDateParam = searchParams.get('checkinDate');
     const checkoutDateParam = searchParams.get('checkoutDate');
-    const treatmentFilter = searchParams.get('treatment'); // 'BB', 'FB', o null per tutti
+    const treatmentFilter = searchParams.get('treatment'); // 'BB', 'FB', o null per tutti (DEPRECATED)
+    const boardType = searchParams.get('boardType'); // 'room_only', 'breakfast', 'half_board', 'full_board', 'all_inclusive'
     
     // Usa le date fornite o default a oggi/domani
     const checkinDate = checkinDateParam ? new Date(checkinDateParam) : new Date();
@@ -223,17 +226,15 @@ export async function GET(request: NextRequest) {
 
         logAdmin(`[Competitor Prices GET] Processing competitor`, { competitorId: competitor.id, competitorName });
 
-        // Cerca prezzi per la data specifica di check-in
-        // Se c'è un filtro trattamento, aggiungilo alla query
-        let priceQuery = adminDb
-          .collection('competitor_data')
-          .where('hotelId', '==', userId)
-          .where('competitor_name', '==', competitorName)
-          .where('date', '==', checkinDateStr);
-        
-        // Se c'è un filtro trattamento, aggiungilo alla query
-        // Nota: Firestore non supporta OR, quindi dobbiamo filtrare dopo
-        const priceSnapshot = await priceQuery.get();
+        // Cerca prezzi per la data specifica di check-in usando competitorId
+const priceQuery = adminDb
+  .collection('competitor_data')
+  .where('competitorId', '==', competitor.id)
+  .where('date', '==', checkinDateStr)
+  .orderBy('scrapedAt', 'desc')
+  .limit(1);
+
+const priceSnapshot = await priceQuery.get();
 
         logAdmin(`[Competitor Prices GET] Prices per competitor e data`, { 
           competitorId: competitor.id, 
@@ -245,9 +246,10 @@ export async function GET(request: NextRequest) {
           // Prendi il primo risultato (dovrebbe essere uno solo per data)
           const priceData = priceSnapshot.docs[0].data() as CompetitorDataDoc;
           
-          // Filtra per trattamento se richiesto
-          const competitorTreatment = (priceData.treatment || '').toUpperCase().trim();
-          if (treatmentFilter) {
+          // Filtra per trattamento se richiesto (compatibilità con vecchio sistema)
+          // Se boardType è già filtrato nella query, questo è solo per compatibilità
+          if (treatmentFilter && !boardType) {
+            const competitorTreatment = (priceData.treatment || '').toUpperCase().trim();
             const filterUpper = treatmentFilter.toUpperCase().trim();
             let matches = false;
             
@@ -279,6 +281,7 @@ export async function GET(request: NextRequest) {
             price: safeNumber(priceData.price, 0),
             date: priceData.date || checkinDateStr,
             scrapedAt: priceData.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
+            boardType: priceData.boardType || 'breakfast',
             treatment: priceData.treatment || undefined,
             price_unit: priceData.price_unit || 'per_camera',
             guests: priceData.guests || undefined,
@@ -314,7 +317,10 @@ export async function GET(request: NextRequest) {
             }
           }
         } else {
-          // Nessun prezzo trovato per questa data - aggiungi alla lista per scraping
+          // ❌ SCRAPING REAL-TIME DISABILITATO
+          // I prezzi vengono aggiornati dal cron job notturno (/api/cron/scrape-competitors)
+          // Se non ci sono prezzi nel DB, usa mock per evitare blocchi nella dashboard
+          // Attendi prossimo scraping notturno o triggera manualmente /api/cron/scrape-competitors
           competitorsNeedingScraping.push(competitor);
         }
       } catch (error: any) {
@@ -324,25 +330,39 @@ export async function GET(request: NextRequest) {
     }
 
     // 3. Se ci sono competitor senza prezzi per questa data, genera mock data
+    // NOTA: Lo scraping real-time è disabilitato. I prezzi vengono aggiornati dal cron job notturno.
     if (competitorsNeedingScraping.length > 0) {
-      logAdmin(`[Competitor Prices GET] Generazione mock prices per ${competitorsNeedingScraping.length} competitor senza dati`);
+      logAdmin(`[Competitor Prices GET] Generazione mock prices per ${competitorsNeedingScraping.length} competitor senza dati`, {
+        hint: 'I prezzi reali vengono aggiornati dal cron job notturno (/api/cron/scrape-competitors)'
+      });
       
       for (const competitor of competitorsNeedingScraping) {
         const competitorName = competitor.competitor_name || competitor.name || '';
         
-        // Determina il trattamento in base al filtro o usa BB come default
+        // Determina il boardType in base al filtro o usa breakfast come default
+        let mockBoardType: 'room_only' | 'breakfast' | 'half_board' | 'full_board' | 'all_inclusive' = 'breakfast';
         let mockTreatment = 'BB';
-        if (treatmentFilter) {
+        
+        if (boardType) {
+          mockBoardType = boardType;
+          // Converti boardType in treatment per compatibilità
+          if (boardType === 'full_board') mockTreatment = 'FB';
+          else if (boardType === 'half_board') mockTreatment = 'HB';
+          else if (boardType === 'breakfast') mockTreatment = 'BB';
+          else mockTreatment = 'BB';
+        } else if (treatmentFilter) {
           const filterUpper = treatmentFilter.toUpperCase().trim();
           if (filterUpper === 'FB') {
+            mockBoardType = 'full_board';
             mockTreatment = 'FB';
           } else {
+            mockBoardType = 'breakfast';
             mockTreatment = 'BB';
           }
         }
         
         // Genera mock price (variabile per data e competitor per simulare prezzi diversi)
-        const basePrice = mockTreatment === 'FB' ? 120 : 90; // Full board costa di più
+        const basePrice = mockBoardType === 'full_board' ? 120 : mockBoardType === 'half_board' ? 105 : 90;
         // Usa hash della data per variare il prezzo in modo deterministico ma variabile
         const dateHash = checkinDateStr.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
         // Usa hash del nome competitor per variare il prezzo base
@@ -357,6 +377,7 @@ export async function GET(request: NextRequest) {
           price: mockPrice,
           date: checkinDateStr,
           scrapedAt: new Date().toISOString(),
+          boardType: mockBoardType,
           treatment: mockTreatment,
           price_unit: 'per_camera_per_notte',
           guests: 2, // Default 2 ospiti per camera doppia
@@ -370,6 +391,7 @@ export async function GET(request: NextRequest) {
             competitor_name: competitorName,
             price: mockPrice,
             date: checkinDateStr,
+            boardType: mockBoardType,
             treatment: mockTreatment,
             price_unit: 'per_camera_per_notte',
             guests: 2,
@@ -476,7 +498,7 @@ export async function POST(request: NextRequest) {
 
     logAdmin('[Competitor Prices POST] userId trovato', { userId });
 
-    const { hotelId, competitorId, price, date } = body;
+    const { hotelId, competitorId, price, date, boardType, roomType, source } = body;
 
     // Se hotelId è nel body, usa quello (per compatibilità)
     const finalHotelId = hotelId || userId;
@@ -521,6 +543,9 @@ export async function POST(request: NextRequest) {
     // Salva prezzo
     const priceDate = date || new Date().toISOString().split('T')[0];
     const competitorName = competitorData.competitor_name || competitorData.name || '';
+    
+    // Determina boardType: usa quello fornito, altrimenti quello del competitor, altrimenti default 'breakfast'
+    const finalBoardType = boardType || competitorData.boardType || 'breakfast';
 
     // Check se prezzo per questa data già esistente
     const existingSnapshot = await adminDb
@@ -534,10 +559,16 @@ export async function POST(request: NextRequest) {
     if (!existingSnapshot.empty) {
       // Update existing
       const docId = existingSnapshot.docs[0].id;
-      await adminDb.collection('competitor_data').doc(docId).update({
+      const updateData: any = {
         price,
         updatedAt: FieldValue.serverTimestamp()
-      });
+      };
+      
+      if (boardType) {
+        updateData.boardType = finalBoardType;
+      }
+      
+      await adminDb.collection('competitor_data').doc(docId).update(updateData);
 
       logAdmin('[Competitor Prices POST] Prezzo aggiornato');
       return NextResponse.json({
@@ -546,14 +577,22 @@ export async function POST(request: NextRequest) {
       });
     } else {
       // Create new
-      await adminDb.collection('competitor_data').add({
+      const priceDoc = {
         hotelId: finalHotelId,
+        competitorId,
+        competitorName: competitorName || 'N/D',
         competitor_name: competitorName,
         price,
+        boardType: finalBoardType,
         date: priceDate,
+        roomType: roomType || null,
+        source: source || 'manual',
+        scrapedAt: new Date().toISOString(),
+        createdAt: FieldValue.serverTimestamp(),
         isMock: false,
-        createdAt: FieldValue.serverTimestamp()
-      });
+      };
+      
+      await adminDb.collection('competitor_data').add(priceDoc);
 
       logAdmin('[Competitor Prices POST] Prezzo creato');
       return NextResponse.json({

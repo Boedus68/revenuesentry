@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { auth } from '../../../lib/firebase';
-import { CompetitorConfig } from '../../../lib/types';
+import { CompetitorConfig, BoardType, BOARD_TYPE_LABELS } from '../../../lib/types';
 
 export default function CompetitorManager() {
   const [user, setUser] = useState<User | null>(null);
@@ -21,6 +21,7 @@ export default function CompetitorManager() {
     bookingUrl: '',
     bookingId: '',
     priority: 'medium' as 'high' | 'medium' | 'low',
+    boardType: 'breakfast' as BoardType,
     notes: '',
   });
 
@@ -72,6 +73,7 @@ export default function CompetitorManager() {
       bookingUrl: '',
       bookingId: '',
       priority: 'medium',
+      boardType: 'breakfast',
       notes: '',
     });
   };
@@ -87,6 +89,7 @@ export default function CompetitorManager() {
       bookingUrl: competitor.bookingUrl || '',
       bookingId: competitor.bookingId || '',
       priority: competitor.priority,
+      boardType: competitor.boardType || 'breakfast',
       notes: competitor.notes || '',
     });
   };
@@ -114,6 +117,7 @@ export default function CompetitorManager() {
             bookingUrl: formData.bookingUrl || undefined,
             bookingId: formData.bookingId || undefined,
             priority: formData.priority,
+            boardType: formData.boardType,
             notes: formData.notes || undefined,
           }),
         });
@@ -134,6 +138,7 @@ export default function CompetitorManager() {
             bookingUrl: formData.bookingUrl || undefined,
             bookingId: formData.bookingId || undefined,
             priority: formData.priority,
+            boardType: formData.boardType,
             notes: formData.notes || undefined,
           }),
         });
@@ -329,6 +334,23 @@ export default function CompetitorManager() {
               </select>
             </div>
 
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">
+                Tipo Trattamento <span className="text-red-400">*</span>
+              </label>
+              <select
+                value={formData.boardType}
+                onChange={(e) => setFormData({ ...formData, boardType: e.target.value as BoardType })}
+                className="w-full bg-gray-800 border border-gray-600 rounded-lg px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+              >
+                {Object.entries(BOARD_TYPE_LABELS).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-300 mb-1">
                 Note (opzionale)
@@ -386,6 +408,7 @@ export default function CompetitorManager() {
               <tr className="border-b border-gray-700">
                 <th className="text-left py-3 px-3 text-gray-300 font-semibold">Nome</th>
                 <th className="text-left py-3 px-3 text-gray-300 font-semibold">Località</th>
+                <th className="text-center py-3 px-3 text-gray-300 font-semibold">Trattamento</th>
                 <th className="text-center py-3 px-3 text-gray-300 font-semibold">Priorità</th>
                 <th className="text-center py-3 px-3 text-gray-300 font-semibold">Stato</th>
                 <th className="text-right py-3 px-3 text-gray-300 font-semibold">Azioni</th>
@@ -396,6 +419,11 @@ export default function CompetitorManager() {
                 <tr key={competitor.id} className="border-b border-gray-700/50 hover:bg-gray-700/30">
                   <td className="py-3 px-3 text-white font-medium">{competitor.competitor_name}</td>
                   <td className="py-3 px-3 text-gray-300">{competitor.location}</td>
+                  <td className="py-3 px-3 text-center">
+                    <span className="px-2 py-1 rounded text-xs bg-indigo-500/20 text-indigo-300">
+                      {BOARD_TYPE_LABELS[competitor.boardType as BoardType] || 'N/D'}
+                    </span>
+                  </td>
                   <td className="py-3 px-3 text-center">
                     <span className={`px-2 py-1 rounded text-xs border ${getPriorityColor(competitor.priority)}`}>
                       {competitor.priority === 'high' ? 'Alta' : competitor.priority === 'medium' ? 'Media' : 'Bassa'}
