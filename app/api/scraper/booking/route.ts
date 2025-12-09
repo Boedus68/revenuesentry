@@ -5,7 +5,7 @@ interface ScrapingRequest {
   bookingUrl: string;
   checkInDate: string;
   checkOutDate: string;
-  boardType: 'room_only' | 'breakfast' | 'half_board' | 'full_board' | 'all_inclusive';
+  boardType: 'room_only' | 'breakfast' | 'half_board' | 'full_board' | 'all_inclusive' | 'any';
   adults?: number;
   children?: number;
 }
@@ -117,7 +117,7 @@ export async function POST(request: NextRequest) {
       await new Promise(resolve => setTimeout(resolve, 5000));
     }
 
-    const scrapedData = await page.evaluate((requestedBoardType) => {
+    const scrapedData = await page.evaluate((requestedBoardType: 'room_only' | 'breakfast' | 'half_board' | 'full_board' | 'all_inclusive' | 'any') => {
       const results: any[] = [];
 
       const priceSelectors = [
@@ -319,3 +319,4 @@ export async function GET() {
     },
   });
 }
+
