@@ -1,36 +1,55 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-// Import condizionale per Vercel (produzione) vs sviluppo locale
+// Browserless.io configuration
+const BROWSERLESS_API_KEY = process.env.BROWSERLESS_API_KEY;
 const isProduction = process.env.VERCEL || process.env.NODE_ENV === 'production';
 
 let puppeteer: any;
-let chromium: any;
 
+// In produzione usa Browserless, in sviluppo locale usa puppeteer normale
 if (isProduction) {
-  // Su Vercel, usa puppeteer-core con @sparticuz/chromium
-  try {
-    puppeteer = require('puppeteer-core');
-    const chromiumModule = require('@sparticuz/chromium');
-    // Prova sia default export che named export
-    chromium = chromiumModule.default || chromiumModule;
-    
-    // Verifica che chromium abbia i metodi necessari
-    if (!chromium || typeof chromium.executablePath !== 'function') {
-      console.error('[Booking Scraper] Chromium module structure:', {
-        hasDefault: !!chromiumModule.default,
-        hasExecutablePath: typeof chromiumModule.executablePath === 'function',
-        hasDefaultExecutablePath: chromiumModule.default && typeof chromiumModule.default.executablePath === 'function',
-        keys: Object.keys(chromiumModule).slice(0, 10)
-      });
-      throw new Error('Chromium module non ha executablePath function');
-    }
-  } catch (error: any) {
-    console.error('[Booking Scraper] Errore caricamento chromium:', error?.message || error);
-    throw error;
-  }
+  // Su Vercel, usa puppeteer-core per connettersi a Browserless
+  puppeteer = require('puppeteer-core');
 } else {
   // In sviluppo locale, usa puppeteer normale (include Chrome)
-  puppeteer = require('puppeteer');
+  // Oppure Browserless se BROWSERLESS_API_KEY è configurata
+  if (BROWSERLESS_API_KEY) {
+    puppeteer = require('puppeteer-core');
+  } else {
+    puppeteer = require('puppeteer');
+  }
+}
+
+/**
+ * Configura la connessione a Browserless.io
+ * In produzione usa sempre Browserless, in sviluppo locale solo se BROWSERLESS_API_KEY è presente
+ */
+async function setupBrowser() {
+  // In produzione, Browserless è obbligatorio
+  if (isProduction) {
+    if (!BROWSERLESS_API_KEY || BROWSERLESS_API_KEY.trim() === '') {
+      throw new Error(
+        'BROWSERLESS_API_KEY non configurata. ' +
+        'Registrati su https://www.browserless.io/ e aggiungi la chiave su Vercel → Settings → Environment Variables'
+      );
+    }
+  } else {
+    // In sviluppo locale, Browserless è opzionale
+    if (!BROWSERLESS_API_KEY || BROWSERLESS_API_KEY.trim() === '') {
+      // Usa puppeteer locale
+      return null;
+    }
+  }
+
+  // Browserless WebSocket endpoint
+  const browserWSEndpoint = `wss://chrome.browserless.io?token=${BROWSERLESS_API_KEY}`;
+  
+  console.log('[Booking Scraper] Connessione a Browserless cloud...');
+  
+  return {
+    browserWSEndpoint,
+    headless: true,
+  };
 }
 
 interface ScrapingRequest {
@@ -43,7 +62,8 @@ interface ScrapingRequest {
 }
 
 export async function POST(request: NextRequest) {
-  let browser = null;
+  let browser: any = null;
+  let isBrowserless = false;
   
   try {
     const body: ScrapingRequest = await request.json();
@@ -84,71 +104,34 @@ export async function POST(request: NextRequest) {
     
     console.log('[Booking Scraper] URL costruito:', url);
 
-    // Configurazione per Vercel (produzione) vs sviluppo locale
-    let launchOptions: any = {
-      headless: true,
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-accelerated-2d-canvas',
-        '--disable-gpu',
-        '--window-size=1920x1080',
-      ],
-    };
-
-    // Su Vercel, usa @sparticuz/chromium (obbligatorio per puppeteer-core)
-    if (isProduction) {
-      if (!chromium) {
-        throw new Error('Chromium non disponibile - verifica che @sparticuz/chromium sia installato');
-      }
-
-      try {
-        // Configurazione per @sparticuz/chromium su Vercel
-        // Usa executablePath direttamente senza decomprimere
-        launchOptions.executablePath = await chromium.executablePath();
-        launchOptions.headless = chromium.headless !== false;
-        launchOptions.args = chromium.args || [];
-        
-        console.log('[Booking Scraper] Chromium configurato correttamente per Vercel');
-      } catch (error: any) {
-        console.error('[Booking Scraper] Errore configurazione chromium:', error?.message || error);
-        
-        // Se c'è un errore con brotli, prova a configurare chromium in modo diverso
-        if (error?.message?.includes('brotli') || error?.message?.includes('directory')) {
-          console.log('[Booking Scraper] Errore brotli rilevato, tentativo configurazione alternativa...');
-          
-          // Prova a chiamare executablePath senza decomprimere
-          // Alcune versioni di chromium hanno bisogno di essere configurate prima
-          try {
-            // Reset e riprova con configurazione minimale
-            const executablePath = await chromium.executablePath();
-            if (executablePath) {
-              launchOptions.executablePath = executablePath;
-              launchOptions.headless = true;
-              launchOptions.args = [
-                '--no-sandbox',
-                '--disable-setuid-sandbox',
-                '--disable-dev-shm-usage',
-                '--disable-gpu',
-                '--single-process',
-                '--window-size=1920x1080',
-              ];
-              console.log('[Booking Scraper] Configurazione alternativa riuscita');
-            } else {
-              throw new Error('executablePath è null o undefined');
-            }
-          } catch (retryError: any) {
-            console.error('[Booking Scraper] Anche il retry è fallito:', retryError?.message);
-            throw new Error(`Impossibile configurare Chromium: ${error?.message || 'unknown error'}`);
-          }
-        } else {
-          throw new Error(`Impossibile configurare Chromium: ${error?.message || 'unknown error'}`);
-        }
-      }
+    // Configura browser: Browserless (produzione o se configurato) vs locale (sviluppo)
+    const browserConfig = await setupBrowser();
+    
+    if (browserConfig) {
+      // Usa Browserless cloud
+      isBrowserless = true;
+      console.log('[Booking Scraper] Connessione a Browserless...');
+      browser = await puppeteer.connect({
+        browserWSEndpoint: browserConfig.browserWSEndpoint,
+      });
+      console.log('[Booking Scraper] Browserless connesso con successo!');
+    } else {
+      // Usa browser locale (solo sviluppo)
+      isBrowserless = false;
+      console.log('[Booking Scraper] Avvio browser locale...');
+      browser = await puppeteer.launch({
+        headless: true,
+        args: [
+          '--no-sandbox',
+          '--disable-setuid-sandbox',
+          '--disable-dev-shm-usage',
+          '--disable-accelerated-2d-canvas',
+          '--disable-gpu',
+          '--window-size=1920x1080',
+        ],
+      });
+      console.log('[Booking Scraper] Browser locale avviato');
     }
-
-    browser = await puppeteer.launch(launchOptions);
 
     const page = await browser.newPage();
     
@@ -308,7 +291,14 @@ export async function POST(request: NextRequest) {
 
     console.log('[Booking Scraper] Dati estratti:', scrapedData);
 
-    await browser.close();
+    // Chiudi browser: disconnect per Browserless, close per locale
+    if (isBrowserless) {
+      await browser.disconnect();
+      console.log('[Booking Scraper] Browserless disconnesso');
+    } else {
+      await browser.close();
+      console.log('[Booking Scraper] Browser locale chiuso');
+    }
 
     if (!scrapedData.bestPrice) {
       console.log('[Booking Scraper] Nessun prezzo trovato, potrebbe essere non disponibile');
@@ -346,8 +336,17 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('[Booking Scraper] Errore:', error);
     
+    // Chiudi browser in caso di errore
     if (browser) {
-      await browser.close();
+      try {
+        if (isBrowserless) {
+          await browser.disconnect();
+        } else {
+          await browser.close();
+        }
+      } catch (closeError) {
+        console.error('[Booking Scraper] Errore chiusura browser:', closeError);
+      }
     }
 
     return NextResponse.json({
