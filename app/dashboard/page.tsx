@@ -15,6 +15,7 @@ import UploadPayrollDialog from './components/UploadPayrollDialog';
 import MonthPicker from './components/MonthPicker';
 import CompetitorAlerts from './components/CompetitorAlerts';
 import CompetitorManager from './components/CompetitorManager';
+import HotelChatbot from './components/HotelChatbot';
 import RevenueForecastCard from './components/RevenueForecastCard';
 import CostAnomaliesAlert from './components/CostAnomaliesAlert';
 import DynamicPricingCard from './components/DynamicPricingCard';
@@ -2009,6 +2010,13 @@ return (
                             )}
                             </div>
                         </div>
+
+                        {/* Chatbot AI */}
+                        {user && (
+                            <div className="mb-8">
+                                <HotelChatbot user={user} />
+                            </div>
+                        )}
 
                         {recommendations.length > 0 ? (
                             <div className="space-y-6">

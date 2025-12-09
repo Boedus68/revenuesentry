@@ -445,34 +445,59 @@ export default function CompetitorAlerts() {
               <thead>
                 <tr className="border-b border-gray-700">
                   <th className="text-left py-2 px-3 text-gray-300 font-semibold">Competitor</th>
-                  <th className="text-right py-2 px-3 text-gray-300 font-semibold">Prezzo</th>
+                  <th className="text-right py-2 px-3 text-gray-300 font-semibold">Prezzo Camera Doppia</th>
+                  <th className="text-right py-2 px-3 text-gray-300 font-semibold">Prezzo a Persona</th>
                   <th className="text-center py-2 px-3 text-gray-300 font-semibold">Disponibilità</th>
                 </tr>
               </thead>
               <tbody>
-                {competitors.map((competitor, idx) => (
-                  <tr key={idx} className="border-b border-gray-700/50 hover:bg-gray-700/30">
-                    <td className="py-2 px-3 text-white">{competitor.competitorName}</td>
-                    <td className="py-2 px-3 text-right">
-                      {competitor.isAvailable && competitor.price ? (
-                        <span className="text-white font-semibold">€{competitor.price.toFixed(2)}</span>
-                      ) : (
-                        <span className="text-gray-500 italic">N/D</span>
-                      )}
-                    </td>
-                    <td className="py-2 px-3 text-center">
-                      {competitor.isAvailable ? (
-                        <span className="px-2 py-1 rounded text-xs bg-green-500/20 text-green-300">
-                          Disponibile
-                        </span>
-                      ) : (
-                        <span className="px-2 py-1 rounded text-xs bg-red-500/20 text-red-300">
-                          Non Disponibile
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                {[...competitors]
+                  .sort((a, b) => {
+                    // Ordina dal più alto al più basso
+                    // Prima quelli disponibili, poi quelli non disponibili
+                    if (a.isAvailable && !b.isAvailable) return -1;
+                    if (!a.isAvailable && b.isAvailable) return 1;
+                    // Se entrambi disponibili o entrambi non disponibili, ordina per prezzo
+                    const priceA = a.isAvailable && a.price ? a.price : 0;
+                    const priceB = b.isAvailable && b.price ? b.price : 0;
+                    return priceB - priceA; // Dal più alto al più basso
+                  })
+                  .map((competitor, idx) => {
+                    const pricePerPerson = competitor.isAvailable && competitor.price 
+                      ? competitor.price / 2 
+                      : null;
+                    
+                    return (
+                      <tr key={idx} className="border-b border-gray-700/50 hover:bg-gray-700/30">
+                        <td className="py-2 px-3 text-white">{competitor.competitorName}</td>
+                        <td className="py-2 px-3 text-right">
+                          {competitor.isAvailable && competitor.price ? (
+                            <span className="text-white font-semibold">€{competitor.price.toFixed(2)}</span>
+                          ) : (
+                            <span className="text-gray-500 italic">N/D</span>
+                          )}
+                        </td>
+                        <td className="py-2 px-3 text-right">
+                          {pricePerPerson !== null ? (
+                            <span className="text-gray-300">€{pricePerPerson.toFixed(2)}</span>
+                          ) : (
+                            <span className="text-gray-500 italic">N/D</span>
+                          )}
+                        </td>
+                        <td className="py-2 px-3 text-center">
+                          {competitor.isAvailable ? (
+                            <span className="px-2 py-1 rounded text-xs bg-green-500/20 text-green-300">
+                              Disponibile
+                            </span>
+                          ) : (
+                            <span className="px-2 py-1 rounded text-xs bg-red-500/20 text-red-300">
+                              Non Disponibile
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
               </tbody>
             </table>
           </div>
