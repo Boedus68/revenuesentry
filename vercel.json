@@ -4,6 +4,11 @@
       "path": "/api/cron/scrape-competitors",
       "schedule": "0 3 * * *"
     }
-  ]
+  ],
+  "functions": {
+    "app/api/scraper/booking/route.ts": {
+      "maxDuration": 60
+    }
+  }
 }
 

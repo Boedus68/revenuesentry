@@ -104,26 +104,47 @@ export async function POST(request: NextRequest) {
       }
 
       try {
-        // Configurazione standard per @sparticuz/chromium su Vercel
+        // Configurazione per @sparticuz/chromium su Vercel
+        // Usa executablePath direttamente senza decomprimere
         launchOptions.executablePath = await chromium.executablePath();
-        launchOptions.headless = chromium.headless !== false; // Default true
-        launchOptions.args = [
-          ...chromium.args,
-          '--hide-scrollbars',
-          '--disable-web-security',
-          '--window-size=1920x1080',
-        ];
+        launchOptions.headless = chromium.headless !== false;
+        launchOptions.args = chromium.args || [];
         
         console.log('[Booking Scraper] Chromium configurato correttamente per Vercel');
       } catch (error: any) {
         console.error('[Booking Scraper] Errore configurazione chromium:', error?.message || error);
-        console.error('[Booking Scraper] Chromium object:', {
-          hasExecutablePath: typeof chromium.executablePath === 'function',
-          hasArgs: Array.isArray(chromium.args),
-          hasHeadless: typeof chromium.headless !== 'undefined',
-          keys: Object.keys(chromium).slice(0, 10)
-        });
-        throw new Error(`Impossibile configurare Chromium: ${error?.message || 'unknown error'}`);
+        
+        // Se c'è un errore con brotli, prova a configurare chromium in modo diverso
+        if (error?.message?.includes('brotli') || error?.message?.includes('directory')) {
+          console.log('[Booking Scraper] Errore brotli rilevato, tentativo configurazione alternativa...');
+          
+          // Prova a chiamare executablePath senza decomprimere
+          // Alcune versioni di chromium hanno bisogno di essere configurate prima
+          try {
+            // Reset e riprova con configurazione minimale
+            const executablePath = await chromium.executablePath();
+            if (executablePath) {
+              launchOptions.executablePath = executablePath;
+              launchOptions.headless = true;
+              launchOptions.args = [
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage',
+                '--disable-gpu',
+                '--single-process',
+                '--window-size=1920x1080',
+              ];
+              console.log('[Booking Scraper] Configurazione alternativa riuscita');
+            } else {
+              throw new Error('executablePath è null o undefined');
+            }
+          } catch (retryError: any) {
+            console.error('[Booking Scraper] Anche il retry è fallito:', retryError?.message);
+            throw new Error(`Impossibile configurare Chromium: ${error?.message || 'unknown error'}`);
+          }
+        } else {
+          throw new Error(`Impossibile configurare Chromium: ${error?.message || 'unknown error'}`);
+        }
       }
     }
 

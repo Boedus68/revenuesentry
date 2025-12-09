@@ -11,7 +11,7 @@
     "test:cron:local": "node scripts/test-cron.js local"
   },
   "dependencies": {
-    "@sparticuz/chromium": "^143.0.0",
+    "@sparticuz/chromium": "^131.0.0",
     "firebase": "^10.12.2",
     "firebase-admin": "^13.5.0",
     "html2canvas": "^1.4.1",
