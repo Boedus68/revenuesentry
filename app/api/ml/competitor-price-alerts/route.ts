@@ -66,6 +66,7 @@ export async function GET(request: NextRequest) {
         date: data.date,
         price: data.price || 0,
         price_unit: data.price_unit || 'per_camera',
+        boardType: data.boardType || 'breakfast', // Required field, default to breakfast
         treatment: data.treatment,
         room_type: data.room_type,
         rating: data.rating,

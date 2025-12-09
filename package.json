@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test:cron": "node scripts/test-cron.js",
+    "test:cron:local": "node scripts/test-cron.js local"
   },
   "dependencies": {
     "@sparticuz/chromium": "^143.0.0",
