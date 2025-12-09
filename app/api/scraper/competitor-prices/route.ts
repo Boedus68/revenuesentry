@@ -343,8 +343,12 @@ const priceSnapshot = await priceQuery.get();
         let mockBoardType: 'room_only' | 'breakfast' | 'half_board' | 'full_board' | 'all_inclusive' = 'breakfast';
         let mockTreatment = 'BB';
         
-        if (boardType) {
-          mockBoardType = boardType;
+        // Valida che boardType sia uno dei valori validi
+        const validBoardTypes: Array<'room_only' | 'breakfast' | 'half_board' | 'full_board' | 'all_inclusive'> = 
+          ['room_only', 'breakfast', 'half_board', 'full_board', 'all_inclusive'];
+        
+        if (boardType && validBoardTypes.includes(boardType as any)) {
+          mockBoardType = boardType as 'room_only' | 'breakfast' | 'half_board' | 'full_board' | 'all_inclusive';
           // Converti boardType in treatment per compatibilità
           if (boardType === 'full_board') mockTreatment = 'FB';
           else if (boardType === 'half_board') mockTreatment = 'HB';
