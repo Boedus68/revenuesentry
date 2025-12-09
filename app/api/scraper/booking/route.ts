@@ -79,21 +79,52 @@ export async function POST(request: NextRequest) {
       ],
     };
 
-    // Su Vercel, usa @sparticuz/chromium
-    if (isProduction && chromium && typeof chromium.executablePath === 'function') {
-      try {
-        launchOptions.executablePath = await chromium.executablePath();
-        if (chromium.args && Array.isArray(chromium.args)) {
-          launchOptions.args = [
-            ...chromium.args,
-            '--hide-scrollbars',
-            '--disable-web-security',
-            '--window-size=1920x1080',
-          ];
+    // Su Vercel, usa @sparticuz/chromium (obbligatorio per puppeteer-core)
+    if (isProduction) {
+      console.log('[Booking Scraper] Ambiente produzione rilevato, configurazione Chromium...');
+      console.log('[Booking Scraper] Chromium disponibile:', !!chromium);
+      console.log('[Booking Scraper] Chromium type:', typeof chromium);
+      console.log('[Booking Scraper] Chromium keys:', chromium ? Object.keys(chromium).slice(0, 10) : 'N/A');
+      
+      if (!chromium) {
+        throw new Error('Chromium non disponibile - verifica che @sparticuz/chromium sia installato');
+      }
+
+      // Prova diversi modi per ottenere executablePath
+      let executablePath: string | null = null;
+      
+      if (typeof chromium.executablePath === 'function') {
+        try {
+          executablePath = await chromium.executablePath();
+        } catch (error: any) {
+          console.error('[Booking Scraper] Errore chiamata chromium.executablePath():', error?.message || error);
         }
-      } catch (error: any) {
-        console.error('[Booking Scraper] Errore configurazione chromium:', error?.message || error);
-        // Fallback: usa args standard senza chromium
+      } else if (chromium.executablePath && typeof chromium.executablePath === 'string') {
+        executablePath = chromium.executablePath;
+      } else if (chromium.default && typeof chromium.default.executablePath === 'function') {
+        try {
+          executablePath = await chromium.default.executablePath();
+        } catch (error: any) {
+          console.error('[Booking Scraper] Errore chiamata chromium.default.executablePath():', error?.message || error);
+        }
+      }
+
+      if (!executablePath) {
+        throw new Error('Impossibile ottenere executablePath da chromium');
+      }
+
+      launchOptions.executablePath = executablePath;
+      console.log('[Booking Scraper] Chromium executablePath configurato:', executablePath.substring(0, 50) + '...');
+      
+      // Configura args
+      const chromiumArgs = chromium.args || chromium.default?.args || [];
+      if (Array.isArray(chromiumArgs)) {
+        launchOptions.args = [
+          ...chromiumArgs,
+          '--hide-scrollbars',
+          '--disable-web-security',
+          '--window-size=1920x1080',
+        ];
       }
     }
 
