@@ -1,5 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
-import puppeteer from 'puppeteer';
+
+// Import condizionale per Vercel (produzione) vs sviluppo locale
+const isProduction = process.env.VERCEL || process.env.NODE_ENV === 'production';
+
+let puppeteer: any;
+let chromium: any;
+
+if (isProduction) {
+  // Su Vercel, usa puppeteer-core con @sparticuz/chromium
+  puppeteer = require('puppeteer-core');
+  chromium = require('@sparticuz/chromium');
+} else {
+  // In sviluppo locale, usa puppeteer normale (include Chrome)
+  puppeteer = require('puppeteer');
+}
 
 interface ScrapingRequest {
   bookingUrl: string;
@@ -52,7 +66,8 @@ export async function POST(request: NextRequest) {
     
     console.log('[Booking Scraper] URL costruito:', url);
 
-    browser = await puppeteer.launch({
+    // Configurazione per Vercel (produzione) vs sviluppo locale
+    let launchOptions: any = {
       headless: true,
       args: [
         '--no-sandbox',
@@ -62,7 +77,21 @@ export async function POST(request: NextRequest) {
         '--disable-gpu',
         '--window-size=1920x1080',
       ],
-    });
+    };
+
+    // Su Vercel, usa @sparticuz/chromium
+    if (isProduction && chromium) {
+      chromium.setGraphicsMode(false);
+      launchOptions.executablePath = await chromium.executablePath();
+      launchOptions.args = [
+        ...chromium.args,
+        '--hide-scrollbars',
+        '--disable-web-security',
+        '--window-size=1920x1080',
+      ];
+    }
+
+    browser = await puppeteer.launch(launchOptions);
 
     const page = await browser.newPage();
     

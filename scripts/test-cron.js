@@ -20,7 +20,7 @@ if (!CRON_SECRET) {
   console.error('❌ ERRORE: CRON_SECRET non trovato nelle variabili d\'ambiente');
   console.error('');
   console.error('Configura CRON_SECRET:');
-  console.error('  export CRON_SECRET="your_secret_here"');
+  console.error('  export CRON_SECRET="3631ae8ce6c85b8e3662c75496d0c43ffcfa626278ee64883fabb54fd34e065e"');
   console.error('');
   console.error('Oppure crea un file .env.local con:');
   console.error('  CRON_SECRET=your_secret_here');
