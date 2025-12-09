@@ -266,7 +266,7 @@ export async function POST(request: NextRequest) {
     }
 
     const bestMatch = scrapedData.filteredPrices.length > 0
-      ? scrapedData.filteredPrices.reduce((prev, curr) => 
+      ? scrapedData.filteredPrices.reduce((prev: any, curr: any) => 
           curr.price < prev.price ? curr : prev
         )
       : scrapedData.allPrices[0];
