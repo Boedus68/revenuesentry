@@ -7,9 +7,15 @@ import { logAdmin } from '@/lib/admin-log';
 // Configura OpenAI
 // Vercel AI Gateway viene usato automaticamente se configurato tramite variabili d'ambiente
 // Altrimenti usa OpenAI diretto con OPENAI_API_KEY
-const openai = createOpenAI({
-  apiKey: process.env.OPENAI_API_KEY || '',
-});
+function getOpenAIClient() {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey || apiKey.trim() === '') {
+    throw new Error('OPENAI_API_KEY non configurata');
+  }
+  return createOpenAI({
+    apiKey: apiKey,
+  });
+}
 
 // Forza rendering dinamico
 export const dynamic = 'force-dynamic';
@@ -20,6 +26,18 @@ export const dynamic = 'force-dynamic';
  */
 export async function POST(request: NextRequest) {
   try {
+    // Verifica configurazione OpenAI all'inizio
+    if (!process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY.trim() === '') {
+      logAdmin('[Chat] ERRORE: OPENAI_API_KEY non configurata');
+      return new Response(
+        JSON.stringify({ 
+          error: 'OpenAI API Key non configurata',
+          hint: 'Configura OPENAI_API_KEY su Vercel → Settings → Environment Variables'
+        }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
     const { messages, hotelId } = await request.json();
 
     if (!hotelId) {
@@ -116,8 +134,15 @@ Se l'utente chiede dati specifici che non hai nel contesto, indica che non sono 
 Fornisci analisi pratiche e suggerimenti concreti basati sui dati disponibili.`;
 
     // Usa OpenAI con AI Gateway (se configurato) o OpenAI diretto
+    logAdmin('[Chat] Inizio generazione risposta con OpenAI', {
+      model: 'gpt-4o-mini',
+      systemPromptLength: systemPrompt.length,
+      messagesCount: messages.length
+    });
+
+    const openaiClient = getOpenAIClient();
     const result = await streamText({
-      model: openai('gpt-4o-mini'), // Usa modello economico per chat
+      model: openaiClient('gpt-4o-mini'), // Usa modello economico per chat
       system: systemPrompt,
       messages: messages.map((msg: any) => ({
         role: msg.role,
@@ -127,17 +152,33 @@ Fornisci analisi pratiche e suggerimenti concreti basati sui dati disponibili.`;
       temperature: 0.7,
     });
 
-    logAdmin('[Chat] Risposta generata');
+    logAdmin('[Chat] Risposta generata con successo');
 
     return result.toDataStreamResponse();
 
   } catch (error: any) {
-    logAdmin('[Chat] Errore', { error: error.message, stack: error.stack });
+    const errorDetails = {
+      message: error.message,
+      stack: error.stack,
+      name: error.name,
+      cause: error.cause,
+      // Log completo dell'errore
+      fullError: JSON.stringify(error, Object.getOwnPropertyNames(error))
+    };
+    
+    logAdmin('[Chat] ERRORE nella generazione risposta', errorDetails);
+    
+    // Log più dettagliato per debugging
+    console.error('[Chat] Errore completo:', error);
+    if (error.response) {
+      console.error('[Chat] Errore response:', error.response);
+    }
     
     return new Response(
       JSON.stringify({ 
         error: 'Errore nella generazione risposta',
-        message: error.message 
+        message: error.message || 'Errore sconosciuto',
+        details: process.env.NODE_ENV === 'development' ? errorDetails : undefined
       }),
       { 
         status: 500, 
